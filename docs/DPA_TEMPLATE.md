@@ -1,156 +1,91 @@
-# CYBERDUDEBIVASH® SENTINEL APEX
-## Data Processing Agreement (DPA) Template
-**SOC 2 Control: P1.3 — GDPR / Data Residency Compliance**
-**Version:** 177.0.0 | **Effective Date:** 2026-06-13
+# SENTINEL APEX Threat Intelligence Platform — Data Processing Agreement (DPA) Template
+
+> **DRAFT — NOT APPROVED OR EXECUTED.** This source is not proof of SOC 2 certification, guaranteed regional data residency, an executed international transfer instrument, or an enterprise customer's acceptance. Complete the fields below and obtain business/legal review before providing an execution copy.
+>
+> Template review date: 2026-10-17. Supersedes the former historical v177 DPA source which asserted unevidenced AWS-region pinning, Stripe/Railway subprocessors, ClickHouse/Redis storage, fixed retention and SOC 2 certification.
+
+## Parties and incorporation
+
+**Customer / controller:** [EXACT LEGAL CUSTOMER NAME], [REGISTERED ADDRESS], acting through [AUTHORISED SIGNATORY].
+
+**Supplier / processor, only for processing genuinely undertaken on behalf of a customer:** [EXACT STATUTORY NAME OF SOLE PROPRIETOR TO VERIFY AGAINST CURRENT GST RECORD], trading as **CYBERDUDEBIVASH ECOSYSTEM®**, [VERIFIED PRINCIPAL PLACE OF BUSINESS].
+
+**Service:** SENTINEL APEX Threat Intelligence Platform (`https://intel.cyberdudebivash.com`). The trade name and the software platform are **not** separate incorporated companies.
+
+**Principal agreement:** [SIGNED MSA / ORDER FORM IDENTIFIER]. **Effective date:** [DATE AGREED BY BOTH PARTIES].
+
+**Contact:** contact@cyberdudebivash.in, subject to deliverability verification before customer onboarding.
+
+If the supplier acts as an independent controller for account, billing, security or operational data, record that role separately in the signed data-role schedule. Do not apply a controller/processor role to all processing without legal and factual review.
+
+## 1. Processing schedule — to complete before execution
+
+| Item | Customer-specific agreed value |
+| --- | --- |
+| Nature and purpose of processing | [DESCRIBE VERIFIED PRODUCT AND PROCESSING] |
+| Categories of individuals | [USER / CONTACT / OTHER VERIFIED CATEGORIES] |
+| Categories of personal data | [EMAIL, LOGIN METADATA, API-ACCESS RECORDS, INVOICING DATA AS ACTUALLY PROCESSED] |
+| Processing duration and retention | [VERIFIED LIVE STORAGE/RETENTION MATRIX + LEGAL HOLD EXCEPTIONS] |
+| Authentication, roles and tenant boundaries | [ACTUAL DEPLOYED BEHAVIOUR AND APPROVED PRIVILEGES] |
+| Security measures and limitations | [DEPLOYMENT-SCOPED CONTROLS ANNEX, VERIFIED BY OWNER] |
+| Breach escalation contacts and notification obligations | [PARTY CONTACTS, LEGAL DEADLINES, AGREED PRACTICAL CAPABILITY] |
+| Data export, correction and deletion process | [VERIFIED ROUTES/OPERATOR PROCESS AND EXCEPTIONS] |
+| Subprocessors and specific processing locations | [AUDITED CURRENT PROVIDERS AND RELEVANT DATA FLOWS] |
+| International transfer mechanism, if applicable | [EXECUTED SCCs, UK ADDENDUM/IDTA, OR OTHER ACTUALLY VALID INSTRUMENT] |
+| Product-specific TLP and intelligence-sharing restrictions | [APPLICABLE POLICY/ORDER TERMS] |
+
+Do not attach historical marketing slides or stale infrastructure diagrams as production evidence. The currently published `privacy.html` accurately states that the platform uses Cloudflare's global edge network and **does not contractually guarantee EU/UK/UAE/US-only regional residency**.
+
+## 2. Operating obligations — draft for negotiated approval
+
+2.1 Each party will follow applicable data protection law for the processing activities and legal roles confirmed in the schedule.
+
+2.2 For processing performed on behalf of the customer as controller, the processor shall act on documented lawful instructions, apply confidentiality and appropriate verified security controls, and assist with data-subject requests to the degree agreed in the signed service and support terms.
+
+2.3 The processor will identify approved subprocessors before processing and apply legally required contractual safeguards. Do not list a vendor as a subprocessor without confirming its actual present role, data categories and locations. Historic references to AWS Ireland/US region pinning, Stripe and Railway are **not** verified infrastructure commitments.
+
+2.4 If a security incident affecting covered personal data occurs, the processor shall follow the notification obligations and deadlines confirmed in the executed agreement and governing law. An aspirational response target is not evidence of a tested 24×7 on-call capability.
+
+2.5 Deletion, retention, export, backup and termination duties must follow the verified technical data-flow inventory and applicable legal retention duties. No absolute erasure timeline or 7-year ClickHouse logging guarantee is offered by this unexecuted template.
+
+2.6 Any permitted security audit, review rights, cost allocation, confidentiality and liability terms must be negotiated in the principal agreement and privacy annex. This template is not a blanket right to third-party penetration testing.
+
+## 3. International transfers, data residency and regulatory statements
+
+3.1 Cloudflare's global edge architecture must be assessed as configured. No jurisdiction-exclusive storage or processing, GDPR compliance certification, SOC 2 attestation, ISO 27001 certification or independent audit report is implied.
+
+3.2 Where required, applicable international transfer documents must be specifically completed and signed with appropriate parties and annexes. A reference to an SCC, UK IDTA or addendum in this draft **does not execute it**.
+
+3.3 For regulated customers, confirm intended data residency, current subprocessor list, tenant segregation, incident response, lawful basis and retention **before** processing restricted personal information. If the customer's requirements cannot be met, **do not onboard that workload**.
+
+3.4 Do not assert payment-provider PCI scope, TLS minimum version, encryption cipher, MFA/SSO, annual external penetration testing or regulatory certification without corresponding current operational evidence and appropriate contract wording.
+
+## 4. Commercial and contractual consistency
+
+The DPA is subordinate to neither a fabricated procurement promise nor a webpage headline. Before execution reconcile:
+
+- Exact statutory seller identity, trade name, address, billing entity and GST invoice policy;
+- Scope, tier, usage limits, price, cancellation and refund obligations against `config/commercial-contract.json` and `docs/COMMERCIAL_POLICY_V1.md`;
+- Actual Razorpay subscription and fulfillment flow; Gumroad is not an operational secondary automated path while its provisioning remains unavailable;
+- The customer-specific order form, intended security role, permitted data, on-call/support capacity and agreed SLAs.
+
+Any statement concerning payment, processing, security or compliance that cannot be evidenced shall be corrected, negotiated or explicitly excluded before signature.
+
+## 5. Agreement and signatures — blank until authentic execution
+
+**Controller's legal name:** [TO COMPLETE]  
+**Controller signatory and authority:** [TO VERIFY]  
+**Controller signature and date:** [NOT EXECUTED]
+
+**Supplier's verified statutory legal name:** [TO VERIFY]  
+**Trading name:** CYBERDUDEBIVASH ECOSYSTEM®  
+**Supplier's authorised sole proprietor/signatory:** [TO VERIFY]  
+**Supplier signature and date:** [NOT EXECUTED]
+
+**Signed service agreement / annex references:** [NONE RECORDED]  
+**Legal/privacy reviewer and review date:** [PENDING]  
+**Final customer processing approval:** **NO-GO UNTIL ABOVE ITEMS VERIFIED AND SIGNED**
 
 ---
 
-## Article 1 — Definitions
-
-- **"Controller"**: The enterprise customer or MSSP partner entering into this DPA.
-- **"Processor"**: CYBERDUDEBIVASH® SENTINEL APEX (root@cyberdudebivash.in)
-- **"Personal Data"**: Any data relating to an identified or identifiable natural person.
-- **"Processing"**: Any operation performed on Personal Data.
-- **"GDPR"**: EU General Data Protection Regulation 2016/679.
-
----
-
-## Article 2 — Subject Matter and Duration
-
-2.1 SENTINEL APEX processes Personal Data solely to deliver threat intelligence services as described in the Service Agreement.
-
-2.2 Processing continues for the duration of the subscription and ceases upon termination or expiry.
-
----
-
-## Article 3 — Nature and Purpose of Processing
-
-| Category | Data Elements | Purpose | Legal Basis |
-|----------|--------------|---------|-------------|
-| Authentication | API key hash, IP address | Access control | Contract (Art.6(1)(b)) |
-| Telemetry | Anonymized usage metrics | Service improvement | Legitimate interest |
-| Billing | Name, email, payment tokens | Invoice & subscription | Contract |
-| Security logs | Access timestamps, endpoints | Audit & compliance | Legal obligation |
-
----
-
-## Article 4 — Data Residency and Transfers
-
-4.1 **EU Customers (including Germany)**: Data processed exclusively in `eu-west-1` (Ireland, AWS) — GDPR-compliant jurisdiction. German subscribers may designate the BfDI as their supervisory authority.
-
-4.2 **UK Customers**: Data processed in `eu-west-1` (Ireland, AWS). Ireland is a UK-adequate country. Cross-border transfers to India rely on UK International Data Transfer Agreements (IDTAs) as authorised under UK GDPR and the Data Protection Act 2018. Supervisory authority: Information Commissioner's Office (ICO), ico.org.uk.
-
-4.3 **US Customers**: Data processed in `us-east-1` (Virginia) under the EU-US Data Privacy Framework. California residents retain all CCPA/CPRA rights independent of this DPA.
-
-4.4 **UAE Customers**: Data processed in `ap-south-1` (Mumbai). Cross-border transfers from the UAE comply with PDPL Art. 22 (Federal Decree-Law No. 45 of 2021) via contractual safeguards approved by the TDRA. Supervisory authority: Telecommunications and Digital Government Regulatory Authority (TDRA), tdra.gov.ae.
-
-4.5 **APAC Customers (other)**: Data processed in `ap-south-1` (Mumbai) with local data residency.
-
-4.6 Cross-border transfers for EU/UK data rely on Standard Contractual Clauses (SCCs) per GDPR Art. 46 / UK IDTAs. UAE transfers rely on PDPL Art. 22 contractual safeguards.
-
----
-
-## Article 5 — Data Subject Rights
-
-SENTINEL APEX implements the following GDPR data subject rights:
-
-### 5.1 Right to Access (Art.15)
-Customers may request a full export of their data via:
-```
-GET /api/v1/gdpr/export?api_key={key}
-```
-Response delivered within **30 days** in JSON/CSV format.
-
-### 5.2 Right to Erasure / Data Deletion (Art.17)
-Customers may request complete data deletion via:
-```
-DELETE /api/v1/gdpr/delete?api_key={key}
-```
-Deletion executed within **30 days**. Compliance logs retained per legal obligation.
-
-### 5.3 Right to Portability (Art.20)
-Data export includes all stored: API usage telemetry, alert history, billing records.
-
-### 5.4 Right to Rectification (Art.16)
-Contact: root@cyberdudebivash.in | Response within 5 business days.
-
----
-
-## Article 6 — Security Measures (Art.32)
-
-| Measure | Implementation |
-|---------|---------------|
-| Encryption at rest | AES-256 (ClickHouse, Redis, S3/R2) |
-| Encryption in transit | TLS 1.3 minimum, HSTS enforced |
-| Access controls | RBAC (api/rbac.py) + API key + IP allowlist |
-| Audit logging | ClickHouse audit_log table — 7-year retention |
-| SAST/SCA | GitHub Actions (.github/workflows/sast-security-scan.yml) |
-| Vulnerability scanning | SBOM + Trivy weekly scans |
-| Pen testing | Annual third-party + quarterly internal red team |
-
----
-
-## Article 7 — Sub-processors
-
-| Sub-processor | Location | Purpose | DPA Link |
-|--------------|---------|---------|----------|
-| Amazon Web Services | US/EU/APAC | Cloud infrastructure | aws.amazon.com/compliance/gdpr-center |
-| Cloudflare | Global CDN | DDoS protection, R2 storage | cloudflare.com/gdpr |
-| Stripe | USA | Payment processing | stripe.com/legal/dpa |
-| Railway | USA | API deployment | railway.app/legal |
-
----
-
-## Article 8 — Data Breach Notification (Art.33/34)
-
-8.1 SENTINEL APEX will notify the Controller within **72 hours** of discovering a Personal Data breach.
-
-8.2 Notification includes: nature of breach, data categories affected, estimated number of individuals, likely consequences, and remediation measures.
-
----
-
-## Article 9 — Retention and Deletion
-
-| Data Type | Retention Period | Deletion Method |
-|-----------|----------------|----------------|
-| API access logs | 90 days hot / 1 year cold | Automated TTL (ClickHouse) |
-| Audit logs | 7 years (legal requirement) | Secure deletion per NIST 800-88 |
-| Billing records | 7 years (tax law) | Archived, encrypted |
-| User account data | Duration of subscription + 30 days | Automated deletion API |
-
----
-
-## Article 10 — Cookie Consent
-
-10.1 The SENTINEL APEX dashboard implements cookie consent per ePrivacy Directive:
-- **Strictly necessary**: Authentication tokens (no consent required)
-- **Analytics**: Anonymized usage (consent required, opt-in)
-- **Preferences**: UI settings (consent required, opt-in)
-
-Cookie consent managed via `assets/js/cookie-consent.js`.
-
----
-
-## Article 11 — Governing Law
-
-This DPA is governed by the laws of India and, where applicable, the European Union (GDPR).
-
----
-
-## Article 12 — Jurisdiction-Specific Addenda
-
-### 12.1 UK GDPR Addendum
-This DPA incorporates a UK International Data Transfer Agreement (IDTA) addendum (Addendum A) for transfers of UK personal data to India, in compliance with the UK Data Protection Act 2018. Supervisory authority: ICO. UK subscribers may request Addendum A at privacy@cyberdudebivash.in.
-
-### 12.2 UAE PDPL Addendum
-For UAE subscribers, this DPA is supplemented by Addendum B setting out contractual safeguards under PDPL Art. 22. The Controller and Processor agree that Special Categories of data (Art. 1 PDPL) will not be processed without prior explicit consent. Supervisory authority: TDRA.
-
-### 12.3 CCPA Addendum
-For California (USA) subscribers, this DPA acts as a Service Provider agreement under CCPA § 1798.140(ag). SENTINEL APEX shall not: sell personal information; retain, use, or disclose personal information for purposes other than those specified herein; combine personal information with other datasets outside the permitted business purpose.
-
----
-
-**CONTROLLER SIGNATURE:** _________________ Date: _______
-**PROCESSOR (SENTINEL APEX):** CYBERDUDEBIVASH® Date: 2026-06-13
-
-*DPA Version 177.0.0 — Published 2026-06-13 — SOC 2 P1.3 CERTIFIED | EU GDPR | UK GDPR | UAE PDPL | CCPA*
+Internal review source only. This document is not legal advice, a compliance certificate, an issued contract or a release authorisation. See `docs/releases/2026-10-16-enterprise-pilot-release-control.md`.
