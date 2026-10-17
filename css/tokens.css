@@ -1,0 +1,323 @@
+/*!
+ * SENTINEL APEX — Design Tokens
+ * ==============================================================
+ * Single source of truth for typography, spacing, radius, elevation,
+ * color, and motion across marketing/content pages (trust-center.html,
+ * mssp.html, future landing pages, etc.).
+ *
+ * NOT wired into any page yet — this file is additive infrastructure.
+ * Nothing currently @imports or <link>s it, so shipping it changes
+ * zero rendered output. Pages opt in individually in later PRs.
+ *
+ * OUT OF SCOPE / DOES NOT TOUCH:
+ *   - css/card_renderer_styles.css (UI-locked dashboard card system)
+ *   - platform/frontend, dashboard rendering, generated reports
+ *   - API logic, Cloudflare Workers, Python, metadata
+ *
+ * USAGE
+ *   <link rel="stylesheet" href="/css/tokens.css">
+ *   .btn { background: var(--sapx-color-brand-teal); }
+ *
+ * THEME SWITCHING (no JavaScript required)
+ *   - Default: dark (this repo's brand is dark-first).
+ *   - Respects OS preference automatically via prefers-color-scheme.
+ *   - Manual override: set data-theme="light" or data-theme="dark"
+ *     on <html> (or any ancestor) to force a theme regardless of OS
+ *     preference. Remove the attribute to fall back to OS preference.
+ *
+ * NAMING
+ *   --sapx-<category>-<name>[-text]
+ *   The "-text" suffix marks a variant whose contrast against
+ *   --sapx-color-bg-base has been computed (WCAG 2.1 relative
+ *   luminance) and is safe for text/icons/meaningful borders. The
+ *   non-suffixed color in the same family is for decorative fills
+ *   (badge backgrounds, large graphics) where WCAG text-contrast
+ *   rules don't apply — use the -text variant whenever the color
+ *   itself carries the readable content.
+ *
+ * Full guide (naming, theming, migration, examples, regression
+ * checklist): docs/design-tokens-guide.md
+ *
+ * Version: 1.1.0 (PR-4 added --sapx-color-text-on-bright; see below)
+ * ============================================================== */
+
+:root {
+  /* ---------------------------------------------------------------
+   * THEME-INDEPENDENT TOKENS
+   * Typography, spacing, radius, motion — identical in both themes,
+   * defined once here rather than duplicated per theme block.
+   * ------------------------------------------------------------- */
+
+  /* Typography — font families */
+  --sapx-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sapx-font-mono: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  /* Display face falls back to --sapx-font-sans at 800/900 weight.
+     A self-hosted display face (e.g. Archivo Black) can replace this
+     value in a future PR without renaming the token or touching
+     anything that consumes it. */
+  --sapx-font-display: var(--sapx-font-sans);
+
+  /* Typography — size scale (paired with a line-height token below) */
+  --sapx-font-size-xs: 0.75rem;    /* 12px */
+  --sapx-font-size-sm: 0.875rem;  /* 14px */
+  --sapx-font-size-base: 1rem;    /* 16px */
+  --sapx-font-size-lg: 1.125rem;  /* 18px */
+  --sapx-font-size-xl: 1.25rem;   /* 20px */
+  --sapx-font-size-2xl: 1.5rem;   /* 24px */
+  --sapx-font-size-3xl: 1.875rem; /* 30px */
+  --sapx-font-size-4xl: 2.5rem;   /* 40px */
+
+  /* Typography — line heights (reused across sizes, not one-per-size) */
+  --sapx-line-height-tight: 1.15;  /* large display headlines */
+  --sapx-line-height-snug: 1.3;    /* h2/h3 */
+  --sapx-line-height-normal: 1.6;  /* body copy */
+
+  /* Typography — weights */
+  --sapx-font-weight-regular: 400;
+  --sapx-font-weight-medium: 500;
+  --sapx-font-weight-semibold: 600;
+  --sapx-font-weight-bold: 700;
+  --sapx-font-weight-black: 900;
+
+  /* Spacing scale — 4px base unit */
+  --sapx-space-0: 0;
+  --sapx-space-1: 0.25rem;  /* 4px */
+  --sapx-space-2: 0.5rem;   /* 8px */
+  --sapx-space-3: 0.75rem;  /* 12px */
+  --sapx-space-4: 1rem;     /* 16px */
+  --sapx-space-5: 1.5rem;   /* 24px */
+  --sapx-space-6: 2rem;     /* 32px */
+  --sapx-space-7: 3rem;     /* 48px */
+  --sapx-space-8: 4rem;     /* 64px */
+  --sapx-space-9: 6rem;     /* 96px */
+
+  /* Radius */
+  --sapx-radius-sm: 4px;
+  --sapx-radius-md: 8px;
+  --sapx-radius-lg: 12px;
+  --sapx-radius-xl: 20px;
+  --sapx-radius-full: 9999px;
+
+  /* Motion */
+  --sapx-transition-fast: 120ms;
+  --sapx-transition-base: 200ms;
+  --sapx-transition-slow: 320ms;
+  --sapx-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --sapx-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --sapx-ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Focus ring geometry (color is theme-aware, defined below) */
+  --sapx-focus-ring-width: 2px;
+  --sapx-focus-ring-offset: 2px;
+
+  /* Fixed-value color (theme-invariant) — PR-4.
+     Text/icon color for content placed on a bright/pastel FILL color
+     (buttons, integration marks) that itself doesn't vary between
+     themes: brand-teal, danger, success, warning, info,
+     severity-high, and brand-indigo are all the same hex in both
+     dark and light theme (only their -text variants differ). A
+     single dark, theme-invariant value clears WCAG AA (4.5:1+)
+     against every one of those fills in both themes; verified via
+     the WCAG 2.1 relative-luminance formula:
+       vs brand-teal    (#14e0ae): 11.80:1   vs danger  (#f87171): 7.28:1
+       vs brand-indigo  (#8f8dfb): 7.07:1    vs success (#34d976): 10.87:1
+       vs warning       (#f5a623): 9.94:1    vs info    (#38bdf8): 9.40:1
+       vs severity-high (#fb923c): 8.90:1
+     Discovered while verifying PR-4's button system: --sapx-color-
+     text-inverse (which DOES vary by theme) produces only 1.71:1 when
+     used as button label text against brand-teal in LIGHT theme --
+     a real WCAG failure already present in css/hero.css's
+     .sapx-btn-primary (PR-3, not yet live — the hero hasn't been
+     applied to production). This token is additive only; no existing
+     token was renamed or changed, and hero.css is untouched. See
+     docs/component-system-guide.md for the full writeup and the
+     recommended follow-up to converge hero.css onto this token. */
+  --sapx-color-text-on-bright: #05070d;
+
+  /* ---------------------------------------------------------------
+   * DARK THEME (default)
+   * Applies to both "no preference" and "prefers dark" — this brand
+   * is dark-first, so dark lives in the un-scoped :root rather than
+   * behind its own prefers-color-scheme query.
+   * ------------------------------------------------------------- */
+
+  /* Surfaces */
+  --sapx-color-bg-base: #05070d;
+  --sapx-color-bg-surface: #0b0f19;
+  --sapx-color-bg-surface-raised: #121a29;
+
+  /* Borders — decorative dividers only (WCAG 1.4.11 non-text contrast
+     applies to essential UI components/graphical objects, not purely
+     decorative separators, so these are intentionally subtle rather
+     than tuned to 3:1). For a border that must be perceivable — an
+     input outline, a required boundary — use --sapx-color-outline-neutral
+     or a -text color instead. */
+  --sapx-color-border: #161d29;
+  --sapx-color-border-strong: #232d3c;
+
+  /* Text — ratios computed against --sapx-color-bg-base (#05070d)
+     via the WCAG 2.1 relative-luminance formula */
+  --sapx-color-text-primary: #e6edf5;    /* 17.07:1 — AAA */
+  --sapx-color-text-secondary: #9aa8bd;  /* 8.35:1 (7.94:1 on bg-surface) — AAA */
+  --sapx-color-text-tertiary: #6b7788;   /* 4.43:1 — AA for large text/UI only, not small body copy */
+  --sapx-color-text-inverse: #05070d;    /* for text on solid light/brand-filled surfaces */
+
+  /* A real interactive boundary that needs to be seen (inputs, card
+     hover outlines) — 4.43:1, clears the 3:1 non-text minimum.
+     Intentionally reuses --sapx-color-text-tertiary's value rather
+     than introduce a near-duplicate gray. */
+  --sapx-color-outline-neutral: #6b7788;
+
+  /* Brand — non-suffixed value is for decorative fills/large graphics
+     (no contrast requirement applies); -text variant is verified safe
+     for text/icons at this theme's background. */
+  --sapx-color-brand-teal: #14e0ae;
+  --sapx-color-brand-teal-text: #14e0ae;      /* 11.80:1 — AAA */
+  --sapx-color-brand-indigo: #8f8dfb;
+  --sapx-color-brand-indigo-text: #8f8dfb;    /* 7.07:1 — AAA */
+
+  /* Semantic (UI state — alerts, validation, status) */
+  --sapx-color-success: #34d976;
+  --sapx-color-success-text: #34d976;   /* 10.87:1 */
+  --sapx-color-warning: #f5a623;
+  --sapx-color-warning-text: #f5a623;   /* 9.94:1 */
+  --sapx-color-danger: #f87171;
+  --sapx-color-danger-text: #f87171;    /* 7.28:1 */
+  --sapx-color-info: #38bdf8;
+  --sapx-color-info-text: #38bdf8;      /* 9.40:1 */
+
+  /* Severity (content/marketing pages — CVE/threat severity labeling
+     only, e.g. a blog post's severity badge. This is a DIFFERENT,
+     independent system from css/card_renderer_styles.css's dashboard
+     severity styling — do not use these tokens on dashboard cards,
+     and do not assume dashboard severity colors match these.
+     4 of 5 levels alias the semantic tokens above rather than
+     duplicate their hex values; "high" is the one hue semantic
+     doesn't already cover. */
+  --sapx-color-severity-critical: var(--sapx-color-danger);
+  --sapx-color-severity-critical-text: var(--sapx-color-danger-text);
+  --sapx-color-severity-high: #fb923c;
+  --sapx-color-severity-high-text: #fb923c;   /* 8.90:1 */
+  --sapx-color-severity-medium: var(--sapx-color-warning);
+  --sapx-color-severity-medium-text: var(--sapx-color-warning-text);
+  --sapx-color-severity-low: var(--sapx-color-success);
+  --sapx-color-severity-low-text: var(--sapx-color-success-text);
+  --sapx-color-severity-info: var(--sapx-color-info);
+  --sapx-color-severity-info-text: var(--sapx-color-info-text);
+
+  /* Focus ring — two-layer ring (inner gap in bg color, outer colored
+     ring), the standard accessible focus technique. Color resolves
+     through brand-teal-text so it stays contrast-safe per theme. */
+  --sapx-focus-ring-color: var(--sapx-color-brand-teal-text);
+  --sapx-focus-ring: 0 0 0 var(--sapx-focus-ring-offset) var(--sapx-color-bg-base),
+    0 0 0 calc(var(--sapx-focus-ring-offset) + var(--sapx-focus-ring-width)) var(--sapx-focus-ring-color);
+
+  /* Elevation — dark surfaces barely show a drop shadow, so depth
+     comes from a soft shadow plus a 1px translucent-white hairline
+     rather than shadow alone. */
+  --sapx-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --sapx-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --sapx-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* ===================================================================
+ * LIGHT THEME — automatic (OS preference)
+ * :not([data-theme="dark"]) means an explicit manual dark override
+ * (below) always wins over OS preference.
+ * =================================================================== */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --sapx-color-bg-base: #ffffff;
+    --sapx-color-bg-surface: #f8fafc;
+    --sapx-color-bg-surface-raised: #eef2f7;
+
+    --sapx-color-border: #e6eaf0;
+    --sapx-color-border-strong: #d3d9e3;
+
+    --sapx-color-text-primary: #0f172a;    /* 17.85:1 — AAA */
+    --sapx-color-text-secondary: #475569;  /* 7.58:1 — AAA */
+    --sapx-color-text-tertiary: #64748b;   /* 4.76:1 — AA, passes normal text too (unlike dark mode's 4.43:1) */
+    --sapx-color-text-inverse: #ffffff;
+
+    --sapx-color-outline-neutral: #64748b; /* 4.76:1 */
+
+    --sapx-color-brand-teal: #14e0ae;            /* unchanged — decorative fill reads fine on light bg */
+    --sapx-color-brand-teal-text: #0d8f79;       /* 4.02:1 — AA large text/UI only in light mode */
+    --sapx-color-brand-indigo: #8f8dfb;
+    --sapx-color-brand-indigo-text: #4b48d6;     /* 6.57:1 */
+
+    --sapx-color-success: #34d976;
+    --sapx-color-success-text: #15803d;    /* 5.02:1 */
+    --sapx-color-warning: #f5a623;
+    --sapx-color-warning-text: #b45309;    /* 5.02:1 */
+    --sapx-color-danger: #f87171;
+    --sapx-color-danger-text: #dc2626;     /* 4.83:1 */
+    --sapx-color-info: #38bdf8;
+    --sapx-color-info-text: #0369a1;       /* 5.93:1 */
+
+    --sapx-color-severity-high: #fb923c;
+    --sapx-color-severity-high-text: #c2410c;  /* 5.18:1 */
+
+    --sapx-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --sapx-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.10);
+    --sapx-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14);
+  }
+}
+
+/* ===================================================================
+ * LIGHT THEME — manual override
+ * Set data-theme="light" on <html> (or any ancestor) to force light
+ * regardless of OS preference. Identical values to the block above;
+ * duplicated rather than shared because prefers-color-scheme media
+ * queries and attribute selectors can't be combined into one rule.
+ * =================================================================== */
+:root[data-theme="light"] {
+  --sapx-color-bg-base: #ffffff;
+  --sapx-color-bg-surface: #f8fafc;
+  --sapx-color-bg-surface-raised: #eef2f7;
+
+  --sapx-color-border: #e6eaf0;
+  --sapx-color-border-strong: #d3d9e3;
+
+  --sapx-color-text-primary: #0f172a;
+  --sapx-color-text-secondary: #475569;
+  --sapx-color-text-tertiary: #64748b;
+  --sapx-color-text-inverse: #ffffff;
+
+  --sapx-color-outline-neutral: #64748b;
+
+  --sapx-color-brand-teal: #14e0ae;
+  --sapx-color-brand-teal-text: #0d8f79;
+  --sapx-color-brand-indigo: #8f8dfb;
+  --sapx-color-brand-indigo-text: #4b48d6;
+
+  --sapx-color-success: #34d976;
+  --sapx-color-success-text: #15803d;
+  --sapx-color-warning: #f5a623;
+  --sapx-color-warning-text: #b45309;
+  --sapx-color-danger: #f87171;
+  --sapx-color-danger-text: #dc2626;
+  --sapx-color-info: #38bdf8;
+  --sapx-color-info-text: #0369a1;
+
+  --sapx-color-severity-high: #fb923c;
+  --sapx-color-severity-high-text: #c2410c;
+
+  --sapx-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --sapx-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.10);
+  --sapx-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14);
+}
+
+/* ===================================================================
+ * REDUCED MOTION
+ * Collapses all motion tokens to near-zero so anything built on top
+ * of --sapx-transition-* automatically respects the user's OS-level
+ * reduced-motion preference without extra markup or JS.
+ * =================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sapx-transition-fast: 0.01ms;
+    --sapx-transition-base: 0.01ms;
+    --sapx-transition-slow: 0.01ms;
+  }
+}

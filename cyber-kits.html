@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting to the Store &mdash; SENTINEL APEX</title>
+<!--
+  2026-09-28 (pre-release pricing sweep): cyber-kits.html sold three "one-time,
+  lifetime access" kits and a bundle ($49 / $29-shown-$49-linked / $149 / $197),
+  "delivered to your email within 15 minutes", with three unattributed reviews.
+  None of it was real commerce:
+
+  - The buy buttons went to upgrade.html?kit=X&amount=Y, which re-priced the
+    displayed plan from the URL while checkout created the RECURRING
+    subscription for the mapped tier at its contracted price
+    (SOC Automation Bundle "$149 one-time" -> ENTERPRISE, $499/month).
+  - No one-time checkout and no kit delivery exist anywhere in the platform.
+  - None of the kits is in config/commercial-contract.json.
+
+  Replaced with a redirect -- the same pattern as customer-portal.html -- so
+  existing links land on the real catalog instead of an offer that cannot be
+  fulfilled. upgrade.html now ignores ?kit and ?amount.
+-->
+<meta name="description" content="This page has moved. Continue to the SENTINEL APEX store at /store.html.">
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/store.html">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta http-equiv="refresh" content="0; url=/store.html">
+<script>
+  var qs = window.location.search || '';
+  window.location.replace('/store.html' + qs + '');
+</script>
+<style>
+  body { background:#050c18; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; text-align:center; }
+  a { color:#00ffc6; }
+</style>
+<style data-sentinel-branding="true">a[data-sentinel-parent]:focus-visible{outline:3px solid #67e8f9;outline-offset:4px}a[data-sentinel-parent]:hover{background:#183048!important}</style>
+</head>
+<body>
+  <p>Redirecting to <a href="/store.html">the SENTINEL APEX store</a>&hellip;</p>
+<footer aria-label="Platform attribution"><div data-sentinel-attribution="true" style="display:flex;justify-content:center;flex-wrap:wrap;padding:20px 16px;background:#070d18"><a data-sentinel-parent="true" href="https://www.cyberdudebivash.com/" style="display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border:1px solid #67e8f9;border-radius:8px;color:#ffffff;background:#101c2e;font:700 16px/1.5 system-ui,sans-serif;text-decoration:underline;text-underline-offset:4px">Powered By CYBERDUDEBIVASH ECOSYSTEM&reg;</a></div></footer>
+</body>
+</html>
