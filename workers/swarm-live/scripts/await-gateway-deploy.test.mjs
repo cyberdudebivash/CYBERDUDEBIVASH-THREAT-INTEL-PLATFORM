@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { awaitGatewayDeployment } from './await-gateway-deploy.mjs';
+import { awaitGatewayDeployment, gatewayRuntimeParity } from './await-gateway-deploy.mjs';
 
 const SHA = 'a'.repeat(40);
 const OLD = 'b'.repeat(40);
@@ -121,4 +121,16 @@ test('runtime parity of the same stale SHA is checked once, never assumed or rep
   }), /GATEWAY_DEPLOY_NOT_CONVERGED/);
   assert.equal(checks, 1);
   assert.equal(reads, 3);
+});
+
+
+test('gateway parity compares paths from repository root and fails when runtime differs', () => {
+  const calls = [];
+  const git = (_, args) => { calls.push(args); };
+  assert.equal(gatewayRuntimeParity(SHA, OLD, { git, repoRoot: '/approved/repo' }), true);
+  assert.deepEqual(calls[0].slice(0, 3), ['-C', '/approved/repo', 'fetch']);
+  assert.deepEqual(calls[1].slice(0, 3), ['-C', '/approved/repo', 'diff']);
+  assert.ok(calls[1].includes('workers/intel-gateway/src'));
+  const changed = (_, args) => { if (args.includes('diff')) throw Error('different runtime'); };
+  assert.equal(gatewayRuntimeParity(SHA, OLD, { git: changed, repoRoot: '/approved/repo' }), false);
 });
