@@ -95,6 +95,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -484,6 +485,7 @@ def execute_plan(
     delete_ops: list[dict],
     state: dict,
     endpoint: str,
+    deadline_monotonic: float | None = None,
 ) -> tuple[int, int]:
     """Issues the actual R2 calls. Only reachable after enforce_budget()
     has passed -- callers must not call this speculatively."""
@@ -507,7 +509,16 @@ def execute_plan(
     state_items = state["items"]
 
     try:
-        for op in put_ops:
+        for index, op in enumerate(put_ops):
+            remaining = (
+                deadline_monotonic - time.monotonic()
+                if deadline_monotonic is not None else 30.0
+            )
+            if remaining <= 0:
+                log.error("PUBLISH_DEADLINE: %d PUT object(s) left unattempted; "
+                          "state retained for safe next-run retry.",
+                          len(put_ops) - index)
+                break
             bucket = BUCKET_REPORTS if op["kind"] == "html" else BUCKET_DATA
             content_type = "text/html; charset=utf-8" if op["kind"] == "html" else "application/pdf"
             cache_control = "public, max-age=300" if op["kind"] == "html" else "public, max-age=3600"
@@ -515,7 +526,8 @@ def execute_plan(
                 _use_reports_creds()
             try:
                 ok = s3_cp(str(op["local_path"]), bucket, op["key"], endpoint,
-                           content_type=content_type, cache_control=cache_control)
+                           content_type=content_type, cache_control=cache_control,
+                           timeout_seconds=min(30.0, remaining))
             finally:
                 if op["kind"] == "html":
                     _restore_creds()
@@ -540,11 +552,21 @@ def execute_plan(
         # can restore state to "not yet retired" for every id this batch
         # touched -- see the restoration block after clear_report_urls().
         _pre_clear_snapshot: dict[str, dict] = {}
-        for op in delete_ops:
+        for index, op in enumerate(delete_ops):
+            remaining = (
+                deadline_monotonic - time.monotonic()
+                if deadline_monotonic is not None else 30.0
+            )
+            if remaining <= 0:
+                log.error("PUBLISH_DEADLINE: %d DELETE object(s) left unattempted; "
+                          "tracked retirement state preserved for next run.",
+                          len(delete_ops) - index)
+                break
             if op["bucket"] == BUCKET_REPORTS:
                 _use_reports_creds()
             try:
-                ok = s3_delete(op["bucket"], op["key"], endpoint)
+                ok = s3_delete(op["bucket"], op["key"], endpoint,
+                               timeout_seconds=min(30.0, remaining))
             finally:
                 if op["bucket"] == BUCKET_REPORTS:
                     _restore_creds()
@@ -753,10 +775,29 @@ def main() -> int:
     endpoint = f"https://{cf_account}.r2.cloudflarestorage.com"
     install_awscli()
 
-    put_ok, delete_ok = execute_plan(put_ops, delete_ops, state, endpoint)
+    # The workflow stage has a 15-minute hard timeout; bound this work to
+    # ten minutes so partial successful PUTs can be checkpointed and any
+    # failure is reported honestly before the runner kills the process.
+    stage_budget_seconds = min(720, max(30, _int_env("R2_REPORT_STAGE_DEADLINE_SECONDS", 600)))
+    put_ok, delete_ok = execute_plan(
+        put_ops, delete_ops, state, endpoint,
+        deadline_monotonic=time.monotonic() + stage_budget_seconds,
+    )
     save_publish_state(state)
 
-    log.info("Publish complete: PUT %d/%d ok, DELETE %d/%d ok.", put_ok, len(put_ops), delete_ok, len(delete_ops))
+    log.info("Publish complete: PUT %d/%d ok, DELETE %d/%d ok.",
+             put_ok, len(put_ops), delete_ok, len(delete_ops))
+    if put_ok != len(put_ops) or delete_ok != len(delete_ops):
+        # Do not mark a partially published customer report plan as PASS.
+        # Successful objects remain tracked for bounded retry next cycle;
+        # STAGE 3.5.1 independently verifies link existence.
+        log.error("Report publication incomplete: PUT %d/%d, DELETE %d/%d.",
+                  put_ok, len(put_ops), delete_ok, len(delete_ops))
+        emit_summary(plan, budgets, status="BLOCKED", is_report_plan=True,
+                     extra={"reason": "incomplete_r2_report_operations",
+                            "put_success": put_ok, "put_planned": len(put_ops),
+                            "delete_success": delete_ok, "delete_planned": len(delete_ops)})
+        return 1
     emit_summary(plan, budgets, status="PASS", is_report_plan=True)
     return 0
 
