@@ -2,7 +2,7 @@
 
 > **Release decision at creation: NO-GO for unrestricted paid customer activation.** A deployed Worker and healthy anonymous feed do **not** prove paid subscription fulfillment, full-fabric swarm operations, tenant isolation, rollback or cost headroom. No customer approval, contract, payment, deployment or account migration is created by this file.
 >
-> Review date: 2026-10-17 UTC; update each row with verifier identity, timestamp, exact deployed SHA, redacted immutable evidence and operator decision.
+> Review date: 2026-10-18 UTC (technical acceptance update). External workflow evidence is linked and scoped; no human commercial sign-off, tax review, customer payment or billing approval was inferred.
 
 ## Current deployment observations
 
@@ -10,11 +10,11 @@
 | --- | --- | --- |
 | Public hostname | `https://intel.cyberdudebivash.com` | Independent customer-network reachability and login test |
 | Live gateway | `/api/health/live` responded `alive` at 2026-10-17 07:18 UTC | Recheck during release window |
-| Live Worker code SHA | `da0b547752bba2a00f3a72235bb690fc8137938d` | Compare to exact runtime-affecting main; main `c7b07afc` adds release-control docs only |
-| Public intel health | `/api/health` `status:ok`, 154 advisories, six-hour freshness policy; 2026-10-17 04:43:48Z feed | Observe fresh publisher cycles and materialized report delivery |
+| Live Worker code SHA | `da0b547752bba2a00f3a72235bb690fc8137938d` | 2026-10-18 V4.47 authenticated certification independently validated gateway runtime-byte parity to the merged release-control commit `536e661ba0c732372e6515d21b10f159452b5ec1`; current main after R2 hardening is `e33417a84d1dca6e53caf80356f27c650db47ab3`, which has not itself been deployed to the gateway |
+| Public intel health | 2026-10-18 publisher run `39093734695` **success**, including R2 report publication, report index integrity, feed release gates and freshness; public `/api/health` `status:ok` and feed age **46 seconds** at 05:13 UTC (136 current advisories) | This proves one newly successful cycle, not two independently evidenced cycles or all paid-customer delivery combinations |
 | Live pricing | `/api/pricing` Razorpay primary; `checkout.gumroad.available=false` | Verify configured plans, provider-confirmed payment and owned access |
-| Paid subscription → key → report/IOC/export | **NOT VERIFIED END-TO-END** | Exact release authenticated PRO/ENTERPRISE/MSSP certification |
-| Eight-agent FULL_FABRIC_COMPLETE mission | **NOT VERIFIED** | All eight actual agents completed, durable paid report, bounded cost and revocation |
+| Paid subscription → key → report/IOC/export | **ENTERPRISE ephemeral-key mission PASSED** at 2026-10-18 05:10 UTC: entitlement preflight, owned durable mission, Markdown/JSON/STIX 2.1 exports and revocation. **Razorpay purchase/capture → paid key → customer fulfillment remains NOT VERIFIED.** | Validate actual provider-authoritative paid purchase and individual customer fulfillment separately; do not extrapolate ENTERPRISE synthetic demo to PRO/MSSP |
+| Eight-agent FULL_FABRIC_COMPLETE mission | **PASS (scope: one ephemeral ENTERPRISE production certification)** — 8/8 agents `COMPLETED`, mission `FULL_FABRIC_COMPLETE`, post-certification 9/9, KV key revoked. [Run 39099582582](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/runs/39099582582) | Maintain regression gate, confirm no overage and separately certify true customer purchase/onboarding |
 | Customer release owner decision | **NOT APPROVED** | Record signed scope-specific decision after remaining gates |
 
 ## Commercial, legal and business gates
@@ -36,12 +36,20 @@
 | --- | --- | --- |
 | Authenticated FREE/PRO/ENTERPRISE/MSSP and RBAC/tenant isolation | Isolated authorized test identities, exact HEAD, exported 401/403/429 negative controls, no cross-customer read/write or TLP leak | PENDING |
 | Strong access lifecycle and key/JWT revocation | Current-head, cross-PoP suspension, reactivation, rotation and free-tier limiter evidence (issue #596) | PENDING |
-| Paid report publication, CDN/R2 manifest, fresh feed | Two successful publisher cycles; eligible report accessible, wrong TLP denied, report status reconciled (issue #819) | PENDING |
-| Paid IOC exports and analyst workflows | Scoped paid-key exports with genuine IOC values and no anonymous leak; eight-agent complete mission (issue #852) | PENDING |
+| Paid report publication, CDN/R2 manifest, fresh feed | Production publisher run 39093734695 passed R2 publish, report-index integrity, release gates and freshness; independent second full cycle and paid TLP/report delivery matrix not yet confirmed (issue #819) | **PARTIAL PASS — publisher cycle passed; remaining customer gates PENDING** |
+| Paid IOC exports and analyst workflows | The scoped Enterprise demo candidate, eight-agent mission, durable read-back and Markdown/JSON/STIX 2.1 exports passed on 2026-10-18; explicit IOC CSV and all-customer negative controls still need separate evidence (issue #852) | **PARTIAL PASS — 8/8 mission; paid customer SKU/export matrix PENDING** |
 | Automated payment entitlement and recovery | Signed Razorpay sandbox/test-mode actual provider event, exactly one key and one welcome/redeem flow, refund and replay; old Gumroad links controlled | PENDING |
 | Secure CI, dependencies and branch enforcement | Exact-head SAST/gateway/regression; verified required checks/ruleset; no bypass of red gates (issue #817) | PENDING |
 | Health, monitoring and rollback | Deployment SHA, safe fallback, health metrics, recovery drill and customer incident response | PENDING |
 | Operational cost safety | Account-wide Cloudflare zero-overage attestation; no unbudgeted cron, queue, R2 or billing writers | PENDING |
+
+
+## Verified October 18 technical evidence — scoped, not a commercial release
+
+- **Production publication:** Workflow [39093734695](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/runs/39093734695) completed successfully, including STAGE 3.5a R2 report publisher, STAGE 3.5.1 report-index integrity, final pipeline health and public freshness gate. No manual duplicate publisher was dispatched.
+- **Production authenticated Enterprise mission:** Workflow [39099582582](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/runs/39099582582) completed successfully after the corrected gateway-parity guard compared the runtime code. Eight named agents all reached COMPLETED; final quality `FULL_FABRIC_COMPLETE`; persisted mission, Markdown, JSON and STIX 2.1 outputs verified; post-mission checks 9/9 and temporary credential revocation (canonical denial, KV deletion, local cleanup) PASS.
+- **New source/CI:** INT main `e33417a84d1dca6e53caf80356f27c650db47ab3` incorporates draft-previously release control and bounded R2 publisher changes. R2 FinOps newly wired negative tests passed; main gateway deployed runtime SHA remains `da0b547752bba2a00f3a72235bb690fc8137938d`. Do not misrepresent new source as live Worker code.
+- **Still NO-GO commercially:** no owner/company legal approval, accountant-reviewed tax seller, signed customer order, Razorpay test-mode captured payment-to-entitlement evidence, current ten-platform Cloudflare billing headroom, support coverage or named customer sign-off. The authenticated E2E demo did not charge a customer and cannot replace those gates.
 
 ## Individually authorized customer onboarding — keep private
 
