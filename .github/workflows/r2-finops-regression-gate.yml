@@ -146,6 +146,12 @@ jobs:
       - name: "GATE C -- r2_report_publisher.py incremental publish + bounded operations"
         run: python -m pytest tests/test_r2_report_publisher.py -v --tb=short
 
+      # P0 October 18: executable negative controls for per-object AWS CLI
+      # timeouts, publisher deadline and partial PUT/DELETE fail-closed status.
+      # These tests mock subprocess/R2 and NEVER access Cloudflare.
+      - name: "P0 GATE C -- report publisher bounded-I/O and partial-output refusal"
+        run: python -m pytest tests/test_r2_report_publisher_bounded_io.py -v --tb=short
+
       - name: "GATE C -- late (post-barrier) renders reach R2 via the canonical publisher"
         run: python -m pytest tests/test_r2_report_post_barrier_publish.py -v --tb=short
 
