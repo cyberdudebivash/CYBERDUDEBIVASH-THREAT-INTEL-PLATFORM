@@ -305,6 +305,7 @@ def s3_cp(
     content_type: str = "application/json",
     cache_control: str = "no-cache, no-store, must-revalidate",
     only_show_errors: bool = True,
+    timeout_seconds: float | None = None,
 ) -> bool:
     """Upload a single file to R2. Returns True on success.
 
@@ -320,7 +321,15 @@ def s3_cp(
     ]
     if only_show_errors:
         cmd.append("--only-show-errors")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        # The bounded report publisher must not hang until the Actions stage
+        # timeout while one R2 PUT stalls. Nonzero outcome leaves publish-state
+        # unadvanced for safe retry; no additional R2 requests are issued.
+        log.error("TIMEOUT: R2 upload exceeded %ss for s3://%s/%s",
+                  timeout_seconds, dst_bucket, dst_key)
+        return False
     if result.returncode == 0:
         log.info("OK: Uploaded %s -> s3://%s/%s", src, dst_bucket, dst_key)
         return True
@@ -431,6 +440,7 @@ def s3_delete(
     bucket: str,
     key: str,
     endpoint: str,
+    timeout_seconds: float | None = None,
 ) -> bool:
     """Delete a single object from R2. Returns True on success (including
     the case where the object is already absent -- `aws s3 rm` on a
@@ -450,7 +460,12 @@ def s3_delete(
         "--endpoint-url", endpoint,
         "--only-show-errors",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        log.error("TIMEOUT: R2 delete exceeded %ss for s3://%s/%s",
+                  timeout_seconds, bucket, key)
+        return False
     if result.returncode == 0:
         log.info("OK: Deleted s3://%s/%s", bucket, key)
         return True
