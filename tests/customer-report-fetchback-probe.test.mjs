@@ -11,7 +11,7 @@ const one={id:id1,path:'/reports/2026/10/'+id1+'.html',
 const two={id:id2,path:'/reports/2026/10/'+id2+'.html'};
 const catalog=()=>({
   schema_version:'2.0.0',feed_type:'customer_ready_catalog',
-  generated_at:'2026-10-19T10:19:08Z', validated_at:'2026-10-19T12:40:00Z',
+  generated_at:new Date(Date.now()-60_000).toISOString(), validated_at:new Date().toISOString(),
   policy_version:'1.0.0',total_candidates:3,customer_ready_count:2,
   withheld_count:1,total_reports:3,reports_listed:2,reports:[one,two],
 });
@@ -121,4 +121,44 @@ test('actual empty ready catalog makes only ONE GET and returns BLOCKED',async()
  assert.equal(r.verdict,'BLOCKED');
  assert.ok(r.issues.includes('ZERO_CUSTOMER_READY_REPORTS'));
  assert.equal(r.public_report_sample_certified,false);
+});
+
+test('stale generated catalog cannot authorize even a reachable report',async()=>{
+  const c=catalog(); c.generated_at=new Date(Date.now()-48*3600_000).toISOString();
+  const r=evaluatePublicReportCatalog(c);
+  assert.equal(r.verdict,'BLOCKED');
+  assert.ok(r.issues.includes('CATALOG_GENERATED_STALE'));
+  let calls=0;
+  const result=await runPublicReportFetchback({fetchFn:async (...args)=>{
+    calls++; return fake(c)(...args);
+  }});
+  assert.equal(calls,1);
+  assert.equal(result.public_report_sample_certified,false);
+});
+test('stale validated timestamp fails closed independently',()=>{
+  const c=catalog(); c.validated_at=new Date(Date.now()-48*3600_000).toISOString();
+  const r=evaluatePublicReportCatalog(c);
+  assert.equal(r.exit_code,2);
+  assert.ok(r.issues.includes('CATALOG_VALIDATED_STALE'));
+});
+test('validation cannot precede catalog generation',()=>{
+  const c=catalog();
+  const now=Date.now();
+  c.generated_at=new Date(now-3600_000).toISOString();
+  c.validated_at=new Date(now-2*3600_000).toISOString();
+  assert.ok(evaluatePublicReportCatalog(c).issues.includes('CATALOG_VALIDATION_PRECEDES_GENERATION'));
+});
+test('ambiguous, malformed and future-dated catalog timestamps fail closed',()=>{
+  const c=catalog(); c.generated_at='2026-10-19T10:19:08';
+  assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_CATALOG_GENERATED_AT'));
+  const f=catalog(); f.validated_at=new Date(Date.now()+10*60_000).toISOString();
+  assert.ok(evaluatePublicReportCatalog(f).issues.includes('CATALOG_VALIDATED_IN_FUTURE'));
+  const x=catalog(); x.generated_at='not-a-timestamp';
+  assert.equal(evaluatePublicReportCatalog(x).verdict,'BLOCKED');
+});
+test('canonical fresh v2 catalog remains a bounded fetch-back candidate',()=>{
+  const c=catalog();
+  const result=evaluatePublicReportCatalog(c);
+  assert.equal(result.verdict,'PUBLIC_REPORT_FETCHBACK_REQUIRED');
+  assert.equal(result.customer_release_certified,false);
 });
