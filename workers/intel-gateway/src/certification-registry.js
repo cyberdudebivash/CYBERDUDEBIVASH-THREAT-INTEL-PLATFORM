@@ -119,20 +119,32 @@ export async function persistCertificationRecords(env, newRecords) {
  * Returns { record, isNew } -- isNew=true means the caller should persist it.
  */
 export function resolveCertification(existingRecord, item) {
-  if (existingRecord) {
-    // Reuse unconditionally when the item can no longer be resolved -- this
-    // is exactly the historical-provenance case (Section 5): the record is
-    // the only surviving evidence, so it IS the answer. When the item CAN
-    // still be resolved, only reuse if its content hasn't changed since
-    // certification (or predates content_hash tracking) -- otherwise a
-    // corrected/re-enriched item (e.g. a REJECTED report that was later
-    // fixed, or vice versa) would stay pinned to a stale verdict forever.
-    // Comparing the fingerprint is cheap (a sync hash over existing raw
-    // fields, not a P20-P26 re-run) so this never reintroduces the
-    // per-request full-evaluation cost this module exists to eliminate.
-    const stillFresh = !item || !existingRecord.content_hash
-      || existingRecord.content_hash === _contentFingerprint(item);
-    if (stillFresh) return { record: existingRecord, isNew: false };
+  if (existingRecord && typeof existingRecord === 'object' &&
+      !Array.isArray(existingRecord)) {
+    // A historical approval without current policy provenance, a content
+    // fingerprint, or internally consistent state is NOT a reusable approval.
+    // Old records may be re-evaluated from the current feed, but cannot grant
+    // access when the underlying content is no longer resolvable. This
+    // preserves Section 5 historical provenance only for verifiable records.
+    const validStatus = (
+      (existingRecord.certification_status === 'CERTIFIED' &&
+        existingRecord.publication_status === 'CUSTOMER_READY') ||
+      (existingRecord.certification_status === 'BLOCKED' &&
+        ['REJECTED', 'PENDING_ENRICHMENT'].includes(existingRecord.publication_status)) ||
+      (existingRecord.certification_status === 'CERTIFICATION_ERROR' &&
+        existingRecord.publication_status === 'WITHHELD')
+    );
+    const hasProvenance =
+      existingRecord.policy_version === CERTIFICATION_POLICY_VERSION &&
+      typeof existingRecord.content_hash === 'string' &&
+      /^fp_[0-9a-f]{1,8}$/.test(existingRecord.content_hash) &&
+      Array.isArray(existingRecord.blocking_gates) &&
+      (existingRecord.publication_status !== 'CUSTOMER_READY' ||
+        existingRecord.blocking_gates.length === 0);
+    if (validStatus && hasProvenance &&
+        (!item || existingRecord.content_hash === _contentFingerprint(item))) {
+      return { record: existingRecord, isNew: false };
+    }
   }
 
   if (!item) {
