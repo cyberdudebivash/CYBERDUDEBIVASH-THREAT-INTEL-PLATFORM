@@ -216,17 +216,6 @@ def _item_cves(feed_item: Dict[str, Any]) -> List[str]:
     return out
 
 
-def _fmt_ts(path: Path) -> str:
-    """Get file modification time as ISO 8601 string."""
-    try:
-        mtime = path.stat().st_mtime
-        return datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(
-            timespec="seconds"
-        ).replace("+00:00", "Z")
-    except Exception:
-        return ""
-
-
 # ---------------------------------------------------------------------------
 # Artifact-embedded metadata fallback
 #
@@ -327,7 +316,13 @@ def main() -> int:
         if not raw:
             return None
         result = parse_timestamp(raw)
-        return result.normalized if result.parse_status == "SUCCESS" else None
+        # The general ingestion parser accepts timezone-naive values by
+        # assuming UTC. That heuristic is unsafe for a customer publication
+        # chronology: the original timezone is not independently established.
+        if (result.parse_status != "SUCCESS" or result.normalized is None
+                or result.source_timezone == "NAIVE_ASSUMED_UTC"):
+            return None
+        return result.normalized
 
     # ------------------------------------------------------------------
     # 2. Scan reports/ directory, bounded to the rolling REPORT_WINDOW_HOURS
@@ -362,6 +357,10 @@ def main() -> int:
         _dated.append((ts, p))
     _dated.sort(key=lambda t: t[0], reverse=True)  # newest first
     all_report_paths = [p for _ts, p in _dated]
+    # Reuse the same trusted UTC timestamp that passed the hot-window gate.
+    # Re-reading a raw feed timestamp or using filesystem mtime when
+    # serializing would reintroduce ambiguous chronology into the catalog.
+    canonical_time_by_path = {p: ts for ts, p in _dated}
     if _excluded_stale_or_unproven:
         log.info(
             "Excluded %d report file(s) on disk: outside the %sh window or no "
@@ -434,11 +433,7 @@ def main() -> int:
         if not title:
             title = report_id
         cve_list   = _item_cves(feed_item)
-        timestamp  = (
-            feed_item.get("timestamp") or
-            feed_item.get("processed_at") or
-            _fmt_ts(path)
-        )
+        timestamp = canonical_time_by_path[path].isoformat().replace("+00:00", "Z")
         threat_type = str(feed_item.get("threat_type") or "")
         actor_tag   = str(feed_item.get("actor_tag") or "")
         epss_score  = feed_item.get("epss_score")
