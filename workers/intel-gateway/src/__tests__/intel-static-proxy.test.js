@@ -312,14 +312,14 @@ test("P0 2026-10-14: max depth and body cap remain fail-closed", async () => {
 });
 
 
-// P0 19-Oct-2026 — contract for a completed ISO weekly edition.
+// P0 19-Oct-2026 \u2014 contract for a completed ISO weekly edition.
 // A current main feed cannot confer freshness on a stale weekly artifact.
 const WEEKLY_BRIEF_PATH = "/api/v1/intel/weekly_brief.json";
 function week42PublicBrief() {
   return {
     _schema: "sentinel-apex-weekly-brief-v1",
     week: "Week 42 2026",
-    period: "12 Oct 2026 — 18 Oct 2026",
+    period: "12 Oct 2026 \u2014 18 Oct 2026",
     generated_at: "2026-10-19T02:30:00Z",
     stats: { total_advisories: 1, critical_count: 0, kev_additions: 0 },
     top_threats: [{
@@ -338,7 +338,7 @@ test("weekly freshness requires the previous completed ISO week and matching per
   const doc = week42PublicBrief();
   assert.equal(weeklyBriefIsCurrent(doc, monday), true);
   assert.equal(weeklyBriefIsCurrent({...doc, week:"Week 43 2026"}, monday), false);
-  assert.equal(weeklyBriefIsCurrent({...doc, period:"19 Oct 2026 — 25 Oct 2026"}, monday), false);
+  assert.equal(weeklyBriefIsCurrent({...doc, period:"19 Oct 2026 \u2014 25 Oct 2026"}, monday), false);
   assert.equal(weeklyBriefIsCurrent({...doc, generated_at:"2026-08-24T03:31:03Z"}, monday), false);
   assert.equal(weeklyBriefIsCurrent({...doc, top_threats:[]}, monday), false);
   assert.equal(weeklyBriefIsCurrent(doc, Date.parse("2026-10-26T00:01:00Z")), false);
