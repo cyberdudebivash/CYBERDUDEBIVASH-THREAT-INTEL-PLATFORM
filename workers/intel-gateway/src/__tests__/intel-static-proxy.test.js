@@ -110,7 +110,7 @@ test("unlabelled advisory with a report ID is not anonymously authorized", async
 });
 
 test("all proxied paths are registered with distinct R2 keys and gh paths", () => {
-  assert.equal(Object.keys(INTEL_STATIC_PROXY).length, 7);
+  assert.equal(Object.keys(INTEL_STATIC_PROXY).length, 8);
   assert.equal(INTEL_STATIC_PROXY[AI_INDEX_PATH].r2Key, "intelligence/ai_index.json");
   assert.equal(INTEL_STATIC_PROXY[RULES_PATH].r2Key, "intelligence/detection_rules_manifest.json");
   const r2Keys = Object.values(INTEL_STATIC_PROXY).map((e) => e.r2Key);
