@@ -164,3 +164,18 @@ def test_customer_html_never_reintroduces_hardcoded_prices_or_registration_numbe
     assert canonical in rendered
     assert "GSTIN:" not in rendered
     assert "PAN:" not in rendered
+
+
+def test_generator_never_overwrites_customer_live_html(monkeypatch, tmp_path):
+    live_shell = tmp_path / "weekly-brief.html"
+    original = '<html data-weekly-brief-live="r2">SENTINEL APEX</html>'
+    live_shell.write_text(original, encoding="utf-8")
+    generated = tmp_path / ".weekly-build" / "weekly-brief.snapshot.html"
+    weekly_json = tmp_path / "weekly_brief.json"
+    monkeypatch.setattr(brief, "_load_feed", lambda: [_entry()])
+    monkeypatch.setattr(brief, "BRIEF_HTML_PATH", generated)
+    monkeypatch.setattr(brief, "BRIEF_JSON_PATH", weekly_json)
+    assert brief.main() == 0
+    assert live_shell.read_text(encoding="utf-8") == original
+    assert generated.read_text(encoding="utf-8").startswith("<!DOCTYPE html>")
+    assert json.loads(weekly_json.read_text(encoding="utf-8"))["top_threats"]

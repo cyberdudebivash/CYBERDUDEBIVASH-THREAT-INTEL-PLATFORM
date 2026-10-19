@@ -45,7 +45,9 @@ REPO_ROOT       = Path(__file__).resolve().parent.parent
 FEED_PATH       = REPO_ROOT / "api" / "feed.json"
 MANIFEST_PATH   = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
 BRIEF_JSON_PATH = REPO_ROOT / "api" / "v1" / "intel" / "weekly_brief.json"
-BRIEF_HTML_PATH = REPO_ROOT / "weekly-brief.html"
+# The live /weekly-brief.html is a stable API-backed customer application.
+# Never replace it with a one-time generated static HTML document.
+BRIEF_HTML_PATH = REPO_ROOT / ".weekly-build" / "weekly-brief.snapshot.html"
 TELEGRAM_TOKEN  = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT   = os.environ.get("TELEGRAM_CHAT_ID", "")
 SEND_TELEGRAM   = "--send-telegram" in sys.argv
@@ -504,6 +506,7 @@ def main():
     _atomic_write(BRIEF_JSON_PATH, brief)
     log.info("[WRITE] Brief JSON: %s", BRIEF_JSON_PATH)
 
+    BRIEF_HTML_PATH.parent.mkdir(parents=True, exist_ok=True)
     BRIEF_HTML_PATH.write_text(html, encoding="utf-8")
     log.info("[WRITE] Brief HTML: %s", BRIEF_HTML_PATH)
 
