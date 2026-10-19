@@ -41,7 +41,7 @@ footer{margin-top:42px;padding-top:24px;border-top:1px solid var(--line);font-si
 <section class="metrics" id="metrics" aria-label="Weekly intelligence counts"></section>
 <section class="panel"><h2>Top priority intelligence</h2><div class="table-wrap"><table><thead><tr><th>#</th><th>Advisory</th><th>Severity</th><th>Risk / 10</th><th>Attribution</th></tr></thead><tbody id="threats"></tbody></table></div></section>
 <section class="panel"><h2>Known Exploited Vulnerabilities observed in this reporting period</h2><p class="lede">A KEV observation is not necessarily a newly added CISA catalog entry.</p><ul id="kev"></ul></section>
-<section class="panel"><h2>Reporting transparency</h2><dl><div><dt>Reporting window</dt><dd id="period"></dd></div><div><dt>Publication timestamp (UTC)</dt><dd id="published"></dd></div><div><dt>Data classification</dt><dd>Public release: TLP:CLEAR-eligible records only. Presence in this brief is not confirmation of exploitation or attribution unless supported by source evidence.</dd></div></dl></section>
+<section class="panel"><h2>Reporting transparency</h2><dl><div><dt>Reporting window</dt><dd id="period"></dd></div><div><dt>Publication timestamp (UTC)</dt><dd id="published"></dd></div><div><dt>Data classification</dt><dd>Public release: TLP:CLEAR-eligible records only. Presence in this brief is not confirmation of exploitation or attribution unless supported by source evidence.</dd></div><div><dt>Individual report access</dt><dd id="report-links-status">Independent publication status not yet verified.</dd></div></dl></section>
 </div>
 <div class="links"><a class="primary" href="/cyber-watchdog.html">Explore current intelligence</a><a href="/api-docs">API documentation</a><a href="/upgrade.html">Plans and access</a><a href="mailto:contact@cyberdudebivash.in?subject=Weekly%20brief%20freshness">Report a freshness issue</a></div>
 <footer>CYBERDUDEBIVASH ECOSYSTEM® · Odisha, India · <a href="https://intel.cyberdudebivash.com/">intel.cyberdudebivash.com</a> · <a href="mailto:contact@cyberdudebivash.in">contact@cyberdudebivash.in</a></footer>
@@ -136,7 +136,11 @@ footer{margin-top:42px;padding-top:24px;border-top:1px solid var(--line);font-si
       const tr = document.createElement('tr');
       cell(tr, item.rank);
       const title = cell(tr, '');
-      const link = safeReportLink(item.report_url);
+      // A stored report URL is NOT an independent customer-release approval.
+      // Older payloads lack certification: show titles without clickable links.
+      const linkVerified = brief.report_link_verification &&
+        brief.report_link_verification.policy === 'CUSTOMER_READY_ONLY';
+      const link = linkVerified ? safeReportLink(item.report_url) : null;
       if (link) {
         const anchor = document.createElement('a'); anchor.href = link; anchor.textContent = item.title;
         anchor.rel = 'noopener'; title.appendChild(anchor);
@@ -160,6 +164,16 @@ footer{margin-top:42px;padding-top:24px;border-top:1px solid var(--line);font-si
     }
     document.getElementById('period').textContent = brief.week + ' · ' + brief.period;
     document.getElementById('published').textContent = generated.toISOString();
+    const linkEvidence = brief.report_link_verification;
+    const linkSummary = document.getElementById('report-links-status');
+    if (linkEvidence && linkEvidence.policy === 'CUSTOMER_READY_ONLY' &&
+        Number.isInteger(linkEvidence.linked) && linkEvidence.linked >= 0 &&
+        Number.isInteger(linkEvidence.withheld) && linkEvidence.withheld >= 0) {
+      linkSummary.textContent = linkEvidence.linked + ' individually approved report links; ' +
+        linkEvidence.withheld + ' withheld because their current publication status was not approved or could not be verified.';
+    } else {
+      linkSummary.textContent = 'Independent report-link authorization is not recorded for this edition. Unverified links are withheld.';
+    }
     status.replaceChildren();
     const ok = document.createElement('strong');
     ok.textContent = 'VERIFIED PUBLICATION · ' + brief.week;
