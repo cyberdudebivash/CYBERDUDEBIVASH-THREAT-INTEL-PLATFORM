@@ -268,6 +268,10 @@ def _render_html(brief: Dict) -> str:
     period  = brief.get("period", "")
     week    = brief.get("week", "")
     gen     = brief.get("generated_at", "")
+    # The customer-facing HTML must use the same canonical contract-derived
+    # price as the API response, never a historical hard-coded amount.
+    cta_plans = (brief.get("upgrade_cta") or {}).get("plans") or []
+    cta_price = escape(str(cta_plans[0])) if cta_plans else "PRO plans"
 
     # Build top 10 rows
     rows = ""
@@ -392,11 +396,11 @@ footer{{text-align:center;padding:32px 0;color:#334155;font-size:12px;border-top
   <div class="cta">
     <h3>Get Full Intelligence Access</h3>
     <p>PRO subscribers receive: actor attribution, detection rules, IOC feeds, STIX bundles, AI analysis, and priority email delivery every Monday morning.</p>
-    <a href="{PLATFORM_URL}/upgrade.html" class="btn">Upgrade to PRO — ₹4,100/month</a>
+    <a href="{PLATFORM_URL}/upgrade.html" class="btn">Explore {cta_price}</a>
   </div>
 
   <footer>
-    <p>CYBERDUDEBIVASH ECOSYSTEM® · GSTIN: 21ARKPN8270G1ZP · Odisha, India</p>
+    <p>CYBERDUDEBIVASH ECOSYSTEM® · Odisha, India</p>
     <p style="margin-top:8px;"><a href="{PLATFORM_URL}" style="color:#334155;">intel.cyberdudebivash.com</a> · <a href="mailto:contact@cyberdudebivash.in" style="color:#334155;">contact@cyberdudebivash.in</a></p>
   </footer>
 </div>
