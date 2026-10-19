@@ -101,7 +101,8 @@ def test_weekly_brief_downloads_authoritative_r2_before_generating_and_removes_o
                    if step.get("name") == "STEP 7 — Publish Weekly Brief API JSON to canonical R2")
     assert download < generate < publish
     assert "python3 scripts/weekly_brief_source.py" in steps[download]["run"]
-    assert "rm -f weekly-brief.html api/v1/intel/weekly_brief.json" in steps[generate]["run"]
+    assert "rm -f .weekly-build/weekly-brief.snapshot.html api/v1/intel/weekly_brief.json" in steps[generate]["run"]
+    assert "rm -f weekly-brief.html" not in steps[generate]["run"]
     for name in ("CF_ACCOUNT_ID", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
         assert name in steps[download]["env"]
 
@@ -125,3 +126,13 @@ def test_subscriber_notifications_wait_for_successful_customer_delivery():
     assert "--send-telegram" not in steps[generate]["run"]
     assert steps[notify]["run"] == "python3 scripts/weekly_threat_brief.py --notify-verified"
     assert "schedule" in str(steps[notify].get("if"))
+
+
+def test_weekly_publish_stages_only_live_customer_shell_not_a_static_snapshot():
+    steps = _load_workflow()["jobs"]["generate-brief"]["steps"]
+    stage = next(s for s in steps if s.get("name") == "STEP 7b — Stage brief artifacts for Pages (TLP boundary)")
+    assert "cp weekly-brief.html .publish/weekly-brief.html" in stage["run"]
+    assert "cp .weekly-build/weekly-brief.snapshot.html" not in stage["run"]
+    assert 'data-weekly-brief-live="r2"' in stage["run"]
+    generate = next(s for s in steps if s.get("name") == "STEP 4 — Generate Weekly Threat Brief")
+    assert "rm -f weekly-brief.html" not in generate["run"]
