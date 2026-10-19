@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildReportsSitemapXml, reportPath, lastmodOf, SITE_ORIGIN, MAX_SITEMAP_URLS } from "../reports-sitemap.js";
 import { harness } from "./watchdog-harness.js";
-import { CERTIFICATION_INDEX_KEY } from "../certification-registry.js";
+import { CERTIFICATION_INDEX_KEY, CERTIFICATION_POLICY_VERSION } from "../certification-registry.js";
 
 const R = (id, month = "09", ts = "2026-09-20T10:00:00Z") =>
   ({ id, path: `/reports/2026/${month}/${id}.html`, url: `${SITE_ORIGIN}/reports/2026/${month}/${id}.html`, timestamp: ts, title: "t" });
@@ -60,10 +60,18 @@ function withCatalog(hx, catalog, certRecords) {
 
 test("route: lists CUSTOMER_READY reports only, as application/xml", async () => {
   const hx = harness();
-  withCatalog(hx, { reports: [R("intel--aa11"), R("intel--bb22"), R("intel--cc33")] }, {
-    "intel--aa11": { publication_status: "CUSTOMER_READY", certification_status: "CERTIFIED" },
+  // These synthetic historical snapshots model records certified under the
+  // current policy. Legacy records without proof must never enter a sitemap.
+  const certified = fingerprint => ({
+    publication_status: "CUSTOMER_READY", certification_status: "CERTIFIED",
+    policy_version: CERTIFICATION_POLICY_VERSION,
+    content_hash: fingerprint, blocking_gates: [],
+  });
+  withCatalog(hx, { reports: [R("intel--aa11"), R("intel--bb22"), R("intel--cc33"), R("intel--dd44")] }, {
+    "intel--aa11": certified("fp_12345678"),
     "intel--bb22": { publication_status: "WITHHELD", certification_status: "BLOCKED" },
-    "intel--cc33": { publication_status: "CUSTOMER_READY", certification_status: "CERTIFIED" },
+    "intel--cc33": certified("fp_aabbccdd"),
+    "intel--dd44": { publication_status: "CUSTOMER_READY", certification_status: "CERTIFIED" },
   });
   const res = await hx.call("GET", "/reports/sitemap.xml");
   assert.equal(res.status, 200);
@@ -71,6 +79,7 @@ test("route: lists CUSTOMER_READY reports only, as application/xml", async () =>
   assert.ok(res.text.includes("/reports/2026/09/intel--aa11.html"));
   assert.ok(res.text.includes("/reports/2026/09/intel--cc33.html"));
   assert.ok(!res.text.includes("intel--bb22"), "a withheld report (404 on /reports/**) must not be listed");
+  assert.ok(!res.text.includes("intel--dd44"), "legacy customer-ready without proof must never enter sitemap");
 });
 
 test("route: 503 + Retry-After when the catalog is unavailable", async () => {
