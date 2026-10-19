@@ -110,33 +110,48 @@ def _load_feed() -> List[Dict]:
     return []
 
 
+def _report_window(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Previous completed ISO week, Monday 00:00 UTC to Monday 00:00 UTC.
+
+    The Monday publication at 02:30 UTC must label the week just closed,
+    rather than claiming the new week has seven days of observations.
+    """
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError("UTC-aware reference time required")
+    this_monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return this_monday - timedelta(days=7), this_monday
+
+
 def _is_this_week(item: dict) -> bool:
-    """Return True if item was published/updated this week."""
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
+    """Include an advisory only when an evidence timestamp is in the report window."""
+    start, end = _report_window()
     for field in ("published_at", "published", "updated_at"):
         ts = item.get(field)
-        if ts:
-            try:
-                dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-                return week_ago <= dt <= now
-            except Exception:
-                pass
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            if dt.tzinfo is not None and start <= dt.astimezone(timezone.utc) < end:
+                return True
+        except (TypeError, ValueError, OverflowError):
+            continue
     return False
 
 
 def _get_week_range() -> tuple:
-    now = datetime.now(timezone.utc)
-    week_start = now - timedelta(days=7)
-    return week_start.strftime("%d %b %Y"), now.strftime("%d %b %Y")
+    start, end = _report_window()
+    return start.strftime("%d %b %Y"), (end - timedelta(days=1)).strftime("%d %b %Y")
 
 
 def _build_brief(items: List[Dict]) -> Dict:
     """Build the weekly brief data structure."""
     week_start, week_end = _get_week_range()
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    week_num = datetime.now(timezone.utc).isocalendar()[1]
-    year     = datetime.now(timezone.utc).year
+    report_start, _report_end = _report_window()
+    year, week_num, _ = report_start.isocalendar()
 
     # Filter this week's items
     this_week = [it for it in items if _is_this_week(it)]
@@ -452,8 +467,8 @@ def main():
 
     items = _load_feed()
     if not items:
-        log.error("No feed data available — cannot generate brief")
-        return
+        log.error("No canonical feed data available — refusing publication")
+        return 1
 
     brief = _build_brief(items)
     if brief["stats"]["total_advisories"] == 0:
