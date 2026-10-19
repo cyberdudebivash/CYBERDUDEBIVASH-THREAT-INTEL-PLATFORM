@@ -163,7 +163,7 @@
       'A mapped flow requires actor and victim/target countries on the same advisory; publisher countries and general CTI are not flows.');
     panel('bughunter-grid', 'cdb-recon-cti-evidence', 'LATEST VULNERABILITY REPORTING · NOT SCAN FINDINGS',
       'Fresh source-linked disclosures are separate from an authorized, completed reconnaissance scan. Existing re-scan warnings remain authoritative.');
-    panel('tipsoar-badge', 'cdb-soc-cti-evidence', 'CURRENT SOC ANALYST TRIAGE · NOT CONFIRMED INCIDENTS',
+    panel('tipsoar-live-evidence-anchor', 'cdb-soc-cti-evidence', 'CURRENT SOC ANALYST TRIAGE · NOT CONFIRMED INCIDENTS',
       'High-risk source-linked advisories for analyst review; not verified customer incidents, executed SOAR responses or completed hunts.');
   }
   function render(data) {
