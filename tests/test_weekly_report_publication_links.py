@@ -126,3 +126,11 @@ def test_workflow_reconciles_links_before_verify_and_r2_put():
     verify = text.index("python3 scripts/check_weekly_brief.py")
     upload = text.index("scripts/r2_upload.py --weekly-brief-only")
     assert check < verify < upload
+
+
+def test_customer_frontend_fail_closes_on_pre_gate_weekly_payloads():
+    from pathlib import Path
+    text = (Path(__file__).resolve().parents[1] / "weekly-brief.html").read_text(encoding="utf-8")
+    assert "const link = linkVerified ? safeReportLink(item.report_url) : null;" in text
+    assert "brief.report_link_verification.policy === 'CUSTOMER_READY_ONLY'" in text
+    assert 'id="report-links-status"' in text
