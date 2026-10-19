@@ -8,6 +8,7 @@ Zero inline Python in YAML — this is the dedicated verifier script.
 """
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO_ROOT   = Path(__file__).resolve().parent.parent
@@ -48,6 +49,28 @@ print(f"  Top Threat  : {top_title}...")
 
 if total == 0:
     errors.append("total_advisories is 0 — brief has no data")
+# Dates and week number are a publication contract, not cosmetic text.
+# A checked-in historical JSON file must never pass just because it is valid.
+now = datetime.now(timezone.utc)
+this_monday = (now - timedelta(days=now.weekday())).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
+report_start = this_monday - timedelta(days=7)
+report_end = this_monday - timedelta(days=1)
+iso = report_start.isocalendar()
+expected_week = f"Week {iso.week} {iso.year}"
+expected_period = f"{report_start:%d %b %Y} — {report_end:%d %b %Y}"
+if week != expected_week:
+    errors.append(f"wrong report week: {week!r} (expected {expected_week!r})")
+if period != expected_period:
+    errors.append(f"wrong period: {period!r} (expected {expected_period!r})")
+try:
+    generated_at = datetime.fromisoformat(str(b.get("generated_at", "")).replace("Z", "+00:00"))
+    if generated_at.tzinfo is None or not (now - timedelta(hours=4) <= generated_at <= now + timedelta(minutes=5)):
+        errors.append("generated_at must be UTC-aware and from this publishing run")
+except (ValueError, TypeError, OverflowError):
+    errors.append("generated_at is missing or invalid")
+
 if not week or week == "UNKNOWN":
     errors.append("week field missing")
 if not top_threats:

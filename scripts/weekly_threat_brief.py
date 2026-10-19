@@ -110,33 +110,48 @@ def _load_feed() -> List[Dict]:
     return []
 
 
+def _report_window(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Previous completed ISO week, Monday 00:00 UTC to Monday 00:00 UTC.
+
+    The Monday publication at 02:30 UTC must label the week just closed,
+    rather than claiming the new week has seven days of observations.
+    """
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError("UTC-aware reference time required")
+    this_monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return this_monday - timedelta(days=7), this_monday
+
+
 def _is_this_week(item: dict) -> bool:
-    """Return True if item was published/updated this week."""
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
+    """Include an advisory only when an evidence timestamp is in the report window."""
+    start, end = _report_window()
     for field in ("published_at", "published", "updated_at"):
         ts = item.get(field)
-        if ts:
-            try:
-                dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-                return week_ago <= dt <= now
-            except Exception:
-                pass
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            if dt.tzinfo is not None and start <= dt.astimezone(timezone.utc) < end:
+                return True
+        except (TypeError, ValueError, OverflowError):
+            continue
     return False
 
 
 def _get_week_range() -> tuple:
-    now = datetime.now(timezone.utc)
-    week_start = now - timedelta(days=7)
-    return week_start.strftime("%d %b %Y"), now.strftime("%d %b %Y")
+    start, end = _report_window()
+    return start.strftime("%d %b %Y"), (end - timedelta(days=1)).strftime("%d %b %Y")
 
 
 def _build_brief(items: List[Dict]) -> Dict:
     """Build the weekly brief data structure."""
     week_start, week_end = _get_week_range()
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    week_num = datetime.now(timezone.utc).isocalendar()[1]
-    year     = datetime.now(timezone.utc).year
+    report_start, _report_end = _report_window()
+    year, week_num, _ = report_start.isocalendar()
 
     # Filter this week's items
     this_week = [it for it in items if _is_this_week(it)]
@@ -203,6 +218,10 @@ def _build_brief(items: List[Dict]) -> Dict:
         "top_threats": [
             {
                 "rank": i + 1,
+                # This is the authorised PUBLIC DERIVATIVE, not a mutation
+                # of the source item's original Traffic Light label.  Only
+                # tlp_policy.partition_publishable() inputs reach this view.
+                "tlp": "TLP:CLEAR",
                 "title": it.get("title", "Unknown"),
                 "severity": it.get("severity", "UNKNOWN"),
                 "risk_score": float(it.get("risk_score") or 0),
@@ -217,6 +236,7 @@ def _build_brief(items: List[Dict]) -> Dict:
         ],
         "kev_additions": [
             {
+                "tlp": "TLP:CLEAR",
                 "cve_id": it.get("cve_id") or it.get("title", ""),
                 "title": it.get("title", ""),
                 "risk_score": float(it.get("risk_score") or 0),
@@ -384,11 +404,11 @@ footer{{text-align:center;padding:32px 0;color:#334155;font-size:12px;border-top
 </html>"""
 
 
-def _send_telegram(brief: Dict) -> None:
+def _send_telegram(brief: Dict) -> bool:
     """Send weekly brief summary to Telegram channel."""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
         log.warning("Telegram not configured — skipping notification")
-        return
+        return False
     stats = brief.get("stats", {})
     top3  = brief.get("top_threats", [])[:3]
     top3_text = "\n".join(
@@ -416,7 +436,7 @@ def _send_telegram(brief: Dict) -> None:
     # into a URL authority or log it on failed requests.
     if not re.fullmatch(r"[0-9]{5,20}:[A-Za-z0-9_-]{25,}", TELEGRAM_TOKEN):
         log.warning("[TELEGRAM] Invalid token format; delivery withheld")
-        return
+        return False
     token = urllib.parse.quote(TELEGRAM_TOKEN, safe=":")
     payload = json.dumps({"chat_id": TELEGRAM_CHAT, "text": msg, "parse_mode": "HTML"}).encode()
     conn = http.client.HTTPSConnection("api.telegram.org", timeout=15)
@@ -429,10 +449,12 @@ def _send_telegram(brief: Dict) -> None:
         resp.read(4096)
         if resp.status != 200:
             log.warning("[TELEGRAM] API returned HTTP %d", resp.status)
-            return
+            return False
         log.info("[TELEGRAM] Sent successfully: %d", resp.status)
+        return True
     except Exception as e:
         log.warning("[TELEGRAM] Failed (%s)", type(e).__name__)
+        return False
     finally:
         conn.close()
 
@@ -446,14 +468,28 @@ def _atomic_write(path: Path, data) -> None:
 
 
 def main():
+    if "--notify-verified" in sys.argv:
+        # Invoked ONLY after the workflow's live API + customer-page gate.
+        # Keep report generation and customer notification in separate steps
+        # so a failed R2/Pages deploy cannot announce a historical edition.
+        try:
+            published = json.loads(BRIEF_JSON_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError) as exc:
+            log.error("Verified-brief notification blocked: invalid JSON (%s)", type(exc).__name__)
+            return 1
+        if not isinstance(published, dict) or not published.get("top_threats") or not published.get("generated_at"):
+            log.error("Verified-brief notification blocked: missing report evidence")
+            return 1
+        return 0 if _send_telegram(published) else 1
+
     log.info("=" * 60)
     log.info("WEEKLY THREAT BRIEF GENERATOR v1.0.0")
     log.info("=" * 60)
 
     items = _load_feed()
     if not items:
-        log.error("No feed data available — cannot generate brief")
-        return
+        log.error("No canonical feed data available — refusing publication")
+        return 1
 
     brief = _build_brief(items)
     if brief["stats"]["total_advisories"] == 0:

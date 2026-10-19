@@ -117,14 +117,23 @@ jobs:
       - name: "P0 Customer Trust — weekly brief source/URL/TLP/price contract"
         run: python -m pytest tests/test_weekly_customer_trust.py -v --tb=short
 
+      # Git checkout is not authoritative runtime intelligence. The old
+      # checked-in api/feed.json is empty; canonical feed lives in INTEL_R2.
+      # Fail closed on missing credentials, R2 errors or malformed source.
+      - name: "P0 — Download canonical weekly source from R2"
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+        run: python3 scripts/weekly_brief_source.py
+
       - name: "STEP 4 — Generate Weekly Threat Brief"
         timeout-minutes: 10
         run: |
-          SEND_ARG=""
-          if [ "${{ github.event.inputs.send_telegram }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
-            SEND_ARG="--send-telegram"
-          fi
-          python3 scripts/weekly_threat_brief.py $SEND_ARG 2>&1
+          # Never allow a failed/no-op generator to validate or upload old
+          # artifacts committed to main in August.
+          rm -f weekly-brief.html api/v1/intel/weekly_brief.json
+          python3 scripts/weekly_threat_brief.py 2>&1
           echo "[BRIEF] Generation complete"
 
       # ------------------------------------------------------------------
@@ -202,6 +211,12 @@ jobs:
           WEEKLY_BRIEF_VERIFY_SLEEP_SECONDS: '5'
           WEEKLY_BRIEF_VERIFY_TIMEOUT_SECONDS: '10'
         run: python3 scripts/verify_weekly_brief_live.py
+
+      # Notifications are last: do not tell subscribers about a report
+      # until the Worker API AND public HTML have been independently verified.
+      - name: "STEP 9b — Notify subscribers after verified publication"
+        if: ${{ github.event_name == 'schedule' || inputs.send_telegram == 'true' }}
+        run: python3 scripts/weekly_threat_brief.py --notify-verified
 
       # ------------------------------------------------------------------
       - name: "STEP 10 — Summary"

@@ -11,11 +11,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import weekly_threat_brief as brief  # noqa: E402
 
 
-def _entry(hours_ago=1, **extra):
+def _entry(hours_ago=None, **extra):
     row = {
         "id": "intel--test", "title": "Evidence-backed bulletin",
         "severity": "MEDIUM", "risk_score": 4.0, "tlp": "TLP:CLEAR",
-        "published_at": (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat(),
+        "published_at": ((brief._report_window()[0] + timedelta(days=3, hours=12))
+                         if hours_ago is None else
+                         (datetime.now(timezone.utc) - timedelta(hours=hours_ago))).isoformat(),
         "report_url": "https://intel.cyberdudebivash.com/reports/2026/10/intel--test.html",
     }
     return {**row, **extra}
@@ -91,3 +93,65 @@ def test_no_false_kev_confirmation_from_string_no_or_unverified_stix_alias():
     positive = brief._build_brief([known])
     assert positive["stats"]["kev_additions"] == 1
     assert positive["stats"]["stix_bundles"] == 1
+
+
+def test_monday_report_is_previous_completed_iso_week():
+    monday = datetime(2026, 10, 19, 2, 30, tzinfo=timezone.utc)
+    start, end = brief._report_window(monday)
+    assert (start.isoformat(), end.isoformat()) == (
+        "2026-10-12T00:00:00+00:00", "2026-10-19T00:00:00+00:00"
+    )
+    assert start.isocalendar()[:2] == (2026, 42)
+
+
+def test_weekly_brief_without_any_feed_fails_instead_of_returning_success(tmp_path, monkeypatch):
+    old_html = tmp_path / "weekly-brief.html"
+    old_json = tmp_path / "weekly_brief.json"
+    old_html.write_text("old August HTML")
+    old_json.write_text('{"week":"Week 35 2026"}')
+    monkeypatch.setattr(brief, "_load_feed", lambda: [])
+    monkeypatch.setattr(brief, "BRIEF_HTML_PATH", old_html)
+    monkeypatch.setattr(brief, "BRIEF_JSON_PATH", old_json)
+    assert brief.main() == 1
+    assert old_html.read_text() == "old August HTML"
+    assert "Week 35" in old_json.read_text()
+
+
+def test_only_completed_week_included_not_new_monday_entries():
+    start, end = brief._report_window()
+    eligible = _entry(id="intel--eligible", published_at=(start + timedelta(days=2)).isoformat())
+    new_week = _entry(id="intel--new-week", published_at=(end + timedelta(minutes=2)).isoformat())
+    result = brief._build_brief([eligible, new_week])
+    assert result["week"] == f"Week {start.isocalendar().week} {start.isocalendar().year}"
+    assert result["stats"]["total_advisories"] == 1
+    assert result["top_threats"][0]["title"] == eligible["title"]
+
+
+def test_r2_source_fetch_is_required_and_never_falls_back_to_git(tmp_path, monkeypatch):
+    import weekly_brief_source as source
+    destination = tmp_path / "feed_manifest.json"
+    monkeypatch.setattr(source, "get_credentials", lambda: ("test-account", "key", "secret"))
+    monkeypatch.setattr(source, "install_awscli", lambda: None)
+    calls = []
+    def failed_get(path, bucket, key, endpoint):
+        calls.append((bucket, key))
+        return "ERROR"
+    monkeypatch.setattr(source, "s3_get", failed_get)
+    assert source.fetch_source(destination) == 1
+    assert not destination.exists()
+    assert calls[0][1] == "intel/feed_manifest.json"
+
+    def success_get(path, bucket, key, endpoint):
+        Path(path).write_text(json.dumps([_entry()]), encoding="utf-8")
+        return "OK"
+    monkeypatch.setattr(source, "s3_get", success_get)
+    assert source.fetch_source(destination) == 0
+    assert json.loads(destination.read_text())[0]["id"] == "intel--test"
+
+
+def test_public_weekly_derivative_has_explicit_clear_provenance_for_worker_gate():
+    result = brief._build_brief([_entry(kev=True)])
+    assert result["top_threats"]
+    assert result["kev_additions"]
+    assert all(x.get("tlp") == "TLP:CLEAR" for x in result["top_threats"])
+    assert all(x.get("tlp") == "TLP:CLEAR" for x in result["kev_additions"])

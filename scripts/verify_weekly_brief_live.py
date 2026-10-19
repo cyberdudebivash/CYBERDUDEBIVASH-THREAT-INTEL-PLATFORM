@@ -18,6 +18,10 @@ LIVE_URL = os.environ.get(
     "WEEKLY_BRIEF_LIVE_URL",
     "https://intel.cyberdudebivash.com/api/v1/intel/weekly_brief.json",
 ).strip()
+LIVE_HTML_URL = os.environ.get(
+    "WEEKLY_BRIEF_HTML_URL",
+    "https://intel.cyberdudebivash.com/weekly-brief",
+).strip()
 ATTEMPTS = max(1, int(os.environ.get("WEEKLY_BRIEF_VERIFY_ATTEMPTS", "8")))
 SLEEP_SECONDS = max(1, int(os.environ.get("WEEKLY_BRIEF_VERIFY_SLEEP_SECONDS", "5")))
 TIMEOUT_SECONDS = max(2, int(os.environ.get("WEEKLY_BRIEF_VERIFY_TIMEOUT_SECONDS", "10")))
@@ -41,6 +45,30 @@ def load_local() -> dict:
         if not str(payload.get(field, "")).strip():
             fail(f"local weekly brief missing required field: {field}")
     return payload
+
+
+def verify_customer_page(expected_week: str, expected_generated: str) -> str | None:
+    """Production evidence must cover the customer URL, not JSON alone.
+
+    A dynamic page must explicitly fetch the R2-backed artifact. Alternatively,
+    the existing static report is accepted only when it matches THIS run.
+    """
+    response = requests.get(
+        LIVE_HTML_URL,
+        timeout=TIMEOUT_SECONDS,
+        headers={"Cache-Control": "no-cache", "Accept": "text/html"},
+    )
+    if response.status_code != 200:
+        return f"customer HTML HTTP {response.status_code}"
+    body = response.text
+    if '<html' not in body.lower():
+        return "customer URL did not return HTML"
+    if 'data-weekly-brief-live="r2"' in body and "/api/v1/intel/weekly_brief.json" in body:
+        return None
+    # A static deploy is valid only for exactly this source-generated report.
+    if expected_week in body and expected_generated[:10] in body:
+        return None
+    return "customer HTML is stale or does not fetch the authoritative weekly API"
 
 
 def main() -> int:
@@ -81,12 +109,16 @@ def main() -> int:
                         f"expected={local.get('_schema')!r} live={live.get('_schema')!r}"
                     )
                 else:
-                    print(
-                        "[PASS] Live weekly brief matches this run: "
-                        f"week={expected_week} generated_at={expected_generated}",
-                        flush=True,
-                    )
-                    return 0
+                    page_error = verify_customer_page(expected_week, expected_generated)
+                    if page_error:
+                        last_error = page_error
+                    else:
+                        print(
+                            "[PASS] Live API and customer HTML verified: "
+                            f"week={expected_week} generated_at={expected_generated}",
+                            flush=True,
+                        )
+                        return 0
         except Exception as exc:
             last_error = f"{type(exc).__name__}: {exc}"
 

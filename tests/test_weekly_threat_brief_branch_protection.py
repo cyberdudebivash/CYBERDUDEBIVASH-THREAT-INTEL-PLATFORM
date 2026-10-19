@@ -88,3 +88,40 @@ def test_weekly_brief_r2_publisher_is_single_key_budgeted_and_fail_closed():
         "def main()", 1
     )[0]
     assert "WEEKLY_BRIEF_FILES" not in build_plan
+
+
+def test_weekly_brief_downloads_authoritative_r2_before_generating_and_removes_old_artifacts():
+    doc = _load_workflow()
+    steps = doc["jobs"]["generate-brief"]["steps"]
+    download = next(i for i, step in enumerate(steps)
+                    if step.get("name") == "P0 — Download canonical weekly source from R2")
+    generate = next(i for i, step in enumerate(steps)
+                    if step.get("name") == "STEP 4 — Generate Weekly Threat Brief")
+    publish = next(i for i, step in enumerate(steps)
+                   if step.get("name") == "STEP 7 — Publish Weekly Brief API JSON to canonical R2")
+    assert download < generate < publish
+    assert "python3 scripts/weekly_brief_source.py" in steps[download]["run"]
+    assert "rm -f weekly-brief.html api/v1/intel/weekly_brief.json" in steps[generate]["run"]
+    for name in ("CF_ACCOUNT_ID", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+        assert name in steps[download]["env"]
+
+
+def test_main_branch_weekly_html_must_be_live_r2_client_and_fail_closed():
+    html = (REPO_ROOT / "weekly-brief.html").read_text(encoding="utf-8")
+    assert 'data-weekly-brief-live="r2"' in html
+    assert "fetch('/api/v1/intel/weekly_brief.json'" in html
+    assert "brief.week !== window.label" in html
+    assert "root.hidden = true" in html
+    assert "Week 35 2026" not in html
+
+
+def test_subscriber_notifications_wait_for_successful_customer_delivery():
+    doc = _load_workflow()
+    steps = doc["jobs"]["generate-brief"]["steps"]
+    generate = next(i for i, s in enumerate(steps) if s.get("name") == "STEP 4 — Generate Weekly Threat Brief")
+    verify = next(i for i, s in enumerate(steps) if s.get("name") == "STEP 9 — Verify live Weekly Brief API")
+    notify = next(i for i, s in enumerate(steps) if s.get("name") == "STEP 9b — Notify subscribers after verified publication")
+    assert generate < verify < notify
+    assert "--send-telegram" not in steps[generate]["run"]
+    assert steps[notify]["run"] == "python3 scripts/weekly_threat_brief.py --notify-verified"
+    assert "schedule" in str(steps[notify].get("if"))
