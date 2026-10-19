@@ -9,7 +9,6 @@
  *
  * Results are aggregate only. NEVER customer approval or delivery proof.
  */
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveCertification, CERTIFICATION_POLICY_VERSION } from
