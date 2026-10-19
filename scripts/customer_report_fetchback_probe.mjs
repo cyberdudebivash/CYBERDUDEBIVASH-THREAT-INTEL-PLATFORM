@@ -21,7 +21,11 @@ const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 function canonicalCatalogTime(value) {
   if (typeof value !== 'string' || !UTC_TIMESTAMP.test(value)) return null;
   const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (!Number.isFinite(parsed)) return null;
+  // Date.parse may silently normalize impossible calendar dates.
+  // Reject these instead of treating corrected dates as trusted provenance.
+  if (new Date(parsed).toISOString().slice(0, 19) !== value.slice(0, 19)) return null;
+  return parsed;
 }
 const REPORT_PATH = /^\/reports\/20\d{2}\/(?:0[1-9]|1[0-2])\/(intel--[a-f0-9]{8,64})\.html$/;
 
