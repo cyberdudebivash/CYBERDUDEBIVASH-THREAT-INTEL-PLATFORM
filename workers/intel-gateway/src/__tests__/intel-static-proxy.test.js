@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { handleIntelStaticProxy, INTEL_STATIC_PROXY, publicTlpJsonVerified } from "../intel-static-proxy.js";
+import { handleIntelStaticProxy, INTEL_STATIC_PROXY, publicTlpJsonVerified, weeklyBriefIsCurrent } from "../intel-static-proxy.js";
 
 // ---------------------------------------------------------------------------
 // Stage 4 -- CYBERDUDEBIVASH SENTINEL APEX
@@ -309,4 +309,66 @@ test("P0 2026-10-14: max depth and body cap remain fail-closed", async () => {
   const res = await handleIntelStaticProxy(
     { INTEL_R2: fakeR2({ "intelligence/ai_index.json": oversized }) }, AI_INDEX_PATH, "GET");
   assert.equal(res.status, 503);
+});
+
+
+// P0 19-Oct-2026 — contract for a completed ISO weekly edition.
+// A current main feed cannot confer freshness on a stale weekly artifact.
+const WEEKLY_BRIEF_PATH = "/api/v1/intel/weekly_brief.json";
+function week42PublicBrief() {
+  return {
+    _schema: "sentinel-apex-weekly-brief-v1",
+    week: "Week 42 2026",
+    period: "12 Oct 2026 — 18 Oct 2026",
+    generated_at: "2026-10-19T02:30:00Z",
+    stats: { total_advisories: 1, critical_count: 0, kev_additions: 0 },
+    top_threats: [{
+      rank: 1, title: "Verified public weekly item", cve_id: "CVE-2026-1001",
+      report_url: "https://intel.cyberdudebivash.com/reports/2026/10/verified.html",
+      tlp: "TLP:CLEAR", severity: "MEDIUM", risk_score: 4.0,
+    }],
+    kev_additions: [],
+  };
+}
+test("weekly route is registered with its canonical, unique R2 key", () => {
+  assert.equal(INTEL_STATIC_PROXY[WEEKLY_BRIEF_PATH].r2Key, "api/v1/intel/weekly_brief.json");
+});
+test("weekly freshness requires the previous completed ISO week and matching period", () => {
+  const monday = Date.parse("2026-10-19T04:00:00Z");
+  const doc = week42PublicBrief();
+  assert.equal(weeklyBriefIsCurrent(doc, monday), true);
+  assert.equal(weeklyBriefIsCurrent({...doc, week:"Week 43 2026"}, monday), false);
+  assert.equal(weeklyBriefIsCurrent({...doc, period:"19 Oct 2026 — 25 Oct 2026"}, monday), false);
+  assert.equal(weeklyBriefIsCurrent({...doc, generated_at:"2026-08-24T03:31:03Z"}, monday), false);
+  assert.equal(weeklyBriefIsCurrent({...doc, top_threats:[]}, monday), false);
+  assert.equal(weeklyBriefIsCurrent(doc, Date.parse("2026-10-26T00:01:00Z")), false);
+});
+test("weekly API returns verified public edition and never a historical fallback", async () => {
+  const originalNow = Date.now;
+  Date.now = () => Date.parse("2026-10-19T04:00:00Z");
+  try {
+    const r2 = fakeR2({"api/v1/intel/weekly_brief.json":week42PublicBrief()});
+    const good = await handleIntelStaticProxy({INTEL_R2:r2}, WEEKLY_BRIEF_PATH, "GET");
+    assert.equal(good.status, 200);
+    assert.equal((await good.json()).week, "Week 42 2026");
+    assert.deepEqual(r2.calls, ["api/v1/intel/weekly_brief.json"]);
+    const missing = await handleIntelStaticProxy({INTEL_R2:fakeR2()}, WEEKLY_BRIEF_PATH, "GET");
+    assert.equal(missing.status, 503);
+    assert.equal(missing.headers.get("cache-control"), "no-store");
+    const stale = week42PublicBrief();
+    stale.generated_at = "2026-08-24T03:31:03Z";
+    const bad = await handleIntelStaticProxy({
+      INTEL_R2:fakeR2({"api/v1/intel/weekly_brief.json":stale})
+    }, WEEKLY_BRIEF_PATH, "GET");
+    assert.equal(bad.status, 503);
+    const restricted = week42PublicBrief();
+    restricted.top_threats[0].tlp = "TLP:AMBER";
+    const denied = await handleIntelStaticProxy({
+      INTEL_R2:fakeR2({"api/v1/intel/weekly_brief.json":restricted})
+    }, WEEKLY_BRIEF_PATH, "GET");
+    assert.equal(denied.status, 503);
+    assert.equal(denied.headers.get("cache-control"), "no-store");
+  } finally {
+    Date.now = originalNow;
+  }
 });
