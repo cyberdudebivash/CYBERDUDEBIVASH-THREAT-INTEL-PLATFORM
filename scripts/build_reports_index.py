@@ -216,17 +216,6 @@ def _item_cves(feed_item: Dict[str, Any]) -> List[str]:
     return out
 
 
-def _fmt_ts(path: Path) -> str:
-    """Get file modification time as ISO 8601 string."""
-    try:
-        mtime = path.stat().st_mtime
-        return datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(
-            timespec="seconds"
-        ).replace("+00:00", "Z")
-    except Exception:
-        return ""
-
-
 # ---------------------------------------------------------------------------
 # Artifact-embedded metadata fallback
 #
