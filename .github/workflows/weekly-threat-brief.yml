@@ -136,6 +136,14 @@ jobs:
           python3 scripts/weekly_threat_brief.py 2>&1
           echo "[BRIEF] Generation complete"
 
+      # P0: a source-advisory URL is not publication approval. The /reports/**
+      # Worker applies independent quality/certification gates, and a link to
+      # a rejected report currently returns 404. Remove only unapproved links
+      # from the locally-generated JSON/snapshot, preserving measured records.
+      # Public same-origin status reads are capped at 15; no R2 mutations.
+      - name: "STEP 4b — Reconcile report links with customer publication authority"
+        run: python3 scripts/reconcile_weekly_report_links.py
+
       # ------------------------------------------------------------------
       - name: "STEP 5 — Verify brief outputs"
         run: |
