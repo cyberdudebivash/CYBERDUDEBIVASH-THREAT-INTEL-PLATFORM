@@ -15,7 +15,17 @@ except ModuleNotFoundError:
 
 def publish(manifest: Path, root: Path) -> dict:
     raw = json.loads(manifest.read_text(encoding='utf-8'))
-    records = raw if isinstance(raw, list) else raw.get('entries') if isinstance(raw, dict) else None
+    # The canonical R2 feed (intel/feed_manifest.json) is produced as either
+    # a bare record list or the 'advisories'/'items' envelope consumed by the
+    # weekly source loader. Older fixtures use 'entries'; retain that path.
+    # Use first-present semantics: an explicitly empty authoritative list
+    # cannot silently fall back to another, potentially stale envelope.
+    if isinstance(raw, list):
+        records = raw
+    elif isinstance(raw, dict):
+        records = next((raw[key] for key in ('advisories', 'items', 'entries') if key in raw), None)
+    else:
+        records = None
     if not isinstance(records, list) or not records or any(not isinstance(row, dict) for row in records):
         raise ValueError('Expected a nonempty manifest record list; publication blocked')
     outputs = {
