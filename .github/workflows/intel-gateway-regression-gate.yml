@@ -147,6 +147,11 @@ jobs:
       - name: "Homepage AI assessment presentation regressions"
         run: node --test tests/ai-assessment-presentation.test.cjs tests/latest-advisory-ticker.test.cjs tests/live-feed-ioc-counter.test.cjs tests/recon-evidence-presentation.test.cjs tests/tipsoar-rendering-security.test.cjs tests/ai-analysis-rendering-security.test.cjs tests/sovereign-feed-evidence.test.cjs tests/cortex-relationship-evidence.test.cjs tests/quantum-source-evidence.test.cjs
 
+      # P0: a missing/empty publication feed must never produce a green audit.
+      # Pure offline tests: no calls to production APIs, Worker or R2.
+      - name: "P0 publication audit fail-closed regression controls"
+        run: node --test tests/publication_gate_audit_policy.test.mjs
+
       # `node --test <glob>` requires Node >= 21; pinned to 22 above, matching
       # deploy-worker.yml so a test passing here cannot fail there on runtime.
       - name: "Full gateway unit suite"
