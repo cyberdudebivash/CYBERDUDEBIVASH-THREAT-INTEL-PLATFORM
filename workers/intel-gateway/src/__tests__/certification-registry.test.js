@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { evaluatePublicationGate } from "../publication-gate.js";
 import {
   classifyCertification, resolveCertification, loadCertificationIndex,
-  persistCertificationRecords, CERTIFICATION_INDEX_KEY,
+  persistCertificationRecords, CERTIFICATION_INDEX_KEY, CERTIFICATION_POLICY_VERSION,
 } from "../certification-registry.js";
 
 // ---------------------------------------------------------------------------
@@ -113,6 +113,7 @@ test("resolveCertification: existing record with a matching content_hash is reus
     certification_status: "CERTIFIED", publication_status: "CUSTOMER_READY",
     evaluated_at: "2020-01-01T00:00:00Z",
     content_hash: evaluatePublicationGate(CUSTOMER_READY_ITEM).content_hash,
+    policy_version: CERTIFICATION_POLICY_VERSION, blocking_gates: [],
   };
   // Even with a resolvable item present, a matching-content existing record
   // wins -- proves "once certified, never re-evaluated for unchanged content"
@@ -123,10 +124,35 @@ test("resolveCertification: existing record with a matching content_hash is reus
   assert.equal(isNew, false);
 });
 
-test("resolveCertification: existing record with no content_hash (pre-fingerprint format) is reused for backward compatibility", () => {
-  const existing = { certification_status: "CERTIFIED", publication_status: "CUSTOMER_READY", evaluated_at: "2020-01-01T00:00:00Z" };
-  const { record, isNew } = resolveCertification(existing, CUSTOMER_READY_ITEM);
-  assert.equal(record, existing);
+test("P0: old approval with no content_hash is not blindly reused even if feed item resolves", () => {
+  const legacy = { certification_status: "CERTIFIED", publication_status: "CUSTOMER_READY", evaluated_at: "2020-01-01T00:00:00Z" };
+  const { record, isNew } = resolveCertification(legacy, REJECTED_ITEM);
+  assert.equal(isNew, true);
+  assert.notEqual(record.publication_status, "CUSTOMER_READY");
+  assert.notEqual(record, legacy);
+});
+
+test("P0: old approval without content_hash cannot authorize an unresolvable historical item", () => {
+  const legacy = { certification_status: "CERTIFIED", publication_status: "CUSTOMER_READY" };
+  const { record, isNew } = resolveCertification(legacy, undefined);
+  assert.equal(record.publication_status, "WITHHELD");
+  assert.equal(record.certification_status, "NOT_EVALUATED");
+  assert.equal(isNew, false);
+});
+
+test("P0: obsolete policy version triggers fresh evaluation if current item is resolvable", () => {
+  const approved = resolveCertification(undefined, CUSTOMER_READY_ITEM).record;
+  const obsolete = { ...approved, policy_version: "0.9.0" };
+  const { record, isNew } = resolveCertification(obsolete, REJECTED_ITEM);
+  assert.equal(isNew, true);
+  assert.notEqual(record.publication_status, "CUSTOMER_READY");
+});
+
+test("P0: a contradictory persisted approval is never trusted", () => {
+  const approved = resolveCertification(undefined, CUSTOMER_READY_ITEM).record;
+  const contradicting = { ...approved, blocking_gates: ["P26_REJECTED"] };
+  const { record, isNew } = resolveCertification(contradicting, undefined);
+  assert.equal(record.publication_status, "WITHHELD");
   assert.equal(isNew, false);
 });
 
@@ -148,14 +174,11 @@ test("resolveCertification: existing record with a STALE content_hash triggers f
   assert.equal(record.content_hash, evaluatePublicationGate(CUSTOMER_READY_ITEM).content_hash);
 });
 
-test("resolveCertification: existing record is always reused when the item can no longer be resolved, regardless of content_hash presence", () => {
-  // Historical-provenance case (Section 5): once the item scrolls out of the
-  // feed, there is no current content to fingerprint against, so the
-  // persisted verdict IS the answer -- this must never flip to NOT_EVALUATED
-  // just because content_hash tracking exists.
-  const existing = { certification_status: "CERTIFIED", publication_status: "CUSTOMER_READY", content_hash: "fp_anything" };
+test("resolveCertification: complete current-policy historical proof is preserved after feed rollover", () => {
+  const existing = resolveCertification(undefined, CUSTOMER_READY_ITEM).record;
   const { record, isNew } = resolveCertification(existing, undefined);
   assert.equal(record, existing);
+  assert.equal(record.publication_status, "CUSTOMER_READY");
   assert.equal(isNew, false);
 });
 
