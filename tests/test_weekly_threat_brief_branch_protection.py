@@ -113,3 +113,15 @@ def test_main_branch_weekly_html_must_be_live_r2_client_and_fail_closed():
     assert "brief.week !== window.label" in html
     assert "root.hidden = true" in html
     assert "Week 35 2026" not in html
+
+
+def test_subscriber_notifications_wait_for_successful_customer_delivery():
+    doc = _load_workflow()
+    steps = doc["jobs"]["generate-brief"]["steps"]
+    generate = next(i for i, s in enumerate(steps) if s.get("name") == "STEP 4 — Generate Weekly Threat Brief")
+    verify = next(i for i, s in enumerate(steps) if s.get("name") == "STEP 9 — Verify live Weekly Brief API")
+    notify = next(i for i, s in enumerate(steps) if s.get("name") == "STEP 9b — Notify subscribers after verified publication")
+    assert generate < verify < notify
+    assert "--send-telegram" not in steps[generate]["run"]
+    assert steps[notify]["run"] == "python3 scripts/weekly_threat_brief.py --notify-verified"
+    assert "schedule" in str(steps[notify].get("if"))
