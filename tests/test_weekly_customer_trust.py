@@ -155,3 +155,12 @@ def test_public_weekly_derivative_has_explicit_clear_provenance_for_worker_gate(
     assert result["kev_additions"]
     assert all(x.get("tlp") == "TLP:CLEAR" for x in result["top_threats"])
     assert all(x.get("tlp") == "TLP:CLEAR" for x in result["kev_additions"])
+
+
+def test_customer_html_never_reintroduces_hardcoded_prices_or_registration_numbers():
+    output = brief._build_brief([_entry()])
+    rendered = brief._render_html(output)
+    canonical = output["upgrade_cta"]["plans"][0]
+    assert canonical in rendered
+    assert "GSTIN:" not in rendered
+    assert "PAN:" not in rendered
