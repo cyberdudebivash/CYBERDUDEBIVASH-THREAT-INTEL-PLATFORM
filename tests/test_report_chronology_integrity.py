@@ -25,6 +25,30 @@ class ChronologyTests(unittest.TestCase):
         self.assertEqual(r["historical"], [old["url"]])
         self.assertFalse(r["delivery_certified"])
 
+    def test_latest_newest_first_and_historical_disjoint(self):
+        rows = [report(f"{i:016x}", f"2026-10-19T{(i+1):02d}:00:00Z")
+                for i in range(6)]
+        result = audit_catalog(catalog(list(reversed(rows))),
+                               latest_limit=4, history_limit=5,
+                               at=datetime(2026, 10, 19, 10, tzinfo=timezone.utc))
+        self.assertEqual(result["verdict"], "CHRONOLOGY_PRECHECK_ONLY")
+        self.assertEqual(result["latest"], [r["url"] for r in reversed(rows[-4:])])
+        self.assertEqual(result["historical"], [r["url"] for r in rows[:2]])
+        self.assertFalse(set(result["latest"]) & set(result["historical"]))
+
+    def test_future_report_fails_closed(self):
+        future = report("aaaaaaaaaaaaaaaa", "2026-10-20T08:00:00Z")
+        result = audit_catalog(catalog([future]),
+                               at=datetime(2026, 10, 19, 10, tzinfo=timezone.utc))
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertEqual(result["latest"], [])
+        self.assertTrue(any("future" in x for x in result["defects"]))
+
+    def test_naive_audit_clock_fails_even_without_freshness(self):
+        with self.assertRaises(ValueError):
+            audit_catalog(catalog([report("aaaaaaaaaaaaaaaa", "2026-10-19T08:00:00Z")]),
+                          at=datetime(2026, 10, 19, 10))
+
     def test_timestamp_tie_breaks_by_canonical_path(self):
         a = report("aaaaaaaaaaaaaaaa", "2026-10-19T08:00:00Z")
         b = report("bbbbbbbbbbbbbbbb", "2026-10-19T08:00:00+00:00")
