@@ -369,7 +369,7 @@ class TestCorsZeroTrustWildcardIsCentralized(unittest.TestCase):
                 if _is_line_comment(line):
                     continue
                 if _BUILD_PREFLIGHT_CALL_RE.search(line):
-                    hits.append(f"{path.relative_to(REPO_ROOT)}:{lineno}")
+                    hits.append(f"{path.relative_to(REPO_ROOT).as_posix()}:{lineno}")
         self.assertEqual(
             len(hits), 1,
             "expected exactly one call to buildPreflightResponse() in the whole "
