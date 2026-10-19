@@ -218,6 +218,10 @@ def _build_brief(items: List[Dict]) -> Dict:
         "top_threats": [
             {
                 "rank": i + 1,
+                # This is the authorised PUBLIC DERIVATIVE, not a mutation
+                # of the source item's original Traffic Light label.  Only
+                # tlp_policy.partition_publishable() inputs reach this view.
+                "tlp": "TLP:CLEAR",
                 "title": it.get("title", "Unknown"),
                 "severity": it.get("severity", "UNKNOWN"),
                 "risk_score": float(it.get("risk_score") or 0),
@@ -232,6 +236,7 @@ def _build_brief(items: List[Dict]) -> Dict:
         ],
         "kev_additions": [
             {
+                "tlp": "TLP:CLEAR",
                 "cve_id": it.get("cve_id") or it.get("title", ""),
                 "title": it.get("title", ""),
                 "risk_score": float(it.get("risk_score") or 0),
