@@ -16,7 +16,7 @@ const MAX_REPORTS = 3;
 const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 // The v2 report catalog emitter uses canonical UTC, never inferred local time.
-const UTC_TIMESTAMP = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$/;
+const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 
 function canonicalCatalogTime(value) {
   if (typeof value !== 'string' || !UTC_TIMESTAMP.test(value)) return null;
