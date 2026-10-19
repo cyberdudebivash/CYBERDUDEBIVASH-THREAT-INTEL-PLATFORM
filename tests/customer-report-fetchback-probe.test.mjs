@@ -162,3 +162,11 @@ test('canonical fresh v2 catalog remains a bounded fetch-back candidate',()=>{
   assert.equal(result.verdict,'PUBLIC_REPORT_FETCHBACK_REQUIRED');
   assert.equal(result.customer_release_certified,false);
 });
+
+test('impossible UTC calendar dates cannot be normalized into valid approval evidence',()=>{
+  const c=catalog();
+  c.generated_at='2026-02-30T12:00:00Z';
+  const r=evaluatePublicReportCatalog(c);
+  assert.equal(r.verdict,'BLOCKED');
+  assert.ok(r.issues.includes('INVALID_CATALOG_GENERATED_AT'));
+});
