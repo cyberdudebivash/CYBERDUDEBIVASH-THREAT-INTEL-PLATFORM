@@ -147,6 +147,11 @@ jobs:
       - name: "P0 public customer-ready report fetch-back negative controls (offline)"
         run: node --test tests/customer-report-fetchback-probe.test.mjs
 
+      # Exactly the same resolveCertification() used by the deployed Worker.
+      # Six fixture snapshots only; no network calls or Cloudflare writes.
+      - name: "P0 persisted certification replay negative controls (offline)"
+        run: node --test tests/certification-registry-replay.test.mjs
+
       - name: "Homepage AI assessment presentation regressions"
         run: node --test tests/ai-assessment-presentation.test.cjs tests/latest-advisory-ticker.test.cjs tests/live-feed-ioc-counter.test.cjs tests/recon-evidence-presentation.test.cjs tests/tipsoar-rendering-security.test.cjs tests/ai-analysis-rendering-security.test.cjs tests/sovereign-feed-evidence.test.cjs tests/cortex-relationship-evidence.test.cjs tests/quantum-source-evidence.test.cjs
 
