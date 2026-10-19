@@ -13,7 +13,8 @@ from pathlib import Path
 
 REPO_ROOT   = Path(__file__).resolve().parent.parent
 BRIEF_PATH  = REPO_ROOT / "api" / "v1" / "intel" / "weekly_brief.json"
-HTML_PATH   = REPO_ROOT / "weekly-brief.html"
+HTML_PATH   = REPO_ROOT / ".weekly-build" / "weekly-brief.snapshot.html"
+CUSTOMER_HTML_PATH = REPO_ROOT / "weekly-brief.html"
 
 errors = []
 
@@ -75,6 +76,13 @@ if not week or week == "UNKNOWN":
     errors.append("week field missing")
 if not top_threats:
     errors.append("top_threats list is empty")
+
+# The verified public shell must remain the R2-backed customer UI, not the
+# legacy static report written by the weekly generator.
+if not CUSTOMER_HTML_PATH.is_file():
+    errors.append("Public customer weekly-brief.html missing")
+elif 'data-weekly-brief-live="r2"' not in CUSTOMER_HTML_PATH.read_text(encoding="utf-8"):
+    errors.append("Public customer page is not the approved live R2-backed shell")
 
 # --- Verify HTML ---
 if not HTML_PATH.exists():
