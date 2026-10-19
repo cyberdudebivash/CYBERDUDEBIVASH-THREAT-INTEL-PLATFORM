@@ -26,7 +26,8 @@ def isolated(monkeypatch, tmp_path):
     def build(items):
         feed.write_text(json.dumps(items), encoding="utf-8")
         for item in items:
-            p = reports / "2026" / "10" / (item["id"] + ".html")
+            current = datetime.now(timezone.utc)
+            p = reports / current.strftime("%Y") / current.strftime("%m") / (item["id"] + ".html")
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text("<html>" + "x" * 600 + "</html>", encoding="utf-8")
         assert bri.main() == 0
