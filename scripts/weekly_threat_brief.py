@@ -404,11 +404,11 @@ footer{{text-align:center;padding:32px 0;color:#334155;font-size:12px;border-top
 </html>"""
 
 
-def _send_telegram(brief: Dict) -> None:
+def _send_telegram(brief: Dict) -> bool:
     """Send weekly brief summary to Telegram channel."""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
         log.warning("Telegram not configured — skipping notification")
-        return
+        return False
     stats = brief.get("stats", {})
     top3  = brief.get("top_threats", [])[:3]
     top3_text = "\n".join(
@@ -436,7 +436,7 @@ def _send_telegram(brief: Dict) -> None:
     # into a URL authority or log it on failed requests.
     if not re.fullmatch(r"[0-9]{5,20}:[A-Za-z0-9_-]{25,}", TELEGRAM_TOKEN):
         log.warning("[TELEGRAM] Invalid token format; delivery withheld")
-        return
+        return False
     token = urllib.parse.quote(TELEGRAM_TOKEN, safe=":")
     payload = json.dumps({"chat_id": TELEGRAM_CHAT, "text": msg, "parse_mode": "HTML"}).encode()
     conn = http.client.HTTPSConnection("api.telegram.org", timeout=15)
@@ -449,10 +449,12 @@ def _send_telegram(brief: Dict) -> None:
         resp.read(4096)
         if resp.status != 200:
             log.warning("[TELEGRAM] API returned HTTP %d", resp.status)
-            return
+            return False
         log.info("[TELEGRAM] Sent successfully: %d", resp.status)
+        return True
     except Exception as e:
         log.warning("[TELEGRAM] Failed (%s)", type(e).__name__)
+        return False
     finally:
         conn.close()
 
@@ -478,8 +480,7 @@ def main():
         if not isinstance(published, dict) or not published.get("top_threats") or not published.get("generated_at"):
             log.error("Verified-brief notification blocked: missing report evidence")
             return 1
-        _send_telegram(published)
-        return 0
+        return 0 if _send_telegram(published) else 1
 
     log.info("=" * 60)
     log.info("WEEKLY THREAT BRIEF GENERATOR v1.0.0")
