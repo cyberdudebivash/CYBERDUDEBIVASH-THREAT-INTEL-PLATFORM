@@ -166,7 +166,7 @@ function weeklyBriefIsCurrent(doc, currentMs = Date.now()) {
     BRIEF_MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear();
   const generatedAt = Date.parse(doc.generated_at);
   return doc.week === "Week " + isoWeek + " " + isoYear &&
-    doc.period === format(weekStart) + " — " + format(weekEnd) &&
+    doc.period === format(weekStart) + " \u2014 " + format(weekEnd) &&
     Number.isFinite(generatedAt) &&
     generatedAt <= currentMs + 300000 && currentMs - generatedAt <= 8 * 86400000;
 }
