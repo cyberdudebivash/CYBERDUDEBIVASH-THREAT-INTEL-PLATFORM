@@ -138,6 +138,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/api/v1/intel/apex.json",
   "/api/v1/intel/ai_summary.json",
   "/api/v1/intel/top10.json",
+  "/api/v1/intel/weekly_brief.json", // read-only TLP-verified R2 public weekly view
   "/api/v1/intel/stats",
   "/api/v1/intel/campaigns",
   "/api/v1/intel/ransomware",
