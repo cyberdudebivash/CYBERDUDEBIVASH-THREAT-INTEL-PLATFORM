@@ -12,6 +12,21 @@ export const ORIGIN = 'https://intel.cyberdudebivash.com';
 export const CATALOG_PATH = '/api/reports/index.json';
 const MAX_BYTES = 1_048_576;
 const MAX_REPORTS = 3;
+
+const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
+// The v2 report catalog emitter uses canonical UTC, never inferred local time.
+const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+
+function canonicalCatalogTime(value) {
+  if (typeof value !== 'string' || !UTC_TIMESTAMP.test(value)) return null;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return null;
+  // Date.parse may silently normalize impossible calendar dates.
+  // Reject these instead of treating corrected dates as trusted provenance.
+  if (new Date(parsed).toISOString().slice(0, 19) !== value.slice(0, 19)) return null;
+  return parsed;
+}
 const REPORT_PATH = /^\/reports\/20\d{2}\/(?:0[1-9]|1[0-2])\/(intel--[a-f0-9]{8,64})\.html$/;
 
 export function approvedReportPath(entry) {
@@ -36,13 +51,31 @@ export function approvedReportPath(entry) {
   return path;
 }
 
-export function evaluatePublicReportCatalog(catalog, { sampleSize = MAX_REPORTS } = {}) {
+export function evaluatePublicReportCatalog(catalog, {
+  sampleSize = MAX_REPORTS, nowMs = Date.now(),
+} = {}) {
   const issues = [];
   if (!Number.isSafeInteger(sampleSize) || sampleSize < 1 || sampleSize > MAX_REPORTS)
     throw new RangeError('INVALID_SAMPLE_BUDGET');
   const isObject = catalog && typeof catalog === 'object' && !Array.isArray(catalog);
   if (!isObject || catalog.schema_version !== '2.0.0' ||
       catalog.feed_type !== 'customer_ready_catalog') issues.push('INVALID_CATALOG_SCHEMA');
+  // A response can be internally consistent yet be an obsolete snapshot.
+  // Fresh, provenance-compatible generation and validation are mandatory.
+  if (!Number.isFinite(nowMs)) throw new RangeError('INVALID_AUDIT_CLOCK');
+  const generated = canonicalCatalogTime(catalog?.generated_at);
+  const validated = canonicalCatalogTime(catalog?.validated_at);
+  if (generated === null) issues.push('INVALID_CATALOG_GENERATED_AT');
+  if (validated === null) issues.push('INVALID_CATALOG_VALIDATED_AT');
+  for (const [key, time] of [['GENERATED', generated], ['VALIDATED', validated]]) {
+    if (time === null) continue;
+    if (time > nowMs + MAX_FUTURE_SKEW_MS)
+      issues.push('CATALOG_' + key + '_IN_FUTURE');
+    if (nowMs - time > CATALOG_MAX_AGE_MS)
+      issues.push('CATALOG_' + key + '_STALE');
+  }
+  if (generated !== null && validated !== null && validated < generated)
+    issues.push('CATALOG_VALIDATION_PRECEDES_GENERATION');
   const positiveCounts = ['total_candidates', 'customer_ready_count', 'withheld_count',
     'total_reports', 'reports_listed'];
   for (const key of positiveCounts) {
