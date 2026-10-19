@@ -43,6 +43,9 @@ def audit_catalog(
 ) -> dict[str, Any]:
     if latest_limit < 1 or history_limit < 1:
         raise ValueError("Probe limits must be positive")
+    clock = at if at is not None else datetime.now(timezone.utc)
+    if clock.tzinfo is None or clock.utcoffset() is None:
+        raise ValueError("Audit clock must be timezone-aware")
     defects: list[str] = []
     def fail(message: str) -> None:
         if len(defects) < MAX_ERRORS:
@@ -57,9 +60,6 @@ def audit_catalog(
     if maximum_age_hours is not None:
         if maximum_age_hours < 1:
             raise ValueError("maximum_age_hours must be positive")
-        clock = at or datetime.now(timezone.utc)
-        if clock.tzinfo is None:
-            raise ValueError("Audit clock must be timezone-aware")
         created = _utc(source.get("generated_at"))
         if created is None:
             fail("Catalogue generated_at lacks a canonical UTC timestamp")
@@ -96,6 +96,8 @@ def audit_catalog(
             m.group("year"), m.group("month")
         ):
             fail(f"{prefix}: path month and canonical UTC publication timestamp differ")
+        if published > clock + timedelta(minutes=5):
+            fail(f"{prefix}: report publication timestamp is in the future")
         checked.append((published, path))
     # Reject a partial selection. Otherwise a malicious or broken record could
     # disappear from the sample simply by omitting its timestamp.
@@ -105,8 +107,9 @@ def audit_catalog(
                 "latest": [], "historical": [], "delivery_certified": False}
     # An alphabetical hash is only a deterministic tie-breaker after verified UTC.
     ordered = sorted(checked, key=lambda row: (row[0], row[1]))
-    latest = [BASE + path for _, path in ordered[-latest_limit:]]
-    historical = [BASE + path for _, path in ordered[:history_limit]] if len(ordered) > latest_limit else []
+    # Present latest newest-first. History excludes EVERY latest entry.
+    latest = [BASE + path for _, path in reversed(ordered[-latest_limit:])]
+    historical = [BASE + path for _, path in ordered[:-latest_limit][:history_limit]]
     return {"verdict": "CHRONOLOGY_PRECHECK_ONLY", "total": len(records),
             "valid_timestamped": len(checked), "defects": [],
             "latest": latest, "historical": historical,
