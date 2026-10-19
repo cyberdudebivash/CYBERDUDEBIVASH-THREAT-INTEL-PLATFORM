@@ -466,6 +466,21 @@ def _atomic_write(path: Path, data) -> None:
 
 
 def main():
+    if "--notify-verified" in sys.argv:
+        # Invoked ONLY after the workflow's live API + customer-page gate.
+        # Keep report generation and customer notification in separate steps
+        # so a failed R2/Pages deploy cannot announce a historical edition.
+        try:
+            published = json.loads(BRIEF_JSON_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError) as exc:
+            log.error("Verified-brief notification blocked: invalid JSON (%s)", type(exc).__name__)
+            return 1
+        if not isinstance(published, dict) or not published.get("top_threats") or not published.get("generated_at"):
+            log.error("Verified-brief notification blocked: missing report evidence")
+            return 1
+        _send_telegram(published)
+        return 0
+
     log.info("=" * 60)
     log.info("WEEKLY THREAT BRIEF GENERATOR v1.0.0")
     log.info("=" * 60)
