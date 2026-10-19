@@ -106,6 +106,10 @@ function publicTlpJsonVerified(doc) {
 // values below are retained only as inert metadata for backwards-compatible
 // route registration. The public handler NEVER performs a GitHub fetch.
 const INTEL_STATIC_PROXY = {
+  "/api/v1/intel/weekly_brief.json": {
+    r2Key: "api/v1/intel/weekly_brief.json",
+    ghPath: "api/v1/intel/weekly_brief.json", // inert; R2 is the sole source
+  },
   "/api/v1/intel/ai_index.json": {
     r2Key:  "intelligence/ai_index.json",
     ghPath: "data/ai_intelligence/ai_index.json",
@@ -140,6 +144,32 @@ const INTEL_STATIC_PROXY = {
     ghBranch: "main",
   },
 };
+
+const WEEK_MS = 7 * 86400000;
+const BRIEF_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function weeklyBriefIsCurrent(doc, currentMs = Date.now()) {
+  if (!doc || doc._schema !== "sentinel-apex-weekly-brief-v1" ||
+      !doc.stats || !Number.isInteger(doc.stats.total_advisories) ||
+      doc.stats.total_advisories < 1 || !Array.isArray(doc.top_threats) ||
+      doc.top_threats.length < 1 || !Number.isFinite(currentMs)) return false;
+  const date = new Date(currentMs);
+  const thisMonday = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
+    date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  const weekStart = new Date(thisMonday - WEEK_MS);
+  const weekEnd = new Date(thisMonday - 86400000);
+  const thursday = new Date(weekStart.getTime() + 3 * 86400000);
+  const isoYear = thursday.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
+  const firstMonday = Date.UTC(isoYear, 0, 4 - ((jan4.getUTCDay() + 6) % 7));
+  const isoWeek = Math.floor((weekStart.getTime() - firstMonday) / WEEK_MS) + 1;
+  const format = d => String(d.getUTCDate()).padStart(2, "0") + " " +
+    BRIEF_MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear();
+  const generatedAt = Date.parse(doc.generated_at);
+  return doc.week === "Week " + isoWeek + " " + isoYear &&
+    doc.period === format(weekStart) + " — " + format(weekEnd) &&
+    Number.isFinite(generatedAt) &&
+    generatedAt <= currentMs + 300000 && currentMs - generatedAt <= 8 * 86400000;
+}
 
 /**
  * @param {Object} env - Worker env bindings (INTEL_R2 expected)
@@ -182,6 +212,11 @@ async function handleIntelStaticProxy(env, path, method) {
     if (new TextEncoder().encode(raw).byteLength > MAX_PUBLIC_BODY_BYTES) throw new Error("oversize");
     const doc = JSON.parse(raw);
     if (!publicTlpJsonVerified(doc)) throw new Error("unverified_public_classification");
+    // Week rollover or a missing weekly publisher must never yield 200
+    // containing an old edition (no inherited freshness from the live feed).
+    if (path === "/api/v1/intel/weekly_brief.json" && !weeklyBriefIsCurrent(doc)) {
+      throw new Error("weekly_brief_stale_or_invalid");
+    }
     return jsonResp(doc, 200, { "Cache-Control": "public, max-age=120" });
   } catch {
     // Restricted/invalid data never appears in diagnostics or access logs.
@@ -191,4 +226,4 @@ async function handleIntelStaticProxy(env, path, method) {
 }
 
 export { handleIntelStaticProxy, INTEL_STATIC_PROXY, publicTlpJsonVerified,
-  MAX_PUBLIC_BODY_BYTES, MAX_PUBLIC_NODES, MAX_PUBLIC_DEPTH };
+  MAX_PUBLIC_BODY_BYTES, MAX_PUBLIC_NODES, MAX_PUBLIC_DEPTH, weeklyBriefIsCurrent };
