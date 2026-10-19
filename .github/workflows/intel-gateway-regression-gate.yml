@@ -262,6 +262,11 @@ jobs:
       - name: "Install pytest + PyYAML"
         run: pip install pytest pyyaml --quiet
 
+      # P0 report-catalog / feed-window resolution is an offline precheck.
+      # Mandatory explicit test step: Python CI uses a scoped test allowlist.
+      - name: "P0 certification source coverage offline negative controls"
+        run: python3 -m pytest -q tests/test_certification_source_coverage.py
+
       # Scoped to the suites that are self-contained -- no network, no cloud
       # SDK, no credentials. Deliberately NOT `pytest tests/`: 115 modules live
       # there and several require boto3 or network access, so a whole-directory
