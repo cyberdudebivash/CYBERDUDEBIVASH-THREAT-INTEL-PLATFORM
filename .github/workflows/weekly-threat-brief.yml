@@ -132,7 +132,7 @@ jobs:
         run: |
           # Never allow a failed/no-op generator to validate or upload old
           # artifacts committed to main in August.
-          rm -f weekly-brief.html api/v1/intel/weekly_brief.json
+          rm -f .weekly-build/weekly-brief.snapshot.html api/v1/intel/weekly_brief.json
           python3 scripts/weekly_threat_brief.py 2>&1
           echo "[BRIEF] Generation complete"
 
@@ -147,11 +147,11 @@ jobs:
             exit 1
           fi
           echo "=== Brief HTML ==="
-          if [ -f "weekly-brief.html" ]; then
-            SIZE=$(wc -c < weekly-brief.html)
-            echo "[PASS] weekly-brief.html: ${SIZE} bytes"
+          if [ -f ".weekly-build/weekly-brief.snapshot.html" ]; then
+            SIZE=$(wc -c < .weekly-build/weekly-brief.snapshot.html)
+            echo "[PASS] generated weekly snapshot: ${SIZE} bytes"
           else
-            echo "::error::weekly-brief.html not generated"
+            echo "::error::weekly HTML snapshot not generated"
             exit 1
           fi
 
@@ -160,7 +160,11 @@ jobs:
         run: |
           # Generated runtime state is published to R2/Pages, never protected main.
           test -s api/v1/intel/weekly_brief.json
+          test -s .weekly-build/weekly-brief.snapshot.html
           test -s weekly-brief.html
+          # Live frontend must remain the R2-backed application after
+          # generating a one-time HTML snapshot.
+          grep -Fq 'data-weekly-brief-live="r2"' weekly-brief.html
           SHA_JSON=$(sha256sum api/v1/intel/weekly_brief.json | awk '{print $1}')
           SHA_HTML=$(sha256sum weekly-brief.html | awk '{print $1}')
           echo "[PASS] Generated brief ready for R2 + Pages publication"
@@ -188,6 +192,9 @@ jobs:
           set -euo pipefail
           rm -rf .publish
           mkdir -p .publish/api/v1/intel
+          # Deploy only the checked-in, API-backed customer shell.
+          # Never deploy .weekly-build/weekly-brief.snapshot.html as current.
+          grep -Fq 'data-weekly-brief-live="r2"' weekly-brief.html
           cp weekly-brief.html .publish/weekly-brief.html
           cp api/v1/intel/weekly_brief.json .publish/api/v1/intel/weekly_brief.json
           python3 scripts/tlp_public_boundary.py --tree .publish --out /tmp/tlp_tree_report.json
