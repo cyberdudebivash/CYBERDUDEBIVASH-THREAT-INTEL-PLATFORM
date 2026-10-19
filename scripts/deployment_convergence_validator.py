@@ -414,6 +414,30 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
       latest     -  most-recent MAX_REPORT_PROBES reports (newest filenames = last alpha)
       historical  -  oldest HIST_PROBE_COUNT reports (guard against accidental deletion)
     """
+    # Candidate-only strict integration. Enabled only after operator verifies
+    # canonical catalog provenance and complete deployment-state coverage.
+    # Once enabled, invalid or absent authoritative evidence fails closed;
+    # there is deliberately no fallback to hash order or filesystem mtime.
+    if os.getenv("CONVERGENCE_STRICT_CHRONOLOGY", "0") == "1":
+        try:
+            from strict_report_probe_selection import (
+                select_report_probes, ReportSelectionBlocked,
+            )
+            if not REPORTS_CATALOG_PATH.is_file():
+                raise ReportSelectionBlocked("Authoritative reports catalog unavailable")
+            if REPORTS_CATALOG_PATH.stat().st_size > 20_000_000:
+                raise ReportSelectionBlocked("Authoritative reports catalog exceeds size limit")
+            canonical = json.loads(REPORTS_CATALOG_PATH.read_text(encoding="utf-8"))
+            selected = select_report_probes(
+                canonical, manifest_files=manifest.get("files", {}),
+                latest_limit=MAX_REPORT_PROBES,
+                historical_limit=HIST_PROBE_COUNT,
+            )
+            log.info("Strict UTC report selection precheck succeeded; delivery still requires live gates")
+            return selected
+        except (OSError, ValueError, UnicodeError, TypeError) as exc:
+            raise RuntimeError("P0 canonical chronology blocked convergence certification") from exc
+
     urls: List[str] = []
 
     # ── PRIMARY: manifest["files"]  -  guaranteed to exist in dist/ ────────────
