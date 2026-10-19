@@ -147,3 +147,11 @@ def test_r2_source_fetch_is_required_and_never_falls_back_to_git(tmp_path, monke
     monkeypatch.setattr(source, "s3_get", success_get)
     assert source.fetch_source(destination) == 0
     assert json.loads(destination.read_text())[0]["id"] == "intel--test"
+
+
+def test_public_weekly_derivative_has_explicit_clear_provenance_for_worker_gate():
+    result = brief._build_brief([_entry(kev=True)])
+    assert result["top_threats"]
+    assert result["kev_additions"]
+    assert all(x.get("tlp") == "TLP:CLEAR" for x in result["top_threats"])
+    assert all(x.get("tlp") == "TLP:CLEAR" for x in result["kev_additions"])
