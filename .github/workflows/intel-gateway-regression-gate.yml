@@ -155,6 +155,12 @@ jobs:
       - name: "P0 publication audit fail-closed regression controls"
         run: node --test tests/publication_gate_audit_policy.test.mjs
 
+      # Public feed projections omit certification inputs. Source-of-truth
+      # blockers must come from the Worker publication-status route.
+      # All calls in this test are in-memory fakes, never live HTTP.
+      - name: "P0 authoritative publication reason sample negative controls (offline)"
+        run: node --test tests/publication-status-reason-sample.test.mjs
+
       # `node --test <glob>` requires Node >= 21; pinned to 22 above, matching
       # deploy-worker.yml so a test passing here cannot fail there on runtime.
       - name: "Full gateway unit suite"
