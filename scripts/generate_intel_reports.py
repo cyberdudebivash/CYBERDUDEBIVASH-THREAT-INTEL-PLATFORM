@@ -91,6 +91,7 @@ _di_dir = os.path.dirname(os.path.abspath(__file__))
 if _di_dir not in sys.path:
     sys.path.insert(0, _di_dir)
 import dossier_integrity as _di  # noqa: E402
+import ecosystem_showcase as _eco  # noqa: E402 (presentation only; no publication authority)
 import tlp_policy as _tlp  # noqa: E402  (fail-closed anonymous-publication authority)
 
 # P0 v134.0: IOC enforcement imports
@@ -2240,11 +2241,12 @@ def build_report_sections(item: dict) -> str:
         "<a class='cta cta-enterprise' href='https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-s16&utm_medium=cta'>&#9733; Enterprise Access</a>"
         "</div>"
         "<div class='callout' style='margin-top:20px'>"
-        "<strong>Enterprise Delivery Pack</strong> includes: full IOC/TTP/STIX 2.1 bundles, "
-        "Sigma &amp; YARA rule packs, MITRE Navigator layer, hunt queries (KQL/SPL/EQL), "
-        "AI analyst narrative, actor tracker continuation, SOAR playbook export, and "
-        "dedicated SOC uplift SLA. <a href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise' "
-        "style='color:var(--accent)'>Contact enterprise sales →</a>"
+        "<strong>Enterprise service enquiry:</strong> Ask about available intelligence exports, "
+        "reviewable detection content, API integrations and scoped analyst support. "
+        "Capability, entitlement, delivery schedules and any response commitment must "
+        "be verified before purchase and agreed in writing. "
+        "<a href='https://www.cyberdudebivash.com/services' "
+        "style='color:var(--accent)'>Review available enterprise services &rarr;</a>"
         "</div>"
     ))
 
@@ -2489,7 +2491,8 @@ def render_report(item: dict, public_prefix: str) -> str:
 <meta property='og:type' content='article'>
 <title>{_h(title)} · SENTINEL APEX Tactical Dossier</title>
 <link rel='canonical' href='{_h(report_url)}'>
-<style>{CSS}</style>
+<style>{CSS}
+{_eco.ECOSYSTEM_CSS}</style>
 </head>
 <body>
 <div class='tlp-banner tlp-{_h(tlp.replace(":","").replace("TLP","").strip() or "CLEAR")}'>
@@ -2586,6 +2589,7 @@ def render_report(item: dict, public_prefix: str) -> str:
 </aside>
 <main>
 {sections_html}
+{_eco.render_ecosystem_showcase(item)}
 </main>
 </div>
 
@@ -2601,7 +2605,7 @@ def render_report(item: dict, public_prefix: str) -> str:
     </div>
   </div>
   <div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-family:var(--mono);font-size:10px;color:var(--muted)'>
-    <span>&copy; {datetime.now(timezone.utc).year} CyberDudeBivash Pvt. Ltd. GSTIN: 21ARKPN8270G1ZP &middot; Odisha, India</span>
+    <span>&copy; {datetime.now(timezone.utc).year} CYBERDUDEBIVASH&reg; ECOSYSTEM &middot; Odisha, India</span>
     <span>
       <a href='https://intel.cyberdudebivash.com' style='color:var(--accent);text-decoration:none'>intel.cyberdudebivash.com</a>
       &nbsp;&middot;&nbsp;
