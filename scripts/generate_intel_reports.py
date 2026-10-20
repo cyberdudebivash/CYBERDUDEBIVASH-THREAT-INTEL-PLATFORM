@@ -46,6 +46,7 @@ import hashlib
 import html
 import json
 import logging
+import math
 import os
 import re
 import html as _html_module
@@ -800,6 +801,25 @@ try:
 except Exception:  # pragma: no cover
     def _sanitize_field(x):  # type: ignore[no-redef]
         return x
+
+
+def _visible_ioc_signal_score(item: dict, validated_count: int) -> Optional[float]:
+    """Show only an existing, bounded IOC score with verified IOC evidence.
+
+    This is never a report-level or model confidence assertion.
+    """
+    if validated_count < 1 or not isinstance(item, dict):
+        return None
+    raw = item.get("ioc_confidence")
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        score = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(score) or not 0 <= score <= 100:
+        return None
+    return score
 
 
 def _h(s: Any) -> str:
@@ -1704,10 +1724,42 @@ def build_report_sections(item: dict) -> str:
             + ". CUSTOMER EXPOSURE: UNKNOWN."
         )
         _urgency_txt = "TRIAGE REQUIRED"
+    # Fortune 500 SOC handoff: these are verification tasks, not claims that
+    # APEX has inspected a customer's estate or completed incident response.
+    _soc_30min = (
+        "0-10m: match the CVE/vendor advisory to owned asset inventory and "
+        "exposed software versions. 10-20m: inspect relevant ingress, EDR "
+        "and application logs for source-supported activity. 20-30m: "
+        "document affected assets, compensating controls, and an accountable "
+        "remediation owner; escalate observed exploitation via IR."
+        if _has_cve else
+        "0-10m: check whether the threat applies to owned users, assets or "
+        "email/web telemetry. 10-20m: review relevant SIEM, EDR or gateway "
+        "events against source-supported IOCs and behaviours only. 20-30m: "
+        "preserve evidence, document true positives and open an owned "
+        "response case when activity is confirmed."
+    )
+    _evidence_note = (
+        "Primary external reference: " + _h(source_url[:240]) + ". "
+        if isinstance(source_url, str) and source_url.strip() else
+        "Primary external reference: not available in this report. "
+    )
+    _evidence_note += (
+        "This report summarizes a public advisory. No independent "
+        "customer-specific compromise, exposed assets, or incident impact "
+        "has been verified by this report."
+    )
+    # Premium visual semantics: never style an unrated/low advisory as
+    # CRITICAL. A red border is an analytic severity cue, not decoration.
+    _exec_accent = (
+        {"CRITICAL": "#ff5669", "HIGH": "#efaa55",
+         "MEDIUM": "#edcf70", "LOW": "#64bba8"}.get(sev, "#97a7bd")
+        if _sevb["prioritized"] else "#97a7bd"
+    )
     _exec_layer = (
-        "<div style='background:#0a0a1a;border:2px solid #ff4444;border-radius:8px;"
+        f"<div style='background:#0a0a1a;border:2px solid {_exec_accent};border-radius:8px;"
         "padding:20px 24px;margin:0 0 20px;'>"
-        "<div style='font-family:monospace;font-size:10px;color:#ff4444;letter-spacing:2px;"
+        f"<div style='font-family:monospace;font-size:10px;color:{_exec_accent};letter-spacing:2px;"
         "font-weight:900;margin-bottom:12px;'>EXECUTIVE INTELLIGENCE LAYER — CEO / CISO / BOARD</div>"
         "<table style='width:100%;border-collapse:collapse;'>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;width:180px;vertical-align:top;font-weight:600;'>WHAT HAPPENED?</td>"
@@ -1719,6 +1771,10 @@ def build_report_sections(item: dict) -> str:
         f"{'&nbsp;|&nbsp;&#x26A0; <strong style=&quot;color:#ff4444;&quot;>CISA KEV — Active Exploitation Confirmed</strong>' if kev else ''}</td></tr>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>WHAT TO DO TODAY?</td>"
         f"<td style='padding:6px 0;color:#ffcc00;font-size:13px;font-weight:700;line-height:1.5;'>{_exec_action}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>SOURCE &amp; EVIDENCE</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:12px;line-height:1.6;'>{_evidence_note}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>SOC FIRST 30 MIN</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:12px;line-height:1.6;'>{_h(_soc_30min)}</td></tr>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>FINANCIAL EXPOSURE</td>"
         f"<td style='padding:6px 0;color:#e0e0e0;font-size:13px;line-height:1.5;'>{_fin_exposure}</td></tr>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>REGULATORY EXPOSURE</td>"
@@ -2131,19 +2187,22 @@ def build_report_sections(item: dict) -> str:
             "</div>"
         )
     else:
-        # v184.0 P0 FIX: 'ai_conf' was referenced but never defined (pyflakes undefined-name
-        # NameError — GATE 1 hard-fail). Reuses the same ioc_confidence -> High/Medium/Low
-        # label convention already established in render_report() (avoids a raw, meaningless %).
-        _ai_conf_pct = min(int(item.get("ioc_confidence") or 75), 100)
-        ai_conf = "High" if _ai_conf_pct >= 70 else "Medium" if _ai_conf_pct >= 40 else "Low"
+        # IOC scoring is not calibrated model confidence. Do not infer one.
+        _ai_ioc_signal = _visible_ioc_signal_score(
+            item, int(item.get("_ioc_validated") or 0))
+        ai_conf = (
+            f"{_ai_ioc_signal:.0f}/100 — IOC-specific, not model confidence"
+            if _ai_ioc_signal is not None else "Not assessed — no validated IOC score"
+        )
         _s15_body = (
-            "<p>APEX's autonomous AI analyst layer has correlated this advisory against "
-            "12 months of threat intelligence, actor infrastructure history, and global telemetry. "
-            "Key AI-derived findings:</p>"
+            "<p>Analyst triage below uses available advisory metadata only. "
+            "No customer telemetry, twelve-month historical correlation, or validated "
+            "model forecast is established by this report. Check the primary "
+            "source and customer logs before containment decisions.</p>"
             "<div class='kv'>"
             f"<div class='kv-key'>Predictive Risk</div><div class='kv-val'><strong>{risk}/10</strong></div>"
             f"<div class='kv-key'>Actor Fingerprint</div><div class='kv-val'>{_h(actor)}</div>"
-            f"<div class='kv-key'>AI Confidence</div><div class='kv-val'>{_h(ai_conf)}</div>"
+            f"<div class='kv-key'>Recorded IOC signal score</div><div class='kv-val'>{_h(ai_conf)}</div>"
             f"<div class='kv-key'>TTP Density</div><div class='kv-val'>{len(ttps)} techniques mapped</div>"
             "</div>"
             "<div class='premium-lock-v2' style='margin-top:16px'>"
@@ -2331,18 +2390,22 @@ def render_report(item: dict, public_prefix: str) -> str:
     sections_html = build_report_sections(item)
 
     # ── Pre-computed display variables for god-mode template (no backslash in f-string) ──
-    _ioc_conf    = min(int(item.get("ioc_confidence") or 75), 100)
-    # v1.2: Convert raw confidence % to methodology label (P1 fix — raw % confuses customers)
-    # Replaces "4%" (meaningless) with "Low — Limited verification signals"
-    _conf_label  = ("High" if _ioc_conf >= 70 else "Medium" if _ioc_conf >= 40 else "Low")
-    _conf_color  = ("#16a34a" if _ioc_conf >= 70 else "#d97706" if _ioc_conf >= 40 else "#6b7280")
+    # Distinguish qualified IOC scoring from overall intelligence confidence.
+    # No raw confidence or validated IOCs -> show unknown, never a synthetic 75%.
+    _ioc_validated_hdr = _di.qualify_iocs(item.get("iocs") or [], item)["validated_count"]
+    _recorded_ioc_score = _visible_ioc_signal_score(item, _ioc_validated_hdr)
+    _ioc_conf = _recorded_ioc_score if _recorded_ioc_score is not None else 0
+    _conf_label = (
+        f"{_recorded_ioc_score:.0f}/100" if _recorded_ioc_score is not None
+        else "Not assessed"
+    )
+    _conf_color = "#d0d8e2" if _recorded_ioc_score is not None else "#6b7280"
     _conf_method = (
-        "Source Reliability: Verified | Collection: KEV/EPSS-Enriched" if _ioc_conf >= 70 else
-        "Source Reliability: Standard | Collection: Feed Intelligence" if _ioc_conf >= 40 else
-        "Source Reliability: Standard | Limited verification signals — monitor for updates"
+        "IOC-specific recorded signal; not overall confidence or proof of compromise"
+        if _recorded_ioc_score is not None else
+        "No validated IOC confidence evidence available; no default assigned"
     )
     _ioc_list    = item.get("iocs") or []
-    _ioc_validated_hdr = _di.qualify_iocs(_ioc_list, item)["validated_count"]
     _ttp_list    = (item.get("apex_ai") or {}).get("ttps") or item.get("ttps") or []
     _cvss_disp   = str(_cvss_resolved) if _cvss_resolved is not None else "N/A"
     _epss_disp   = str(_epss_resolved) if _epss_resolved is not None else "N/A"
@@ -2388,7 +2451,7 @@ def render_report(item: dict, public_prefix: str) -> str:
                     "crit" if _epss_f >= 50 else "high" if _epss_f >= 20 else "neutral")
     _conf_strip  = (
         "<div class='confidence-strip'>"
-        "<span class='conf-label'>Intel Confidence</span>"
+        "<span class='conf-label'>Recorded IOC signal score</span>"
         "<div class='conf-bar'>"
         f"<div class='conf-fill' style='width:{_ioc_conf}%'></div>"
         "</div>"
