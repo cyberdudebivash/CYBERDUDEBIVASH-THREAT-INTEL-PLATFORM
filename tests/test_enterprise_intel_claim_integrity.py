@@ -54,10 +54,9 @@ def test_public_ciso_executive_handoff_is_evidence_bound():
     assert "No independent customer-specific compromise" in html
     assert "0-10m: check whether the threat applies" in html
     assert "Recorded IOC signal score" in html
-    strip = html.split("<div class='confidence-strip'>", 1)[1].split("</div>", 1)[0]
-    assert "Not assessed" not in strip  # label is in nested row, see full section
+    assert "Not assessed" in html
     assert "No validated IOC confidence evidence available" in html
-    assert "Source Reliability: Verified" not in strip
+    assert "Source Reliability: Verified" not in html
     assert "12 months of threat intelligence" not in html
 
 
