@@ -91,6 +91,7 @@ _di_dir = os.path.dirname(os.path.abspath(__file__))
 if _di_dir not in sys.path:
     sys.path.insert(0, _di_dir)
 import dossier_integrity as _di  # noqa: E402
+import ecosystem_showcase as _eco  # noqa: E402 (presentation only; no publication authority)
 import tlp_policy as _tlp  # noqa: E402  (fail-closed anonymous-publication authority)
 
 # P0 v134.0: IOC enforcement imports
@@ -2489,7 +2490,8 @@ def render_report(item: dict, public_prefix: str) -> str:
 <meta property='og:type' content='article'>
 <title>{_h(title)} · SENTINEL APEX Tactical Dossier</title>
 <link rel='canonical' href='{_h(report_url)}'>
-<style>{CSS}</style>
+<style>{CSS}
+{_eco.ECOSYSTEM_CSS}</style>
 </head>
 <body>
 <div class='tlp-banner tlp-{_h(tlp.replace(":","").replace("TLP","").strip() or "CLEAR")}'>
@@ -2586,6 +2588,7 @@ def render_report(item: dict, public_prefix: str) -> str:
 </aside>
 <main>
 {sections_html}
+{_eco.render_ecosystem_showcase(item)}
 </main>
 </div>
 
