@@ -1749,10 +1749,17 @@ def build_report_sections(item: dict) -> str:
         "customer-specific compromise, exposed assets, or incident impact "
         "has been verified by this report."
     )
+    # Premium visual semantics: never style an unrated/low advisory as
+    # CRITICAL. A red border is an analytic severity cue, not decoration.
+    _exec_accent = (
+        {"CRITICAL": "#ff5669", "HIGH": "#efaa55",
+         "MEDIUM": "#edcf70", "LOW": "#64bba8"}.get(sev, "#97a7bd")
+        if _sevb["prioritized"] else "#97a7bd"
+    )
     _exec_layer = (
-        "<div style='background:#0a0a1a;border:2px solid #ff4444;border-radius:8px;"
+        f"<div style='background:#0a0a1a;border:2px solid {_exec_accent};border-radius:8px;"
         "padding:20px 24px;margin:0 0 20px;'>"
-        "<div style='font-family:monospace;font-size:10px;color:#ff4444;letter-spacing:2px;"
+        f"<div style='font-family:monospace;font-size:10px;color:{_exec_accent};letter-spacing:2px;"
         "font-weight:900;margin-bottom:12px;'>EXECUTIVE INTELLIGENCE LAYER — CEO / CISO / BOARD</div>"
         "<table style='width:100%;border-collapse:collapse;'>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;width:180px;vertical-align:top;font-weight:600;'>WHAT HAPPENED?</td>"
