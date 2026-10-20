@@ -1724,6 +1724,31 @@ def build_report_sections(item: dict) -> str:
             + ". CUSTOMER EXPOSURE: UNKNOWN."
         )
         _urgency_txt = "TRIAGE REQUIRED"
+    # Fortune 500 SOC handoff: these are verification tasks, not claims that
+    # APEX has inspected a customer's estate or completed incident response.
+    _soc_30min = (
+        "0-10m: match the CVE/vendor advisory to owned asset inventory and "
+        "exposed software versions. 10-20m: inspect relevant ingress, EDR "
+        "and application logs for source-supported activity. 20-30m: "
+        "document affected assets, compensating controls, and an accountable "
+        "remediation owner; escalate observed exploitation via IR."
+        if _has_cve else
+        "0-10m: check whether the threat applies to owned users, assets or "
+        "email/web telemetry. 10-20m: review relevant SIEM, EDR or gateway "
+        "events against source-supported IOCs and behaviours only. 20-30m: "
+        "preserve evidence, document true positives and open an owned "
+        "response case when activity is confirmed."
+    )
+    _evidence_note = (
+        "Primary external reference: " + _h(source_url[:240]) + ". "
+        if isinstance(source_url, str) and source_url.strip() else
+        "Primary external reference: not available in this report. "
+    )
+    _evidence_note += (
+        "This report summarizes a public advisory. No independent "
+        "customer-specific compromise, exposed assets, or incident impact "
+        "has been verified by this report."
+    )
     _exec_layer = (
         "<div style='background:#0a0a1a;border:2px solid #ff4444;border-radius:8px;"
         "padding:20px 24px;margin:0 0 20px;'>"
@@ -1739,6 +1764,10 @@ def build_report_sections(item: dict) -> str:
         f"{'&nbsp;|&nbsp;&#x26A0; <strong style=&quot;color:#ff4444;&quot;>CISA KEV — Active Exploitation Confirmed</strong>' if kev else ''}</td></tr>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>WHAT TO DO TODAY?</td>"
         f"<td style='padding:6px 0;color:#ffcc00;font-size:13px;font-weight:700;line-height:1.5;'>{_exec_action}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>SOURCE &amp; EVIDENCE</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:12px;line-height:1.6;'>{_evidence_note}</td></tr>"
+        f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>SOC FIRST 30 MIN</td>"
+        f"<td style='padding:6px 0;color:#e0e0e0;font-size:12px;line-height:1.6;'>{_h(_soc_30min)}</td></tr>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>FINANCIAL EXPOSURE</td>"
         f"<td style='padding:6px 0;color:#e0e0e0;font-size:13px;line-height:1.5;'>{_fin_exposure}</td></tr>"
         f"<tr><td style='padding:6px 12px 6px 0;color:#888;font-size:12px;vertical-align:top;font-weight:600;'>REGULATORY EXPOSURE</td>"
