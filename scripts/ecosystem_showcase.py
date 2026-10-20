@@ -19,6 +19,13 @@ OFFERINGS = {
     "trustx": ("TRUSTX™ Identity Security", "Private preview", "Explore identity-risk concepts and enquiry options; availability is restricted.", "https://trustx.cyberdudebivash.com/"),
     "swarms": ("SENTINEL APEX™ Agent Swarms", "Enquiry / access to confirm", "Explore AI-assisted threat investigation concepts subject to access authorization.", "https://intel.cyberdudebivash.com/swarm"),
 }
+PRODUCT_EXAMPLES = {
+    "ai": ("AGENTGUARD PRO", "TrustGov AI™", "AI Security Red Team Professional Toolkit"),
+    "ransomware": ("Fortress Lockdown", "Ransomware IOC Blocker", "SOC Incident Response Professional Toolkit"),
+    "breach": ("LeakHunter", "GHOST-CHECK", "DPDP Audit & Readiness Professional Toolkit"),
+    "cve": ("QuickScan", "ReconX", "Penetration Testing Reporting Toolkit"),
+    "default": ("SOC Starter Bundle", "LeakHunter", "SovereignSOC"),
+}
 OFFERS = {
     "ai": ("ai", "services", "labs"),
     "ransomware": ("intel", "services", "tools"),
@@ -61,6 +68,10 @@ def render_ecosystem_showcase(item: dict) -> str:
             + "' target='_blank' rel='noopener noreferrer'>Explore official offering &rarr;</a></article>"
         )
 
+    recommendations = relevant_offers(item)
+    kind = next((key for key, offers in OFFERS.items() if offers == recommendations), "default")
+    product_names = PRODUCT_EXAMPLES.get(kind, PRODUCT_EXAMPLES["default"])
+    products = " &middot; ".join(escape(name) for name in product_names)
     directory = "".join(
         "<li><a href='" + escape(url, quote=True) + "' target='_blank' rel='noopener noreferrer'>"
         + escape(name) + "</a><span>" + escape(label) + "</span></li>"
@@ -72,8 +83,14 @@ def render_ecosystem_showcase(item: dict) -> str:
         "<header><span class='cdb-eco-overline'>ECOSYSTEM PROMOTION &middot; OWNED SERVICES &amp; PLATFORMS</span>"
         "<h2>Extend your defense with CYBERDUDEBIVASH&reg; ECOSYSTEM</h2>"
         "<p>Discover connected intelligence, AI security, professional services, "
-        "defensive tools, labs and training. Select a relevant next step for your team.</p></header>"
-        "<div class='cdb-eco-cards'>" + "".join(map(card, relevant_offers(item))) + "</div>"
+        "defensive tools, labs and training. Select a relevant next step for your team.</p>"
+        "<p class='cdb-eco-summary'>Public directory listing (Oct 2026): 11 platforms &middot; "
+        "13 services &middot; 43 products &middot; 2 APIs. Listings do not establish current availability.</p>"
+        "</header>"
+        "<div class='cdb-eco-cards'>" + "".join(map(card, recommendations)) + "</div>"
+        "<div class='cdb-eco-products'><strong>Relevant catalog products:</strong> "
+        + products + " &mdash; <a href='https://tools.cyberdudebivash.com/' target='_blank'"
+        " rel='noopener noreferrer'>Explore current listings &rarr;</a></div>"
         "<div class='cdb-eco-actions'>"
         "<a class='cdb-eco-primary' href='https://www.cyberdudebivash.com/ecosystem'"
         " target='_blank' rel='noopener noreferrer'>Browse complete ecosystem &rarr;</a>"
@@ -104,6 +121,8 @@ ECOSYSTEM_CSS = """
 .cdb-eco-card p{font-size:13px!important;color:#d8e5ee!important;flex:1;line-height:1.7!important;margin:0!important}
 .cdb-eco-showcase a{color:#b0ebf4;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
 .cdb-eco-card a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;font-size:13px}
+.cdb-eco-summary{font-size:12px!important;color:#d6e6f0!important;margin-top:12px!important}
+.cdb-eco-products{padding:12px 14px;border:1px solid #53758c;border-radius:8px;background:#19374a;color:#dfebf2;font-size:13px;line-height:1.7}
 .cdb-eco-actions{display:flex;gap:12px;flex-wrap:wrap;margin:15px 0}
 .cdb-eco-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border-radius:8px;padding:10px 14px;border:1px solid #7394a9;font-size:13px;text-align:center;font-weight:800}
 .cdb-eco-actions .cdb-eco-primary{background:#a1e8e7;color:#102b39!important}
