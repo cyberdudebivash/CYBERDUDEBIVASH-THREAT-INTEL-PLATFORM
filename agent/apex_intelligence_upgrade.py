@@ -1790,7 +1790,7 @@ def generate_ai_insight_premium(item: Dict[str, Any]) -> str:
         seed_str  = str(item.get("id") or item.get("stix_id") or title)
         seed_hash = int(hashlib.md5(seed_str.encode("utf-8", errors="replace"), usedforsecurity=False).hexdigest(), 16)
 
-        # ── DYNAMIC AI CONFIDENCE SCORING (replaces static 15.6% / 21.3%) ──
+        # ── INTERNAL SIGNAL COVERAGE HEURISTIC (not a calibrated AI confidence) ──
         # Base confidence from intelligence data richness
         _conf_base   = 28.0
         _conf_ttps   = min(len(ttps) * 6.0, 30.0)          # +6% per TTP, max +30%
@@ -1910,37 +1910,39 @@ def generate_ai_insight_premium(item: Dict[str, Any]) -> str:
         html = (
             f"<div class='apex-ai-insight'>"
             f"<div class='apex-intel-grid'>"
-            f"<div class='apex-intel-item'><span class='apex-label'>🤖 Predictive Risk (14-day)</span>"
+            f"<div class='apex-intel-item'><span class='apex-label'>Scenario Risk Index (not a forecast)</span>"
             f"<span class='apex-value'><strong>{pred_risk:.1f}/10</strong></span></div>"
-            f"<div class='apex-intel-item'><span class='apex-label'>📈 Escalation Forecast</span>"
+            f"<div class='apex-intel-item'><span class='apex-label'>Escalation Triage (scenario)</span>"
             f"<span class='apex-value'><strong>{escalation}</strong></span></div>"
-            f"<div class='apex-intel-item'><span class='apex-label'>🎯 Actor Fingerprint</span>"
+            f"<div class='apex-intel-item'><span class='apex-label'>Attribution label (not verified here)</span>"
             f"<span class='apex-value'><code>{actor or 'APEX-CLUSTER-UNATTRIBUTED'}</code></span></div>"
-            f"<div class='apex-intel-item'><span class='apex-label'>🧠 AI Confidence</span>"
-            f"<span class='apex-value'>{ai_conf:.1f}% — APEX ML corpus v16</span></div>"
-            f"<div class='apex-intel-item'><span class='apex-label'>⚡ Tactic Chain</span>"
-            f"<span class='apex-value'>{' → '.join(tactic_names) if tactic_names else 'Multi-stage adversary kill chain'}</span></div>"
-            f"<div class='apex-intel-item'><span class='apex-label'>🏭 Sector Risk Priority</span>"
+            f"<div class='apex-intel-item'><span class='apex-label'>Heuristic signal index</span>"
+            f"<span class='apex-value'>{ai_conf:.1f}/100 — not a probability or calibrated confidence</span></div>"
+            f"<div class='apex-intel-item'><span class='apex-label'>ATT&amp;CK tactic categories</span>"
+            f"<span class='apex-value'>{' → '.join(tactic_names) if tactic_names else 'No evidenced TTP chain available'}</span></div>"
+            f"<div class='apex-intel-item'><span class='apex-label'>Sector considerations (not customer exposure)</span>"
             f"<span class='apex-value'>{' | '.join(sector_risks[:2])}</span></div>"
             f"</div>"
             f"<div class='callout' style='margin-top:16px'>"
-            f"<strong>APEX AI ANALYST — ESCALATION ASSESSMENT</strong><br>"
+            f"<strong>SENTINEL APEX — SCENARIO TRIAGE (NOT OBSERVED EXPLOITATION)</strong><br>"
             f"<p>{escalation_detail}</p>"
             f"</div>"
-            f"<div style='margin-top:16px'><strong>AI-Derived Intelligence — Next Action Predictions</strong></div>"
+            f"<div style='margin-top:16px'><strong>Suggested analyst checks — validate before action</strong></div>"
             f"<ul style='margin-top:8px'>"
             + "".join(f"<li>{s}</li>" for s in next_steps)
             + f"</ul>"
-            f"<div style='margin-top:16px'><strong>Sector Risk Forecast (30-day horizon)</strong></div>"
+            f"<div style='margin-top:16px'><strong>Sector-specific exposure questions (hypotheses)</strong></div>"
             f"<ul style='margin-top:8px'>"
             + "".join(f"<li>{r}</li>" for r in sector_risks)
             + f"</ul>"
             f"<p style='margin-top:12px;font-size:0.85em;opacity:0.75'>"
-            f"APEX AI analysis correlated against 12 months of threat intelligence history, "
-            f"actor infrastructure data, and global telemetry corpus. Model confidence: {ai_conf:.1f}%. "
-            f"Enterprise subscribers receive: predictive threat modelling (30-day horizon), "
-            f"infrastructure pivot attribution, autonomous SOAR playbook export, and "
-            f"board-level executive PDF briefing on every advisory."
+            f"Analytic limitations: this summary uses the available advisory fields and "
+            f"a deterministic enrichment heuristic. No customer-environment exposure, "
+            f"independently corroborated 12-month historical correlation, or calibrated "
+            f"forecast probability is established by this report. "
+            f"The {ai_conf:.1f}/100 signal index measures available metadata signals, not "
+            f"the likelihood of compromise. Independently validate any proposed SOC action "
+            f"against primary source evidence and customer telemetry."
             f"</p>"
             f"</div>"
         )
