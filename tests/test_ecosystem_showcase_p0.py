@@ -101,6 +101,11 @@ def test_canonical_render_places_promotion_after_full_20_section_report():
     assert html.index("data-cdb-owned-promotion='v1'") < html.index("</main>")
     assert "<style>" in html and ".cdb-eco-showcase" in html
     assert "https://example.org/advisory" in html
+    # Marketing must not create an unverified legal entity or promise SLAs.
+    assert "Pvt. Ltd." not in html
+    assert "GSTIN:" not in html
+    assert "dedicated SOC uplift SLA" not in html
+    assert "agreed in writing" in html
 
 
 def test_print_and_accessibility_work_without_new_network_scripts():
