@@ -2,6 +2,7 @@
 from __future__ import annotations
 import sys
 from pathlib import Path
+from html import unescape
 from urllib.parse import urlparse
 import pytest
 
@@ -50,7 +51,7 @@ def test_display_contains_all_real_catalog_links_and_private_preview_caveat():
     assert len(OFFERINGS) >= 9
     for name, label, _, url in OFFERINGS.values():
         assert urlparse(url).scheme == "https"
-        assert name in html.replace("&trade;", "™") or name.replace("™", "&trade;") in html
+        assert name in unescape(html)
         assert url in html
     assert "Private preview" in html
     assert "contact@cyberdudebivash.in" in html
