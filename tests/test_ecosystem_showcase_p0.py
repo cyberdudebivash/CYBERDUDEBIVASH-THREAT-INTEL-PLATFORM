@@ -55,6 +55,22 @@ def test_display_contains_all_real_catalog_links_and_private_preview_caveat():
     assert "Private preview" in html
     assert "contact@cyberdudebivash.in" in html
     assert "https://www.cyberdudebivash.com/ecosystem" in html
+    assert "11 platforms &middot; 13 services &middot; 43 products &middot; 2 APIs" in html
+    assert "Listings do not establish current availability" in html
+
+
+def test_catalog_products_are_contextual_not_claims_of_available_inventory():
+    ai = render_ecosystem_showcase(fixture(title="AI security agent advisory"))
+    ransomware = render_ecosystem_showcase(fixture(title="Ransomware incident"))
+    cve = render_ecosystem_showcase(fixture(title="CVE-2026-11001 vendor bulletin"))
+    for name in ("AGENTGUARD PRO", "TrustGov AI™"):
+        assert name in ai
+    for name in ("Fortress Lockdown", "Ransomware IOC Blocker"):
+        assert name in ransomware
+    for name in ("QuickScan", "ReconX"):
+        assert name in cve
+    assert "Explore current listings" in ai
+    assert "₹" not in ai and "$49" not in ai
 
 
 def test_no_unverified_pricing_checkout_sla_or_audit_attestation():
