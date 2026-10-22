@@ -35,6 +35,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -591,7 +592,9 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
                 break
 
         try:
-            risk_score = min(max(float(cvss_score), 0.0), 10.0) if cvss_score is not None else 5.0
+            numeric_score = float(cvss_score) if cvss_score is not None else 5.0
+            # NaN and infinities are valid float parses but invalid risk scores.
+            risk_score = min(max(numeric_score, 0.0), 10.0) if math.isfinite(numeric_score) else 5.0
         except (TypeError, ValueError, OverflowError):
             risk_score = 5.0
 
