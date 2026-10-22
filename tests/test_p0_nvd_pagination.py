@@ -59,3 +59,13 @@ def test_nvd_inconsistent_total_preserves_checkpoint():
     with patch.object(ingestor, "_get_json", side_effect=fetch):
         assert ingestor.ingest_nvd_cves(state) == []
     assert state.updated == []
+
+def test_nvd_duplicate_page_rejected_without_checkpoint_advance():
+    state = FakeState()
+    def fetch(url, **kwargs):
+        if "startIndex=0" in url:
+            return {"totalResults": 2001, "vulnerabilities": [record(i) for i in range(2000)]}
+        return {"totalResults": 2001, "vulnerabilities": [record(1999)]}
+    with patch.object(ingestor, "_get_json", side_effect=fetch):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
