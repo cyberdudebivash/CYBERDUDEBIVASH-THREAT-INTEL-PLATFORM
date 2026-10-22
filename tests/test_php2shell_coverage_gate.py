@@ -11,7 +11,7 @@ NOW = datetime(2026, 10, 23, tzinfo=timezone.utc)
 
 def payload():
     return {"generated_at": "2026-10-22T23:00:00Z", "items": [
-        {"cve_id": c, "references": [{"url": "https://www.php.net/archive/2026.php"}]}
+        {"cve_id": c, "references": [{"url": "https://www.php.net/archive/2026.php#2026-10-21-5"}]}
         for c in sorted(gate.REQUIRED)]}
 
 class CoverageGateTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class CoverageGateTests(unittest.TestCase):
     def test_projected_public_schema(self):
         p = payload()
         for item in p["items"]:
-            item["source_url"] = "https://www.php.net/archive/2026.php"
+            item["source_url"] = "https://www.php.net/archive/2026.php#2026-10-21-5"
             item.pop("references")
             item["cve_ids"] = [item.pop("cve_id")]
         self.assertEqual(gate.check(p, now=NOW), [])
@@ -50,6 +50,22 @@ class CoverageGateTests(unittest.TestCase):
     def test_querystring_endpoint_rejected(self):
         with self.assertRaises(ValueError):
             gate._read(url="https://intel.cyberdudebivash.com/api/v1/intel/latest.json?debug=1")
+    def test_generic_php_archive_not_accepted(self):
+        p = payload()
+        p["items"][0]["references"] = ["https://www.php.net/archive/2026.php"]
+        self.assertTrue(any("missing_authoritative_source" in e for e in gate.check(p, now=NOW)))
+
+    def test_mismatched_nvd_cve_not_accepted(self):
+        p = payload()
+        p["items"][0]["references"] = ["https://nvd.nist.gov/vuln/detail/CVE-2026-109619"]
+        self.assertTrue(any("missing_authoritative_source" in e for e in gate.check(p, now=NOW)))
+
+    def test_cve_specific_nvd_reference(self):
+        p = payload()
+        for item in p["items"]:
+            item["references"] = [f"https://nvd.nist.gov/vuln/detail/{item['cve_id']}"]
+        self.assertEqual(gate.check(p, now=NOW), [])
+
     def test_no_items_fails(self):
         self.assertIn("missing_items_array", gate.check({"generated_at": "2026-10-22T23:00:00Z"}, now=NOW))
 if __name__ == "__main__":
