@@ -44,6 +44,12 @@ class CoverageGateTests(unittest.TestCase):
         p = payload()
         p["items"][0]["references"] = ["https://github.com/unknown/example"]
         self.assertTrue(any("missing_authoritative_source" in e for e in gate.check(p, now=NOW)))
+    def test_wrong_production_endpoint_rejected(self):
+        with self.assertRaises(ValueError):
+            gate._read(url="https://intel.cyberdudebivash.com/api/admin/health")
+    def test_querystring_endpoint_rejected(self):
+        with self.assertRaises(ValueError):
+            gate._read(url="https://intel.cyberdudebivash.com/api/v1/intel/latest.json?debug=1")
     def test_no_items_fails(self):
         self.assertIn("missing_items_array", gate.check({"generated_at": "2026-10-22T23:00:00Z"}, now=NOW))
 if __name__ == "__main__":
