@@ -69,3 +69,27 @@ def test_nvd_duplicate_page_rejected_without_checkpoint_advance():
     with patch.object(ingestor, "_get_json", side_effect=fetch):
         assert ingestor.ingest_nvd_cves(state) == []
     assert state.updated == []
+
+def test_nvd_empty_complete_window_is_not_an_error():
+    state = FakeState()
+    with patch.object(ingestor, "_get_json", return_value={"totalResults": 0, "vulnerabilities": []}):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
+
+def test_nvd_pagination_limit_fails_closed():
+    state = FakeState()
+    calls = []
+    def fetch(url, **kwargs):
+        calls.append(url)
+        start = int(url.split("startIndex=")[1])
+        return {"totalResults": 20001, "vulnerabilities": [record(i) for i in range(start, start + 2000)]}
+    with patch.object(ingestor, "_get_json", side_effect=fetch):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert len(calls) == 10
+    assert state.updated == []
+
+def test_nvd_bad_cve_shape_preserves_checkpoint():
+    state = FakeState()
+    with patch.object(ingestor, "_get_json", return_value={"totalResults": 1, "vulnerabilities": [{"cve": {}}]}):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
