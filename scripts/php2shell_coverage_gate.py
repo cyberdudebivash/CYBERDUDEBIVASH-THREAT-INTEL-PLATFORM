@@ -47,13 +47,27 @@ def _read(url=None, file=None):
             raise ValueError("Response exceeds size limit")
         return json.loads(raw)
 
-def _valid_source(value):
+def _valid_source(value, cve):
+    """Match CVE-specific NVD/CVE records or the dated PHP vendor advisory.
+
+    URL shape is not proof of remote advisory contents.
+    """
     if not isinstance(value, str):
         return False
     try:
         parsed = urlsplit(value)
         host = (parsed.hostname or "").lower()
-        return parsed.scheme == "https" and host in SOURCE_HOSTS and not parsed.username and not parsed.password and parsed.port in (None, 443)
+        if (parsed.scheme != "https" or host not in SOURCE_HOSTS
+                or parsed.username or parsed.password or parsed.port not in (None, 443)):
+            return False
+        if host == "nvd.nist.gov":
+            return parsed.path == f"/vuln/detail/{cve}" and not parsed.query and not parsed.fragment
+        if host in ("cve.org", "www.cve.org"):
+            return parsed.path == "/CVERecord" and parsed.query == f"id={cve}" and not parsed.fragment
+        if host in ("php.net", "www.php.net"):
+            return (parsed.path == "/archive/2026.php"
+                    and parsed.fragment.startswith("2026-10-21") and not parsed.query)
+        return False
     except ValueError:
         return False
 
@@ -85,7 +99,7 @@ def check(payload, max_age_hours=6, now=None):
         identifiers = " ".join(str(item.get(k, "")) for k in ("id", "cve_id", "cve_ids", "cve", "title", "name"))
         ids = {m.upper() for m in CVE_RE.findall(identifiers)}
         for cve in ids:
-            if not any(_valid_source(s) for s in _sources(item)):
+            if not any(_valid_source(s, cve) for s in _sources(item)):
                 errors.append(f"{cve}:missing_authoritative_source")
             else:
                 found.add(cve)
