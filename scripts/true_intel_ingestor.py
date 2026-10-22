@@ -590,7 +590,10 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
                     severity = sev
                 break
 
-        risk_score = min(float(cvss_score or 5.0), 10.0) if cvss_score else 5.0
+        try:
+            risk_score = min(max(float(cvss_score), 0.0), 10.0) if cvss_score is not None else 5.0
+        except (TypeError, ValueError, OverflowError):
+            risk_score = 5.0
 
         title = f"{cve_id}: {desc[:120]}" if desc else cve_id
         nvd_url = f"https://nvd.nist.gov/vuln/detail/{cve_id}"
