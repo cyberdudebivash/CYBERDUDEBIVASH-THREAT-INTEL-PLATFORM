@@ -537,7 +537,22 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
     # A malformed or future-dated record must not push the incremental cursor
     # beyond legitimate records. Validate the entire batch before mutation.
     for v in vulns:
-        ts = _parse_ts(v["cve"].get("published", ""))
+        cve = v["cve"]
+        descriptions = cve.get("descriptions", [])
+        metrics = cve.get("metrics", {})
+        if (not isinstance(descriptions, list)
+                or any(not isinstance(d, dict) or not isinstance(d.get("lang"), str)
+                       or not isinstance(d.get("value"), str) for d in descriptions)
+                or not isinstance(metrics, dict)
+                or any(not isinstance(entries, list)
+                       or any(not isinstance(entry, dict)
+                              or not isinstance(entry.get("cvssData"), dict)
+                              for entry in entries)
+                       for key, entries in metrics.items() if key.startswith("cvssMetric"))):
+            log.error("[NVD] Invalid CVE metadata; checkpoint unchanged")
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+            return []
+        ts = _parse_ts(cve.get("published", ""))
         if ts is None or ts > end_dt + timedelta(minutes=5):
             log.error("[NVD] Invalid/future published timestamp; checkpoint unchanged")
             _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
