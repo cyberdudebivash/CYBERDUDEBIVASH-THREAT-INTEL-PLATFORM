@@ -114,3 +114,15 @@ def test_nvd_future_timestamp_preserves_checkpoint():
     with patch.object(ingestor, "_get_json", return_value={"totalResults": 1, "vulnerabilities": [bad]}):
         assert ingestor.ingest_nvd_cves(state) == []
     assert state.updated == []
+
+def test_nvd_invalid_page_exposes_source_health_reason():
+    state = FakeState()
+    with patch.object(ingestor, "_get_json", return_value={"vulnerabilities": []}):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert ingestor.get_last_http_reason_code() == "NVD_INCOMPLETE_WINDOW"
+
+def test_nvd_valid_empty_page_has_no_failure_reason():
+    state = FakeState()
+    with patch.object(ingestor, "_get_json", return_value={"totalResults": 0, "vulnerabilities": []}):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert ingestor.get_last_http_reason_code() is None
