@@ -66,7 +66,7 @@ def _valid_source(value, cve):
             return parsed.path == "/CVERecord" and parsed.query == f"id={cve}" and not parsed.fragment
         if host in ("php.net", "www.php.net"):
             return (parsed.path == "/archive/2026.php"
-                    and parsed.fragment.startswith("2026-10-21") and not parsed.query)
+                    and parsed.fragment == "2026-10-21-5" and not parsed.query)
         return False
     except ValueError:
         return False
