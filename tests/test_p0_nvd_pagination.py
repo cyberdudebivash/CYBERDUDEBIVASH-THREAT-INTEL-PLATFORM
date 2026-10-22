@@ -142,3 +142,18 @@ def test_nvd_future_cursor_requires_reconciliation_without_network():
         assert ingestor.ingest_nvd_cves(state) == []
     assert state.updated == []
     assert ingestor.get_last_http_reason_code() == "NVD_RECONCILIATION_REQUIRED"
+
+@pytest.mark.parametrize("field,value", [
+    ("descriptions", {"lang": "en", "value": "bad shape"}),
+    ("descriptions", [{"lang": "en"}]),
+    ("metrics", {"cvssMetricV31": [{"cvssData": "bad shape"}]}),
+    ("metrics", []),
+])
+def test_nvd_malformed_metadata_fails_closed(field, value):
+    state = FakeState()
+    bad = record(1)
+    bad["cve"][field] = value
+    with patch.object(ingestor, "_get_json", return_value={"totalResults": 1, "vulnerabilities": [bad]}):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
+    assert ingestor.get_last_http_reason_code() == "NVD_INCOMPLETE_WINDOW"
