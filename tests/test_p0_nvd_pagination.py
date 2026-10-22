@@ -19,7 +19,7 @@ class FakeState:
         self.updated.append((key, ts))
 
 def record(i):
-    return {"cve": {"id": f"CVE-2026-{10000+i}", "published": "2026-10-23T00:00:00.000",
+    return {"cve": {"id": f"CVE-2026-{10000+i}", "published": (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S.000"),
                     "descriptions": [{"lang": "en", "value": "fixture"}], "metrics": {}}}
 
 def test_nvd_two_pages_complete_before_cursor_update():
