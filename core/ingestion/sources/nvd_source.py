@@ -23,7 +23,7 @@ import json
 
 from .base import (
     BaseSource, FetchResult, FetchStatus, RawIntelItem, SourceType,
-    RateLimitError, AuthError, ParseError,
+    RateLimitError, AuthError, ParseError, NetworkError,
 )
 
 logger = logging.getLogger("sentinel.ingestion.nvd")
@@ -46,8 +46,8 @@ class NVDSource(BaseSource):
     SOURCE_TYPE = SourceType.CVE
 
     # With API key: 50/30s ≈ 100/min. Without: 5/30s ≈ 10/min.
-    REQUESTS_PER_MINUTE = 90   # conservative
-    BURST = 10
+    REQUESTS_PER_MINUTE = 8    # conservative default for unauthenticated NVD API
+    BURST = 1
     TIMEOUT_S = 45
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -56,6 +56,10 @@ class NVDSource(BaseSource):
             self.config.get("api_key")
             or os.environ.get("NVD_API_KEY", "")
         )
+        # Raise the request budget only for authenticated NVD clients.
+        # BaseSource constructs its limiter before this constructor runs.
+        from .base import TokenBucketRateLimiter
+        self._limiter = TokenBucketRateLimiter(90, 10) if self._api_key else TokenBucketRateLimiter(8, 1)
         self._enrich_epss: bool = self.config.get("enrich_epss", True)
         self._default_lookback_hours: int = self.config.get("lookback_hours", 24)
 
