@@ -1,7 +1,12 @@
 """Offline regression tests for complete NVD window retrieval in the scheduled collector."""
 from datetime import datetime, timezone
 from unittest.mock import patch
+import pytest
 import scripts.true_intel_ingestor as ingestor
+
+@pytest.fixture(autouse=True)
+def avoid_network_pacing_in_offline_tests(monkeypatch):
+    monkeypatch.setattr(ingestor.time, "sleep", lambda seconds: None)
 
 class FakeState:
     def __init__(self):
