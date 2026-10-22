@@ -509,6 +509,14 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
         log.error("[NVD] Pagination exceeded %d pages; checkpoint unchanged", max_pages)
         return []
 
+    # Offset drift or upstream page duplication can silently lose unique CVEs.
+    # Refuse to advance the cursor unless every record has a unique CVE ID.
+    ids = [v.get("cve", {}).get("id") if isinstance(v, dict) and isinstance(v.get("cve"), dict) else None
+           for v in vulns]
+    if any(not isinstance(identifier, str) or not identifier.startswith("CVE-") for identifier in ids) or len(set(ids)) != len(ids):
+        log.error("[NVD] Missing/duplicate CVE identifiers; checkpoint unchanged")
+        return []
+
     log.info("[NVD] Complete CVE window: %d records", len(vulns))
 
     items: List[Dict] = []
