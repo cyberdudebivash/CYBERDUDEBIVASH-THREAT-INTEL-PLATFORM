@@ -464,6 +464,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
     Incremental: uses last_seen to set pubStartIndex window.
     """
     global _last_http_reason_code
+    _last_http_reason_code = None
     SOURCE_KEY = "nvd_cve"
 
     last_seen = feed_state.get_last_seen(SOURCE_KEY)
