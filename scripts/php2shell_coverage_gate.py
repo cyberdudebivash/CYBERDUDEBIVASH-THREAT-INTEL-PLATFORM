@@ -23,6 +23,7 @@ REQUIRED = {"CVE-2026-109618", "CVE-2026-109619"}
 CVE_RE = re.compile(r"\bCVE-2026-10961(?:8|9)\b", re.I)
 SOURCE_HOSTS = {"php.net", "www.php.net", "nvd.nist.gov", "www.cve.org", "cve.org"}
 MAX_BYTES = 4_000_000
+CANONICAL_PATH = "/api/v1/intel/latest.json"
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -34,7 +35,8 @@ def _read(url=None, file=None):
     parsed = urlsplit(url)
     if parsed.scheme != "https" or parsed.username or parsed.password:
         raise ValueError("HTTPS URL required")
-    if parsed.hostname != "intel.cyberdudebivash.com" or parsed.port not in (None, 443):
+    if (parsed.hostname != "intel.cyberdudebivash.com" or parsed.port not in (None, 443)
+            or parsed.path != CANONICAL_PATH or parsed.query or parsed.fragment):
         raise ValueError("Only canonical production host permitted")
     req = Request(url, headers={"Accept": "application/json", "User-Agent": "sentinel-apex-coverage-gate/1"})
     with build_opener(NoRedirect()).open(req, timeout=15) as response:
