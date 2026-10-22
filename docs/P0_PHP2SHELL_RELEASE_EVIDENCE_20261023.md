@@ -80,3 +80,21 @@ for partial/failed pages (no cursor advancement on incomplete batches),
 strict API schema checks, mocked >100-item regression tests, and a safe
 reconciliation strategy for historical omissions. Do not broaden NVD lookback
 or trigger bulk replay without checking provider and Cloudflare budgets.
+
+## 2026-10-23: independent advisory verification
+
+Confirmed both identifiers against PHP's own October 21 security release,
+ENISA's October 21 joint statement, UK NCSC and New Zealand NCSC advisories:
+- CVE-2026-109618: PHP OOM request-state corruption, potential unauthenticated RCE.
+- CVE-2026-109619: PHP stale request/global state, potential unauthenticated RCE.
+- Vendor fixes: PHP 8.2.35 / 8.3.36 / 8.4.27 / 8.5.12; vendor backports
+  must be checked for distro-packaged PHP.
+- Sources:
+  https://www.php.net/archive/2026.php
+  https://www.enisa.europa.eu/news/joint-statement-on-critical-php-vulnerabilities
+  https://www.ncsc.gov.uk/news/critical-security-issue-affecting-php
+  https://www.ncsc.govt.nz/alerts/cve-2026-109618-and-cve-2026-109619-affecting-php/
+
+This establishes **real advisories**, not customer feed presence. The gate
+still only validates a recognized source hostname, not CVE-specific link
+contents. Do not claim advisory-level provenance from gate success alone.
