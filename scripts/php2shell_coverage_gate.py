@@ -17,12 +17,16 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 REQUIRED = {"CVE-2026-109618", "CVE-2026-109619"}
 CVE_RE = re.compile(r"\bCVE-2026-10961(?:8|9)\b", re.I)
 SOURCE_HOSTS = {"php.net", "www.php.net", "nvd.nist.gov", "www.cve.org", "cve.org"}
 MAX_BYTES = 4_000_000
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError('Redirect refused for production coverage verification')
 
 def _read(url=None, file=None):
     if file:
@@ -33,7 +37,7 @@ def _read(url=None, file=None):
     if parsed.hostname != "intel.cyberdudebivash.com" or parsed.port not in (None, 443):
         raise ValueError("Only canonical production host permitted")
     req = Request(url, headers={"Accept": "application/json", "User-Agent": "sentinel-apex-coverage-gate/1"})
-    with urlopen(req, timeout=15) as response:
+    with build_opener(NoRedirect()).open(req, timeout=15) as response:
         if response.status != 200:
             raise ValueError(f"HTTP {response.status}")
         raw = response.read(MAX_BYTES + 1)
