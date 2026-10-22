@@ -33,6 +33,17 @@ class CoverageGateTests(unittest.TestCase):
         p = payload()
         p["generated_at"] = "2026-10-24T00:00:00Z"
         self.assertIn("feed_timestamp_outside_freshness_contract", gate.check(p, now=NOW))
+    def test_projected_public_schema(self):
+        p = payload()
+        for item in p["items"]:
+            item["source_url"] = "https://www.php.net/archive/2026.php"
+            item.pop("references")
+            item["cve_ids"] = [item.pop("cve_id")]
+        self.assertEqual(gate.check(p, now=NOW), [])
+    def test_non_authoritative_github_reference(self):
+        p = payload()
+        p["items"][0]["references"] = ["https://github.com/unknown/example"]
+        self.assertTrue(any("missing_authoritative_source" in e for e in gate.check(p, now=NOW)))
     def test_no_items_fails(self):
         self.assertIn("missing_items_array", gate.check({"generated_at": "2026-10-22T23:00:00Z"}, now=NOW))
 if __name__ == "__main__":
