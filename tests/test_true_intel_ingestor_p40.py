@@ -295,6 +295,7 @@ class TestParseTsNvdFormat:
 class TestIngestNvdCves:
     def _fake_response(self, cves):
         return {
+            "totalResults": len(cves),
             "vulnerabilities": [
                 {"cve": {
                     "id": cve_id,
