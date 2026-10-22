@@ -48,9 +48,12 @@ def _read(url=None, file=None):
 def _valid_source(value):
     if not isinstance(value, str):
         return False
-    parsed = urlsplit(value)
-    host = (parsed.hostname or "").lower()
-    return parsed.scheme == "https" and host in SOURCE_HOSTS and not parsed.username and not parsed.password and parsed.port in (None, 443)
+    try:
+        parsed = urlsplit(value)
+        host = (parsed.hostname or "").lower()
+        return parsed.scheme == "https" and host in SOURCE_HOSTS and not parsed.username and not parsed.password and parsed.port in (None, 443)
+    except ValueError:
+        return False
 
 def _sources(item):
     result = []
