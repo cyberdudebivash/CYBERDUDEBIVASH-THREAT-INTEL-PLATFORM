@@ -49,3 +49,34 @@ CVE ingestion fix or customer release. Do not deploy based solely on this PR.
 - No live customer coverage or production deployment is certified.
 
 **Decision:** Keep PR draft and production unchanged pending evidence.
+
+## 2026-10-23: live-path architectural finding and ingestion risk
+
+Repository source registry and `docs/SOURCE_FABRIC_ARCHITECTURE.md` identify
+`core/ingestion/sources/nvd_source.py` as a **dormant adapter**. It is not
+called by the scheduled `multi-source-intel.yml` ingestion job. The adapter
+network/budget changes in this draft PR therefore must **not** be described
+as a fix for customer-facing NVD ingestion. Consider moving that unrelated
+hardening to a separate PR before merging.
+
+Actual scheduled NVD path:
+`.github/workflows/multi-source-intel.yml` ->
+`scripts/true_intel_ingestor.py:ingest_nvd_cves` ->
+`data/stix/feed_manifest.json` ->
+`scripts/intel_persistence_engine.py` -> R2 state upload.
+The customer publisher is a separate `sentinel-apex.yml` workflow that
+runs `scripts/run_pipeline.py` and downstream public API publication.
+
+**Specific potential data-loss condition found in live-path source:**
+`ingest_nvd_cves` requests `resultsPerPage=100` and consumes only the
+first `vulnerabilities` array. It does not check NVD `totalResults` or
+paginate. If the publication interval returns over 100 CVEs, older records
+may never be processed, yet `last_seen` advances to the newest processed
+record. This is a plausible permanent omission mechanism, **not yet proven
+as the cause of these two specific CVEs**.
+
+Next change must implement bounded complete pagination, explicit handling
+for partial/failed pages (no cursor advancement on incomplete batches),
+strict API schema checks, mocked >100-item regression tests, and a safe
+reconciliation strategy for historical omissions. Do not broaden NVD lookback
+or trigger bulk replay without checking provider and Cloudflare budgets.
