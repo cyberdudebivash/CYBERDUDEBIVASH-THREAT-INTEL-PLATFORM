@@ -5,8 +5,10 @@ Usage:
   python scripts/php2shell_coverage_gate.py --url https://intel.cyberdudebivash.com/api/v1/intel/latest.json
   python scripts/php2shell_coverage_gate.py --file evidence/latest.json
 
-Exit 0 only when both CVEs are present in published items with verifiable
-source links and the manifest is fresh. Never manufactures advisory content.
+Exit 0 only when both CVEs are present in this bounded published snapshot,
+with links to recognized source domains and a fresh manifest. A domain match
+is NOT proof that an advisory corroborates the CVE. Absence in a bounded
+snapshot does NOT prove ingestion failure. Never manufactures intelligence.
 """
 import argparse
 import json
@@ -19,7 +21,7 @@ from urllib.request import Request, urlopen
 
 REQUIRED = {"CVE-2026-109618", "CVE-2026-109619"}
 CVE_RE = re.compile(r"\bCVE-2026-10961(?:8|9)\b", re.I)
-SOURCE_HOSTS = {"php.net", "github.com", "nvd.nist.gov", "www.cve.org", "cve.org"}
+SOURCE_HOSTS = {"php.net", "www.php.net", "nvd.nist.gov", "www.cve.org", "cve.org"}
 MAX_BYTES = 4_000_000
 
 def _read(url=None, file=None):
@@ -28,7 +30,7 @@ def _read(url=None, file=None):
     parsed = urlsplit(url)
     if parsed.scheme != "https" or parsed.username or parsed.password:
         raise ValueError("HTTPS URL required")
-    if parsed.hostname != "intel.cyberdudebivash.com":
+    if parsed.hostname != "intel.cyberdudebivash.com" or parsed.port not in (None, 443):
         raise ValueError("Only canonical production host permitted")
     req = Request(url, headers={"Accept": "application/json", "User-Agent": "sentinel-apex-coverage-gate/1"})
     with urlopen(req, timeout=15) as response:
@@ -44,7 +46,7 @@ def _valid_source(value):
         return False
     parsed = urlsplit(value)
     host = (parsed.hostname or "").lower()
-    return parsed.scheme == "https" and host in SOURCE_HOSTS and not parsed.username and not parsed.password
+    return parsed.scheme == "https" and host in SOURCE_HOSTS and not parsed.username and not parsed.password and parsed.port in (None, 443)
 
 def _sources(item):
     result = []
