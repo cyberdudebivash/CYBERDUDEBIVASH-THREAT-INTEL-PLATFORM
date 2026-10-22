@@ -35,6 +35,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -463,6 +464,8 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
     NVD CVE API v2 — recent CVEs by publishedDate window.
     Incremental: uses last_seen to set pubStartIndex window.
     """
+    global _last_http_reason_code
+    _last_http_reason_code = None
     SOURCE_KEY = "nvd_cve"
 
     last_seen = feed_state.get_last_seen(SOURCE_KEY)
@@ -472,19 +475,91 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
         start_dt = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
     end_dt = datetime.now(timezone.utc)
+    # NVD's published-date query accepts a bounded interval. An older
+    # checkpoint needs an explicit, segmented reconciliation job; silently
+    # submitting an unsupported interval must not be treated as zero results.
+    if start_dt > end_dt or end_dt - start_dt > timedelta(days=120):
+        log.error("[NVD] Invalid or >120-day publication window; reconciliation required")
+        _last_http_reason_code = "NVD_RECONCILIATION_REQUIRED"
+        return []
     pub_start = start_dt.strftime("%Y-%m-%dT%H:%M:%S.000")
     pub_end   = end_dt.strftime("%Y-%m-%dT%H:%M:%S.000")
 
-    url = f"{NVD_API_URL}?pubStartDate={pub_start}&pubEndDate={pub_end}&resultsPerPage=100"
+    # Fetch the complete NVD window before processing or advancing the cursor.
+    # A partial response must never cause permanent omissions.
+    page_size = 2000  # NVD v2 documented maximum; minimize provider calls.
+    max_pages = 10  # Hard cost bound: fail closed rather than silently truncate.
+    vulns: List[Dict] = []
+    offset = 0
+    expected_total: Optional[int] = None
     log.info("[NVD] Fetching CVEs from %s to %s", pub_start[:10], pub_end[:10])
 
-    data = _get_json(url)
-    if not data:
-        log.warning("[NVD] No data received")
+    for page in range(max_pages):
+        # Anonymous NVD clients are limited to 5 requests per 30 seconds.
+        # Space subsequent page requests; the first page incurs no delay.
+        if page:
+            time.sleep(7)
+        url = (f"{NVD_API_URL}?pubStartDate={pub_start}&pubEndDate={pub_end}"
+               f"&resultsPerPage={page_size}&startIndex={offset}")
+        data = _get_json(url)
+        if not isinstance(data, dict):
+            log.error("[NVD] Page %d unavailable; checkpoint unchanged", page)
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+            return []
+        total = data.get("totalResults")
+        batch = data.get("vulnerabilities")
+        if (type(total) is not int or total < 0 or not isinstance(batch, list)
+                or len(batch) > page_size or (expected_total is not None and total != expected_total)
+                or offset + len(batch) > total
+                or (total > offset and not batch)):
+            log.error("[NVD] Invalid/inconsistent page %d; checkpoint unchanged", page)
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+            return []
+        if expected_total is None:
+            expected_total = total
+        vulns.extend(batch)
+        offset += len(batch)
+        if offset == expected_total:
+            break
+    else:
+        log.error("[NVD] Pagination exceeded %d pages; checkpoint unchanged", max_pages)
+        _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
         return []
 
-    vulns = data.get("vulnerabilities", [])
-    log.info("[NVD] Raw CVEs received: %d", len(vulns))
+    # Offset drift or upstream page duplication can silently lose unique CVEs.
+    # Refuse to advance the cursor unless every record has a unique CVE ID.
+    ids = [v.get("cve", {}).get("id") if isinstance(v, dict) and isinstance(v.get("cve"), dict) else None
+           for v in vulns]
+    if any(not isinstance(identifier, str) or not identifier.startswith("CVE-") for identifier in ids) or len(set(ids)) != len(ids):
+        log.error("[NVD] Missing/duplicate CVE identifiers; checkpoint unchanged")
+        _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+        return []
+
+    # A malformed or future-dated record must not push the incremental cursor
+    # beyond legitimate records. Validate the entire batch before mutation.
+    for v in vulns:
+        cve = v["cve"]
+        descriptions = cve.get("descriptions", [])
+        metrics = cve.get("metrics", {})
+        if (not isinstance(descriptions, list)
+                or any(not isinstance(d, dict) or not isinstance(d.get("lang"), str)
+                       or not isinstance(d.get("value"), str) for d in descriptions)
+                or not isinstance(metrics, dict)
+                or any(not isinstance(entries, list)
+                       or any(not isinstance(entry, dict)
+                              or not isinstance(entry.get("cvssData"), dict)
+                              for entry in entries)
+                       for key, entries in metrics.items() if key.startswith("cvssMetric"))):
+            log.error("[NVD] Invalid CVE metadata; checkpoint unchanged")
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+            return []
+        ts = _parse_ts(cve.get("published", ""))
+        if ts is None or ts > end_dt + timedelta(minutes=5):
+            log.error("[NVD] Invalid/future published timestamp; checkpoint unchanged")
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+            return []
+
+    log.info("[NVD] Complete CVE window: %d records", len(vulns))
 
     items: List[Dict] = []
     newest_ts: Optional[datetime] = None
@@ -516,7 +591,12 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
                     severity = sev
                 break
 
-        risk_score = min(float(cvss_score or 5.0), 10.0) if cvss_score else 5.0
+        try:
+            numeric_score = float(cvss_score) if cvss_score is not None else 5.0
+            # NaN and infinities are valid float parses but invalid risk scores.
+            risk_score = min(max(numeric_score, 0.0), 10.0) if math.isfinite(numeric_score) else 5.0
+        except (TypeError, ValueError, OverflowError):
+            risk_score = 5.0
 
         title = f"{cve_id}: {desc[:120]}" if desc else cve_id
         nvd_url = f"https://nvd.nist.gov/vuln/detail/{cve_id}"
