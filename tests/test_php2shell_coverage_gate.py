@@ -66,6 +66,11 @@ class CoverageGateTests(unittest.TestCase):
             item["references"] = [f"https://nvd.nist.gov/vuln/detail/{item['cve_id']}"]
         self.assertEqual(gate.check(p, now=NOW), [])
 
+    def test_wrong_php_anchor_rejected(self):
+        p = payload()
+        p["items"][0]["references"] = ["https://www.php.net/archive/2026.php#2026-10-21-999"]
+        self.assertTrue(any("missing_authoritative_source" in e for e in gate.check(p, now=NOW)))
+
     def test_no_items_fails(self):
         self.assertIn("missing_items_array", gate.check({"generated_at": "2026-10-22T23:00:00Z"}, now=NOW))
 if __name__ == "__main__":
