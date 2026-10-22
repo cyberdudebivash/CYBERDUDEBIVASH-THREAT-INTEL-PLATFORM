@@ -475,16 +475,41 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
     pub_start = start_dt.strftime("%Y-%m-%dT%H:%M:%S.000")
     pub_end   = end_dt.strftime("%Y-%m-%dT%H:%M:%S.000")
 
-    url = f"{NVD_API_URL}?pubStartDate={pub_start}&pubEndDate={pub_end}&resultsPerPage=100"
+    # Fetch the complete NVD window before processing or advancing the cursor.
+    # A partial response must never cause permanent omissions.
+    page_size = 2000  # NVD v2 documented maximum; minimize provider calls.
+    max_pages = 10  # Hard cost bound: fail closed rather than silently truncate.
+    vulns: List[Dict] = []
+    offset = 0
+    expected_total: Optional[int] = None
     log.info("[NVD] Fetching CVEs from %s to %s", pub_start[:10], pub_end[:10])
 
-    data = _get_json(url)
-    if not data:
-        log.warning("[NVD] No data received")
+    for page in range(max_pages):
+        url = (f"{NVD_API_URL}?pubStartDate={pub_start}&pubEndDate={pub_end}"
+               f"&resultsPerPage={page_size}&startIndex={offset}")
+        data = _get_json(url)
+        if not isinstance(data, dict):
+            log.error("[NVD] Page %d unavailable; checkpoint unchanged", page)
+            return []
+        total = data.get("totalResults")
+        batch = data.get("vulnerabilities")
+        if (type(total) is not int or total < 0 or not isinstance(batch, list)
+                or len(batch) > page_size or (expected_total is not None and total != expected_total)
+                or offset + len(batch) > total
+                or (total > offset and not batch)):
+            log.error("[NVD] Invalid/inconsistent page %d; checkpoint unchanged", page)
+            return []
+        if expected_total is None:
+            expected_total = total
+        vulns.extend(batch)
+        offset += len(batch)
+        if offset == expected_total:
+            break
+    else:
+        log.error("[NVD] Pagination exceeded %d pages; checkpoint unchanged", max_pages)
         return []
 
-    vulns = data.get("vulnerabilities", [])
-    log.info("[NVD] Raw CVEs received: %d", len(vulns))
+    log.info("[NVD] Complete CVE window: %d records", len(vulns))
 
     items: List[Dict] = []
     newest_ts: Optional[datetime] = None
