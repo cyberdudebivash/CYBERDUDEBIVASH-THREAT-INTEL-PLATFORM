@@ -157,3 +157,16 @@ def test_nvd_malformed_metadata_fails_closed(field, value):
         assert ingestor.ingest_nvd_cves(state) == []
     assert state.updated == []
     assert ingestor.get_last_http_reason_code() == "NVD_INCOMPLETE_WINDOW"
+
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), float("-inf"), "not-a-number"])
+def test_nvd_nonfinite_cvss_uses_finite_fallback(score):
+    state = FakeState()
+    item = record(1)
+    item["cve"]["metrics"] = {
+        "cvssMetricV31": [{"cvssData": {"baseScore": score, "baseSeverity": "HIGH"}}]
+    }
+    with patch.object(ingestor, "_get_json", return_value={"totalResults": 1, "vulnerabilities": [item]}), patch.object(
+        ingestor, "_normalize_item", side_effect=lambda **kw: kw):
+        result = ingestor.ingest_nvd_cves(state)
+    assert len(result) == 1
+    assert result[0]["risk_score"] == 5.0
