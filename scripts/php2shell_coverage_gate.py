@@ -48,7 +48,7 @@ def _valid_source(value):
 
 def _sources(item):
     result = []
-    for key in ("references", "sources", "source_urls", "source_url", "url"):
+    for key in ("references", "sources", "source_urls", "source_url", "source", "url"):
         val = item.get(key)
         if isinstance(val, str):
             result.append(val)
@@ -71,7 +71,7 @@ def check(payload, max_age_hours=6, now=None):
     for item in items:
         if not isinstance(item, dict):
             continue
-        identifiers = " ".join(str(item.get(k, "")) for k in ("id", "cve_id", "cve", "title", "name"))
+        identifiers = " ".join(str(item.get(k, "")) for k in ("id", "cve_id", "cve_ids", "cve", "title", "name"))
         ids = {m.upper() for m in CVE_RE.findall(identifiers)}
         for cve in ids:
             if not any(_valid_source(s) for s in _sources(item)):
