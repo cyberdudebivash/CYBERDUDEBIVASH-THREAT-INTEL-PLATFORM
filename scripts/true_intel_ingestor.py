@@ -463,6 +463,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
     NVD CVE API v2 — recent CVEs by publishedDate window.
     Incremental: uses last_seen to set pubStartIndex window.
     """
+    global _last_http_reason_code
     SOURCE_KEY = "nvd_cve"
 
     last_seen = feed_state.get_last_seen(SOURCE_KEY)
@@ -494,6 +495,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
         data = _get_json(url)
         if not isinstance(data, dict):
             log.error("[NVD] Page %d unavailable; checkpoint unchanged", page)
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
             return []
         total = data.get("totalResults")
         batch = data.get("vulnerabilities")
@@ -502,6 +504,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
                 or offset + len(batch) > total
                 or (total > offset and not batch)):
             log.error("[NVD] Invalid/inconsistent page %d; checkpoint unchanged", page)
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
             return []
         if expected_total is None:
             expected_total = total
@@ -511,6 +514,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
             break
     else:
         log.error("[NVD] Pagination exceeded %d pages; checkpoint unchanged", max_pages)
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
         return []
 
     # Offset drift or upstream page duplication can silently lose unique CVEs.
@@ -519,6 +523,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
            for v in vulns]
     if any(not isinstance(identifier, str) or not identifier.startswith("CVE-") for identifier in ids) or len(set(ids)) != len(ids):
         log.error("[NVD] Missing/duplicate CVE identifiers; checkpoint unchanged")
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
         return []
 
     # A malformed or future-dated record must not push the incremental cursor
@@ -527,6 +532,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
         ts = _parse_ts(v["cve"].get("published", ""))
         if ts is None or ts > end_dt + timedelta(minutes=5):
             log.error("[NVD] Invalid/future published timestamp; checkpoint unchanged")
+            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
             return []
 
     log.info("[NVD] Complete CVE window: %d records", len(vulns))
