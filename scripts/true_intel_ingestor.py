@@ -485,6 +485,10 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
     log.info("[NVD] Fetching CVEs from %s to %s", pub_start[:10], pub_end[:10])
 
     for page in range(max_pages):
+        # Anonymous NVD clients are limited to 5 requests per 30 seconds.
+        # Space subsequent page requests; the first page incurs no delay.
+        if page:
+            time.sleep(7)
         url = (f"{NVD_API_URL}?pubStartDate={pub_start}&pubEndDate={pub_end}"
                f"&resultsPerPage={page_size}&startIndex={offset}")
         data = _get_json(url)
