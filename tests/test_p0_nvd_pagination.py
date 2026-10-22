@@ -1,5 +1,5 @@
 """Offline regression tests for complete NVD window retrieval in the scheduled collector."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 import pytest
 import scripts.true_intel_ingestor as ingestor
@@ -126,3 +126,19 @@ def test_nvd_valid_empty_page_has_no_failure_reason():
     with patch.object(ingestor, "_get_json", return_value={"totalResults": 0, "vulnerabilities": []}):
         assert ingestor.ingest_nvd_cves(state) == []
     assert ingestor.get_last_http_reason_code() is None
+
+def test_nvd_stale_cursor_requires_reconciliation_without_network():
+    state = FakeState()
+    state.get_last_seen = lambda key: datetime.now(timezone.utc) - timedelta(days=121)
+    with patch.object(ingestor, "_get_json", side_effect=AssertionError("network forbidden")):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
+    assert ingestor.get_last_http_reason_code() == "NVD_RECONCILIATION_REQUIRED"
+
+def test_nvd_future_cursor_requires_reconciliation_without_network():
+    state = FakeState()
+    state.get_last_seen = lambda key: datetime.now(timezone.utc) + timedelta(days=1)
+    with patch.object(ingestor, "_get_json", side_effect=AssertionError("network forbidden")):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
+    assert ingestor.get_last_http_reason_code() == "NVD_RECONCILIATION_REQUIRED"
