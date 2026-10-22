@@ -474,6 +474,13 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
         start_dt = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
     end_dt = datetime.now(timezone.utc)
+    # NVD's published-date query accepts a bounded interval. An older
+    # checkpoint needs an explicit, segmented reconciliation job; silently
+    # submitting an unsupported interval must not be treated as zero results.
+    if start_dt > end_dt or end_dt - start_dt > timedelta(days=120):
+        log.error("[NVD] Invalid or >120-day publication window; reconciliation required")
+        _last_http_reason_code = "NVD_RECONCILIATION_REQUIRED"
+        return []
     pub_start = start_dt.strftime("%Y-%m-%dT%H:%M:%S.000")
     pub_end   = end_dt.strftime("%Y-%m-%dT%H:%M:%S.000")
 
