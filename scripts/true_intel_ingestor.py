@@ -514,7 +514,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
             break
     else:
         log.error("[NVD] Pagination exceeded %d pages; checkpoint unchanged", max_pages)
-            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+        _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
         return []
 
     # Offset drift or upstream page duplication can silently lose unique CVEs.
@@ -523,7 +523,7 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
            for v in vulns]
     if any(not isinstance(identifier, str) or not identifier.startswith("CVE-") for identifier in ids) or len(set(ids)) != len(ids):
         log.error("[NVD] Missing/duplicate CVE identifiers; checkpoint unchanged")
-            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+        _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
         return []
 
     # A malformed or future-dated record must not push the incremental cursor
