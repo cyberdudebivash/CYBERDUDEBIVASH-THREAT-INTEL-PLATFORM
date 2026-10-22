@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = (
     "tests/test_p0_nvd_pagination.py",
+    "tests/test_p0_nvd_network_budget.py",
     "tests/test_true_intel_ingestor_p40.py",
     "tests/test_php2shell_coverage_gate.py",
 )
