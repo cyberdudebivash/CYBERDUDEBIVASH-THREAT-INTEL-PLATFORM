@@ -98,3 +98,19 @@ def test_nvd_bad_cve_shape_preserves_checkpoint():
     with patch.object(ingestor, "_get_json", return_value={"totalResults": 1, "vulnerabilities": [{"cve": {}}]}):
         assert ingestor.ingest_nvd_cves(state) == []
     assert state.updated == []
+
+def test_nvd_malformed_timestamp_preserves_checkpoint():
+    state = FakeState()
+    bad = record(1)
+    bad["cve"]["published"] = "not-a-timestamp"
+    with patch.object(ingestor, "_get_json", return_value={"totalResults": 1, "vulnerabilities": [bad]}):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
+
+def test_nvd_future_timestamp_preserves_checkpoint():
+    state = FakeState()
+    bad = record(1)
+    bad["cve"]["published"] = "2099-01-01T00:00:00.000"
+    with patch.object(ingestor, "_get_json", return_value={"totalResults": 1, "vulnerabilities": [bad]}):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
