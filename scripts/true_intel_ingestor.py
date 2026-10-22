@@ -521,6 +521,14 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
         log.error("[NVD] Missing/duplicate CVE identifiers; checkpoint unchanged")
         return []
 
+    # A malformed or future-dated record must not push the incremental cursor
+    # beyond legitimate records. Validate the entire batch before mutation.
+    for v in vulns:
+        ts = _parse_ts(v["cve"].get("published", ""))
+        if ts is None or ts > end_dt + timedelta(minutes=5):
+            log.error("[NVD] Invalid/future published timestamp; checkpoint unchanged")
+            return []
+
     log.info("[NVD] Complete CVE window: %d records", len(vulns))
 
     items: List[Dict] = []
