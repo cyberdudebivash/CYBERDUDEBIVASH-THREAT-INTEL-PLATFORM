@@ -19,7 +19,7 @@ class FakeState:
         self.updated.append((key, ts))
 
 def record(i):
-    return {"cve": {"id": f"CVE-2026-{10000+i}", "published": "2026-10-23T00:00:00.000",
+    return {"cve": {"id": f"CVE-2026-{10000+i}", "published": (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S.000"),
                     "descriptions": [{"lang": "en", "value": "fixture"}], "metrics": {}}}
 
 def test_nvd_two_pages_complete_before_cursor_update():
@@ -170,3 +170,13 @@ def test_nvd_nonfinite_cvss_uses_finite_fallback(score):
         result = ingestor.ingest_nvd_cves(state)
     assert len(result) == 1
     assert result[0]["risk_score"] == 5.0
+
+def test_nvd_rate_limit_reason_is_preserved():
+    state = FakeState()
+    def rate_limited(*args, **kwargs):
+        ingestor._last_http_reason_code = "HTTP_429"
+        return None
+    with patch.object(ingestor, "_get_json", side_effect=rate_limited):
+        assert ingestor.ingest_nvd_cves(state) == []
+    assert state.updated == []
+    assert ingestor.get_last_http_reason_code() == "HTTP_429"
