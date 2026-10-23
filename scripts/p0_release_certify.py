@@ -51,6 +51,7 @@ def main():
             "scripts/true_intel_ingestor.py",
             "scripts/php2shell_coverage_gate.py",
             "tests/test_p0_nvd_pagination.py",
+            "tests/test_p0_nvd_network_budget.py",
             "tests/test_true_intel_ingestor_p40.py",
             "tests/test_php2shell_coverage_gate.py"]),
         run("p0_regressions", ["-m", "pytest", "-q", *TESTS], timeout=240),
