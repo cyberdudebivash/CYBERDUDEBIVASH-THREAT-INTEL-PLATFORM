@@ -97,7 +97,7 @@ class BundlePreflightTests(unittest.TestCase):
         self.assertIn('CANONICAL_REVIEWED_SOURCE_NOT_UNIQUE', self.verify()['errors'])
 
     def test_source_with_restricted_upstream_evidence_fails(self):
-        self.canonical_data[0]['evidence_chain_restricted'] = True
+        self.canonical_data[0]['sources'] = [{'tlp': 'TLP:AMBER'}]
         self.generate()
         self.assertIn('CANONICAL_SOURCE_RESTRICTED_UPSTREAM', self.verify()['errors'])
 
