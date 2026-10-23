@@ -111,16 +111,60 @@ PUBLIC_LATEST_FIELDS: frozenset = (
 ) - PREMIUM_FIELDS
 
 
+# Manually reviewed provenance relationship (23 Oct 2026):
+# PHP's 21 Oct 2026 vendor security advisory explicitly names BOTH CVEs.
+# Do not substitute this URL for the underlying BleepingComputer article.
+# The source URL is an exact match to prevent attaching a vetted advisory to
+# arbitrary unreviewed items that happen to mention the same identifiers.
+_PHP2SHELL_NEWS_URL = (
+    "https://www.bleepingcomputer.com/news/security/"
+    "php-ships-emergency-patches-for-critical-php2shell-flaws/"
+)
+_PHP2SHELL_VENDOR_URL = "https://www.php.net/archive/2026.php#2026-10-21-5"
+_PHP2SHELL_CVES = frozenset(("CVE-2026-109618", "CVE-2026-109619"))
+
+
+def _reviewed_public_references(item: dict) -> list:
+    """Return only explicitly curated public advisory references.
+
+    Raw canonical 'references' and nested enrichments MUST NOT be copied
+    into the anonymous latest.json projection: they can contain premium
+    material, internal URLs, wrong-CVE links, or unbounded nested content.
+    """
+    if item.get("tlp") != "TLP:CLEAR" or item.get("source_url") != _PHP2SHELL_NEWS_URL:
+        return []
+    identifiers = set()
+    primary = item.get("cve_id")
+    if isinstance(primary, str):
+        identifiers.add(primary.upper())
+    extra = item.get("cve_ids")
+    if isinstance(extra, list) and len(extra) <= 32:
+        identifiers.update(value.upper() for value in extra if isinstance(value, str))
+    if not _PHP2SHELL_CVES.issubset(identifiers):
+        return []
+    return [{
+        "url": _PHP2SHELL_VENDOR_URL,
+        "type": "vendor_advisory",
+        "publisher": "PHP Security Team",
+        "cve_ids": sorted(_PHP2SHELL_CVES),
+    }]
+
+
 def project_for_public_latest(item: dict) -> dict:
     """Construct bounded-field public listing without altering the source.
 
     Never infer an identifier, fabricate intelligence, turn missing TLP into
-    CLEAR, or expose arbitrary future keys. Nested values on permitted keys
-    remain subject to the real recursive TLP/size/depth Worker preflight.
+    CLEAR, or expose arbitrary future keys. Curated authoritative references
+    are added only for an exact reviewed source+CVE+TLP match.
     """
     if not isinstance(item, dict):
         raise TypeError("public latest entry must be an advisory object")
-    return {key: value for key, value in item.items() if key in PUBLIC_LATEST_FIELDS}
+    out = {key: value for key, value in item.items() if key in PUBLIC_LATEST_FIELDS}
+    references = _reviewed_public_references(item)
+    if references:
+        # Exactly one bounded, editor-reviewed advisory (never raw input).
+        out["references"] = references
+    return out
 
 
 def project_feed_for_public_latest(items: list) -> list:
