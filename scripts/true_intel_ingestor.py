@@ -1430,6 +1430,21 @@ def _save_manifest(entries: List[Dict]) -> None:
 # MERGE NEW ITEMS INTO MANIFEST (additive, deduped)
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _nvd_cve_identity(item: Dict) -> Optional[str]:
+    """Stable CVE identity for authoritative NVD entries only."""
+    source = str(item.get("source") or item.get("source_key") or "").lower()
+    url = str(item.get("source_url") or "")
+    if "nvd" not in source and not url.startswith("https://nvd.nist.gov/vuln/detail/"):
+        return None
+    candidates = [item.get("cve_id")]
+    if isinstance(item.get("cve_ids"), list):
+        candidates.extend(item["cve_ids"])
+    for value in candidates:
+        if isinstance(value, str) and re.fullmatch(r"CVE-\d{4}-\d{4,}", value, re.I):
+            return value.upper()
+    return None
+
+
 def _merge_into_manifest(new_items: List[Dict], dedup: _IngestorDedup) -> Tuple[int, int]:
     """
     Load existing manifest, append new_items (dedup-filtered), save.
@@ -1442,41 +1457,54 @@ def _merge_into_manifest(new_items: List[Dict], dedup: _IngestorDedup) -> Tuple[
     if _repaired:
         log.info("[MERGE] OpenPhish source links repaired: %d (were the phishing URL)", _repaired)
 
-    # v145.0: Build in-manifest dedup sets so state-file failures never cause
-    # duplicates. Checks stix_id, id, AND HTML-unescaped title.
-    existing_sids: set = set()
-    existing_ids: set = set()
-    existing_titles: set = set()
-    for e in existing:
-        sid = e.get("stix_id") or ""
-        eid = e.get("id") or ""
-        ttl = _html_mod.unescape(e.get("title") or "").strip().lower()
+    # Preserve legacy dedup for non-NVD records; NVD uses stable CVE IDs.
+    existing_sids, existing_ids, existing_titles = set(), set(), set()
+    nvd_positions = {}
+    for pos, entry in enumerate(existing):
+        cve = _nvd_cve_identity(entry)
+        if cve:
+            nvd_positions.setdefault(cve, pos)
+        sid, eid = entry.get("stix_id") or "", entry.get("id") or ""
+        ttl = _html_mod.unescape(entry.get("title") or "").strip().lower()
         if sid: existing_sids.add(sid)
         if eid: existing_ids.add(eid)
-        if ttl: existing_titles.add(ttl)
+        if ttl and not cve: existing_titles.add(ttl)
 
-    added = 0
-    skipped = 0
-
+    added, skipped = 0, 0
     for item in new_items:
-        sid = item.get("stix_id") or ""
-        eid = item.get("id") or ""
-        ttl = _html_mod.unescape(item.get("title") or "").strip().lower()
-        # Skip if already in manifest by stix_id, id, OR normalised title
-        if (sid and sid in existing_sids) or \
-           (eid and eid in existing_ids) or \
-           (ttl and ttl in existing_titles):
+        cve = _nvd_cve_identity(item)
+        if cve and cve in nvd_positions:
+            pos = nvd_positions[cve]
+            prior = existing[pos]
+            updated = dict(prior)
+            updated.update({key: value for key, value in item.items()
+                            if value is not None and value != "" and value != []})
+            updated["id"] = prior.get("id") or item.get("id")
+            updated["stix_id"] = prior.get("stix_id") or item.get("stix_id")
+            for field in ("references", "source_urls"):
+                previous, current = prior.get(field), item.get(field)
+                if isinstance(previous, list):
+                    updated[field] = list(dict.fromkeys(
+                        v for v in previous + (current if isinstance(current, list) else [])
+                        if isinstance(v, str)))
+            existing[pos] = updated
             skipped += 1
-            log.debug("[MERGE] In-manifest dedup skip: %s", ttl[:60])
             continue
-        if dedup.is_duplicate(item):
+        sid, eid = item.get("stix_id") or "", item.get("id") or ""
+        ttl = _html_mod.unescape(item.get("title") or "").strip().lower()
+        if (sid and sid in existing_sids) or (eid and eid in existing_ids) or (
+            not cve and ttl and ttl in existing_titles):
+            skipped += 1
+            continue
+        if not cve and dedup.is_duplicate(item):
             skipped += 1
             continue
         dedup.mark_seen(item)
         existing.append(item)
+        if cve: nvd_positions[cve] = len(existing) - 1
         if sid: existing_sids.add(sid)
         if eid: existing_ids.add(eid)
-        if ttl: existing_titles.add(ttl)
+        if ttl and not cve: existing_titles.add(ttl)
         added += 1
 
     _save_manifest(existing)
