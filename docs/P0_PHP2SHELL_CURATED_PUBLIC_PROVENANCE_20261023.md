@@ -45,7 +45,7 @@ python -m unittest discover -s tests -p 'test_php2shell_coverage_gate.py' -v
 ```
 The added cases check: source attribution preservation, expected gate acceptance, strict exact source and TLP matching, CVE-structured-identity matching, rejection of arbitrary news/attacker URLs, public premium-field exclusion, and no raw-reference leakage.
 
-After merging this change, run the *broader* relevant offline P0 checks on the merged source tree using the reviewed `scripts/p0_release_certify.py` when available (separately proposed in PR #891). Both PRs require source-tree parity review and explicit test results. Do not interpret successful isolated tests as a full production certificate.
+After merging this change, run the *broader* relevant offline P0 checks on the merged source tree using the reviewed `scripts/p0_release_certify.py` now available on `main` from merged PR #891. This new change requires its own explicit test results; the prior 74/74 certificate cannot be reused as proof that this patch passed. Do not interpret successful isolated tests as a full production certificate.
 
 For any eventual approved publish: check original feed provenance and TLP; regenerate manifests in a scratch/output-isolated environment; verify public JSON under **1 MiB** before upload; validate exact expected fields and byte-check no private references or premium artifacts; check snapshot timestamp contract (**6 hours**), authenticated PRO/ENTERPRISE payload isolation, and deployment/rollback version; run the live customer PHP2Shell gate after publication. **Do not** edit the 119-item public snapshot in place or invent a new `generated_at` solely to turn a test green.
 
