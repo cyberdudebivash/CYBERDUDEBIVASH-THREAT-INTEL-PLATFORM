@@ -504,7 +504,8 @@ def ingest_nvd_cves(feed_state: FeedState, lookback_hours: int = NVD_LOOKBACK_HO
         data = _get_json(url)
         if not isinstance(data, dict):
             log.error("[NVD] Page %d unavailable; checkpoint unchanged", page)
-            _last_http_reason_code = "NVD_INCOMPLETE_WINDOW"
+            # Preserve the precise upstream HTTP/network failure for SOC triage.
+            _last_http_reason_code = _last_http_reason_code or "NVD_INCOMPLETE_WINDOW"
             return []
         total = data.get("totalResults")
         batch = data.get("vulnerabilities")
