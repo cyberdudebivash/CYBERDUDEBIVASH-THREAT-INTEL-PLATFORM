@@ -418,7 +418,7 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
     # canonical catalog provenance and complete deployment-state coverage.
     # Once enabled, invalid or absent authoritative evidence fails closed;
     # there is deliberately no fallback to hash order or filesystem mtime.
-    if os.getenv("CONVERGENCE_STRICT_CHRONOLOGY", "0") == "1":
+    if os.getenv("CONVERGENCE_STRICT_CHRONOLOGY", "1") == "1":
         try:
             from strict_report_probe_selection import (
                 select_report_probes, ReportSelectionBlocked,
