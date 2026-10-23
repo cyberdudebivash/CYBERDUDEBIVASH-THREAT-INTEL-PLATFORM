@@ -10,6 +10,8 @@ The production mode additionally checks the canonical customer feed.
 """
 import argparse
 import json
+import os
+import tempfile
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -25,11 +27,22 @@ TESTS = (
 LIVE_URL = "https://intel.cyberdudebivash.com/api/v1/intel/latest.json"
 
 
+def _test_environment():
+    """Use an owned, writable temporary directory, not inherited pytest cache paths."""
+    env = os.environ.copy()
+    temp_root = ROOT / '.p0-certification-tmp'
+    temp_root.mkdir(parents=True, exist_ok=True)
+    for key in ('TMP', 'TEMP', 'TMPDIR'):
+        env[key] = str(temp_root)
+    return env
+
+
 def run(name, args, timeout=180):
     try:
         result = subprocess.run(
             [sys.executable, *args], cwd=ROOT, capture_output=True,
             text=True, timeout=timeout, check=False,
+            env=_test_environment(),
         )
         return {
             "name": name, "passed": result.returncode == 0,
@@ -54,7 +67,7 @@ def main():
             "tests/test_p0_nvd_network_budget.py",
             "tests/test_true_intel_ingestor_p40.py",
             "tests/test_php2shell_coverage_gate.py"]),
-        run("p0_regressions", ["-m", "pytest", "-q", *TESTS], timeout=240),
+        run("p0_regressions", ["-m", "pytest", "-q", "--basetemp=.p0-certification-tmp/pytest", *TESTS], timeout=240),
     ]
     if args.production:
         checks.append(run("live_php2shell_coverage", [
