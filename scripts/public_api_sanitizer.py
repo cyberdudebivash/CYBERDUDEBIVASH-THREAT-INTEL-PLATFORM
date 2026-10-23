@@ -106,6 +106,7 @@ PUBLIC_FIELDS: frozenset = frozenset([
 PUBLIC_LATEST_FIELDS: frozenset = (
     PUBLIC_FIELDS | frozenset({
         "description", "source_url", "blog_url", "actor_display_name",
+        "references", "source_urls",
         "mitre_tactics",
     })
 ) - PREMIUM_FIELDS
@@ -120,7 +121,25 @@ def project_for_public_latest(item: dict) -> dict:
     """
     if not isinstance(item, dict):
         raise TypeError("public latest entry must be an advisory object")
-    return {key: value for key, value in item.items() if key in PUBLIC_LATEST_FIELDS}
+    out = {key: value for key, value in item.items() if key in PUBLIC_LATEST_FIELDS}
+    # Keep public evidence links only when already present in the canonical item.
+    # Never manufacture authoritative URLs from extracted CVE identifiers.
+    for key in ("references", "source_urls"):
+        if key in out:
+            value = out[key]
+            if not isinstance(value, list) or len(value) > 16:
+                out.pop(key)
+                continue
+            urls = []
+            for entry in value:
+                url = entry if isinstance(entry, str) else entry.get("url") if isinstance(entry, dict) else None
+                if isinstance(url, str) and url.startswith("https://") and len(url) <= 2048:
+                    urls.append(url)
+            if urls:
+                out[key] = urls
+            else:
+                out.pop(key)
+    return out
 
 
 def project_feed_for_public_latest(items: list) -> list:
