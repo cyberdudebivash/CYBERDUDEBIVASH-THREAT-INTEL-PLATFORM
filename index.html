@@ -1754,7 +1754,8 @@
           }
 
           function _renderCard(r) {
-            var sev = (r.severity || 'UNKNOWN').toUpperCase();
+            var sev = String(r.severity || 'UNKNOWN').toUpperCase();
+            if (!Object.prototype.hasOwnProperty.call(SEV_COLORS, sev)) sev = 'UNKNOWN';
             var col = SEV_COLORS[sev] || SEV_COLORS.UNKNOWN;
             var bg  = SEV_BG[sev]  || SEV_BG.UNKNOWN;
             var cveStr = Array.isArray(r.cve) && r.cve.length ? r.cve.slice(0,3).join(', ') + (r.cve.length > 3 ? ' +' + (r.cve.length-3) : '') : '';
@@ -1808,8 +1809,10 @@
               // truthful state -- never fabricate/show stale reports to
               // paper over it) from "filtered to zero" (a plain ALL-severity
               // set that just happens to not match the selected filter).
-              var emptyMsg = _cdbReportsView && _cdbReportsView.state !== 'READY'
-                ? _cdbReportsView.message : 'No reports match filter.';
+              var emptyMsg = !_cdbReportsView
+                ? 'Report publication authorization is unverified. No report links are shown.'
+                : _cdbReportsView.state !== 'READY'
+                  ? _cdbReportsView.message : 'No reports match filter.';
               grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">' + _esc(emptyMsg) + '</div>';
             } else {
               grid.innerHTML = reports.map(_renderCard).join('');
