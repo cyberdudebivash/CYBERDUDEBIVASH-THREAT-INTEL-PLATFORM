@@ -58,3 +58,18 @@ def test_strict_mode_manifest_mismatch_hard_blocks(monkeypatch, tmp_path):
     manifest = {"files": {"reports/2025/10/intel--" + "b" * 24 + ".html": {}}}
     with pytest.raises(RuntimeError, match="blocked"):
         dcv._extract_report_urls([], manifest)
+
+
+def test_explicit_legacy_override_cannot_bypass_missing_catalog(monkeypatch, tmp_path):
+    monkeypatch.setenv("CONVERGENCE_STRICT_CHRONOLOGY", "0")
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", tmp_path / "missing.json")
+    with pytest.raises(RuntimeError, match="blocked"):
+        dcv._extract_report_urls([], {"files": {}})
+
+
+def test_unset_mode_cannot_fall_back_to_untrusted_feed(monkeypatch, tmp_path):
+    monkeypatch.delenv("CONVERGENCE_STRICT_CHRONOLOGY", raising=False)
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", tmp_path / "missing.json")
+    forged = record("a", "2025-10-02T00:00:00Z")
+    with pytest.raises(RuntimeError, match="blocked"):
+        dcv._extract_report_urls([{"report_url": forged["url"]}], {"files": {}})
