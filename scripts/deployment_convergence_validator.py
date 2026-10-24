@@ -429,6 +429,15 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
         log.info("Strict UTC chronology precheck passed; live delivery remains unverified")
         return selected
     except (OSError, ValueError, UnicodeError, TypeError) as exc:
+        # Surface bounded forensic evidence without leaking catalog contents,
+        # local filesystem paths, or report payloads into public CI logs.
+        if isinstance(exc, ReportSelectionBlocked):
+            reason = str(exc)[:300]
+        elif isinstance(exc, json.JSONDecodeError):
+            reason = "catalog JSON syntax invalid"
+        else:
+            reason = type(exc).__name__
+        log.error("P0 canonical chronology blocked convergence certification: %s", reason)
         raise RuntimeError("P0 canonical chronology blocked convergence certification") from exc
 
 
