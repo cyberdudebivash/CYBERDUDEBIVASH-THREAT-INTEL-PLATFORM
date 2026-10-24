@@ -111,3 +111,16 @@ def test_customer_ready_catalog_with_all_reports_withheld_blocks(monkeypatch, tm
     monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
     with pytest.raises(RuntimeError, match="blocked"):
         dcv._extract_report_urls([], {"files": {}})
+
+
+def test_invalid_catalog_logs_bounded_chronology_reason(monkeypatch, tmp_path, caplog):
+    """Rejected chronology must explain the block, not silently change probe source."""
+    invalid = record("a", "2026-10-24T10:00:00")  # timezone absent
+    catalog = tmp_path / "index.json"
+    catalog.write_text(json.dumps({"reports": [invalid]}), encoding="utf-8")
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
+    with pytest.raises(RuntimeError, match="blocked"):
+        dcv._extract_report_urls([], {"files": {}})
+    assert "canonical chronology blocked convergence certification" in caplog.text
+    assert "timestamp not a validated explicit-UTC ISO timestamp" in caplog.text
+    assert len(caplog.text) < 3000
