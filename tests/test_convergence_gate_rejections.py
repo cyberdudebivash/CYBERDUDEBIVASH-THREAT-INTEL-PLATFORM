@@ -8,6 +8,7 @@ failures. The probes also tripped the site's rate limit (429) and treated it
 as permanent. These tests drive the real phase functions with a fake network
 and a fake clock.
 """
+import json
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -22,7 +23,33 @@ import deployment_convergence_validator as dcv  # noqa: E402
 BASE = dcv.PAGES_BASE_URL
 REJECTED = [f"{BASE}/reports/2026/09/intel--{c * 24}.html" for c in "ab"]
 OK_REPORTS = [f"{BASE}/reports/2026/09/intel--{c * 24}.html" for c in "cdefghijklmno"]
-MANIFEST = {"files": {u[len(BASE) + 1:]: {} for u in REJECTED + OK_REPORTS}}
+HISTORY = [f"{BASE}/reports/2026/08/intel--{c * 24}.html" for c in "pqrst"]
+MANIFEST = {"files": {u[len(BASE) + 1:]: {} for u in HISTORY + REJECTED + OK_REPORTS}}
+
+
+def _write_catalog(monkeypatch, tmp_path, urls):
+    """Create a canonical UTC catalog; no network, R2 or publication writes."""
+    records = []
+    for position, url in enumerate(sorted(set(urls))):
+        assert url.startswith(BASE + "/reports/")
+        path = url[len(BASE):]
+        parts = path.split("/")
+        slug = parts[-1].removesuffix(".html")
+        records.append({
+            "id": slug, "path": path, "url": url,
+            "timestamp": f"{parts[2]}-{parts[3]}-{1 + position // 24:02}T{position % 24:02}:00:00Z",
+        })
+    catalog = tmp_path / "api" / "reports" / "index.json"
+    catalog.parent.mkdir(parents=True, exist_ok=True)
+    catalog.write_text(json.dumps({"reports": records}), encoding="utf-8")
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
+    return catalog
+
+
+@pytest.fixture(autouse=True)
+def _canonical_catalog(monkeypatch, tmp_path):
+    # Real strict selection is used by every convergence phase test.
+    _write_catalog(monkeypatch, tmp_path, HISTORY + REJECTED + OK_REPORTS)
 
 
 class FakeNet:
@@ -58,7 +85,7 @@ def _run(net, rejected=frozenset(REJECTED)):
 
 
 def _sort_first(urls):
-    # _extract_report_urls sorts manifest paths; the sample is the newest 15.
+    # This deterministic fixture orders canonical timestamps in path order.
     return sorted(urls)
 
 
@@ -198,29 +225,33 @@ def test_confirmation_pauses_only_after_a_failed_pass(clock):
 
 def test_r2_backed_reports_catalog_supplies_historical_evidence_when_pages_manifest_is_empty(monkeypatch, tmp_path):
     monkeypatch.setattr(dcv, "REPO_ROOT", tmp_path)
-    catalog = tmp_path / "api" / "reports" / "index.json"
-    catalog.parent.mkdir(parents=True)
-    # build_reports_index.py writes newest-first. Sixteen entries are enough
-    # for the existing 15 latest probes plus the oldest retained continuity
-    # sample. Paths are intentionally the only trusted locator.
-    reports = [
-        {
-            "path": f"/reports/2026/10/intel--{i:024x}.html",
-            "url": f"https://attacker.invalid/ignored-{i}.html",
-        }
-        for i in range(16, 0, -1)
+    urls = [
+        f"{BASE}/reports/2026/10/intel--{i:024x}.html"
+        for i in range(20, 0, -1)
     ]
-    catalog.write_text(__import__("json").dumps({"reports": reports}), encoding="utf-8")
-    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
+    _write_catalog(monkeypatch, tmp_path, urls)
 
     latest, historical = dcv._extract_report_urls([], {"files": {}})
     assert len(latest) == dcv.MAX_REPORT_PROBES
     assert len(historical) == dcv.HIST_PROBE_COUNT
     assert all(url.startswith(BASE + "/reports/") for url in latest + historical)
-    assert all("attacker.invalid" not in url for url in latest + historical)
-    # Oldest retained entries are continuity evidence; newest are latest.
+    # Verified UTC timestamps, not lexical hash order, establish precedence.
     assert historical[0].endswith("000000000000000000000001.html")
-    assert latest[-1].endswith("000000000000000000000010.html")
+    assert latest[0].endswith("000000000000000000000014.html")
+    assert latest[-1].endswith("000000000000000000000006.html")
+
+
+def test_r2_catalog_rejects_untrusted_external_url(monkeypatch, tmp_path):
+    urls = [
+        f"{BASE}/reports/2026/10/intel--{i:024x}.html"
+        for i in range(20, 0, -1)
+    ]
+    catalog = _write_catalog(monkeypatch, tmp_path, urls)
+    payload = json.loads(catalog.read_text(encoding="utf-8"))
+    payload["reports"][0]["url"] = "https://attacker.invalid/report.html"
+    catalog.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="blocked"):
+        dcv._extract_report_urls([], {"files": {}})
 
 
 def test_malformed_reports_catalog_cannot_create_synthetic_history(monkeypatch, tmp_path):
@@ -235,9 +266,8 @@ def test_malformed_reports_catalog_cannot_create_synthetic_history(monkeypatch, 
         ]
     }), encoding="utf-8")
     monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
-    latest, historical = dcv._extract_report_urls([], {"files": {}})
-    assert latest == []
-    assert historical == []
+    with pytest.raises(RuntimeError, match="blocked"):
+        dcv._extract_report_urls([], {"files": {}})
 
 
 def test_missing_historical_evidence_fails_without_requests(monkeypatch):
@@ -254,6 +284,7 @@ def test_small_catalog_cannot_certify_history_or_spend_extra_budget(monkeypatch,
     monkeypatch.setattr(dcv, "_REQUESTS_USED", 23)
     monkeypatch.setattr(dcv, "_probe_batch", lambda *a: pytest.fail("no history must not probe"))
     manifest = {"files": {u[len(BASE) + 1:]: {} for u in OK_REPORTS[:2]}}
+    _write_catalog(monkeypatch, tmp_path, OK_REPORTS[:2])
     result = dcv.phase5_historical_report_audit([], manifest)
     assert not result.success
     assert result.probes == []
