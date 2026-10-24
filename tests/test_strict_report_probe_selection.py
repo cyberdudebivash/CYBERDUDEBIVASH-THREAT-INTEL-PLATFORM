@@ -43,7 +43,7 @@ def test_selected_report_absent_from_nonempty_manifest_blocks():
 
 def test_naive_timestamp_blocks_instead_of_guessing_timezone():
     bad = report("a", "2025-10-02T00:00:00")
-    with pytest.raises(ReportSelectionBlocked, match="canonical"):
+    with pytest.raises(ReportSelectionBlocked, match=r"(?i)^canonical chronology rejected:"):
         select_report_probes({"reports": [bad]}, manifest_files={})
 
 
