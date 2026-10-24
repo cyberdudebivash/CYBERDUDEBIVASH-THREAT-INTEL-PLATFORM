@@ -414,156 +414,26 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
       latest     -  most-recent MAX_REPORT_PROBES reports (newest filenames = last alpha)
       historical  -  oldest HIST_PROBE_COUNT reports (guard against accidental deletion)
     """
-    # Candidate-only strict integration. Enabled only after operator verifies
-    # canonical catalog provenance and complete deployment-state coverage.
-    # Once enabled, invalid or absent authoritative evidence fails closed;
-    # there is deliberately no fallback to hash order or filesystem mtime.
-    if os.getenv("CONVERGENCE_STRICT_CHRONOLOGY", "0") == "1":
-        try:
-            from strict_report_probe_selection import (
-                select_report_probes, ReportSelectionBlocked,
-            )
-            if not REPORTS_CATALOG_PATH.is_file():
-                raise ReportSelectionBlocked("Authoritative reports catalog unavailable")
-            if REPORTS_CATALOG_PATH.stat().st_size > 20_000_000:
-                raise ReportSelectionBlocked("Authoritative reports catalog exceeds size limit")
-            canonical = json.loads(REPORTS_CATALOG_PATH.read_text(encoding="utf-8"))
-            selected = select_report_probes(
-                canonical, manifest_files=manifest.get("files", {}),
-                latest_limit=MAX_REPORT_PROBES,
-                historical_limit=HIST_PROBE_COUNT,
-            )
-            log.info("Strict UTC report selection precheck succeeded; delivery still requires live gates")
-            return selected
-        except (OSError, ValueError, UnicodeError, TypeError) as exc:
-            raise RuntimeError("P0 canonical chronology blocked convergence certification") from exc
-
-    urls: List[str] = []
-
-    # ── PRIMARY: manifest["files"]  -  guaranteed to exist in dist/ ────────────
-    manifest_files = manifest.get("files", {})
-    if manifest_files:
-        # Collect all reports/*.html entries and sort alphabetically.
-        # Report filenames are date-prefixed (YYYY-MM-DD_...) so alpha sort
-        # places oldest first, newest last  -  ideal for latest/historical split.
-        report_paths = sorted(
-            k for k in manifest_files
-            if k.startswith("reports/") and k.endswith(".html")
+    # Mandatory fail-closed canonical UTC chronology. No environment bypass,
+    # hash-order fallback, filesystem mtime, or untrusted feed URL fallback.
+    try:
+        from strict_report_probe_selection import (
+            select_report_probes, ReportSelectionBlocked,
         )
-        for rel_path in report_paths:
-            urls.append(PAGES_BASE_URL.rstrip("/") + "/" + rel_path)
-        if urls:
-            log.info(
-                "Report URLs sourced from deployment_manifest.json "
-                "(%d HOT-tier reports, REPORT_RETENTION_DAYS-aware)", len(urls)
-            )
-
-    # ── SECONDARY: authoritative R2-backed reports catalog ─────────────────
-    # R2-first production runs intentionally omit historical reports from the
-    # Pages dist artifact. build_reports_index.py has already rebuilt
-    # api/reports/index.json from data/cache/r2_report_publish_state.json and
-    # canonical timestamps before convergence runs, and STAGE 3.5 uploads the
-    # same catalog to R2. Use only its canonical path field so a malformed or
-    # compromised absolute URL can never turn this validator into an SSRF
-    # client. Catalog entries are newest-first; reverse to the oldest-first
-    # ordering expected by the latest/historical split below.
-    if not urls and REPORTS_CATALOG_PATH.exists():
-        try:
-            catalog = json.loads(REPORTS_CATALOG_PATH.read_text("utf-8"))
-            entries = catalog.get("reports") if isinstance(catalog, dict) else None
-            if isinstance(entries, list):
-                catalog_urls = []
-                for entry in reversed(entries):
-                    rel = entry.get("path") if isinstance(entry, dict) else None
-                    if not isinstance(rel, str):
-                        continue
-                    rel = rel.strip()
-                    if (
-                        rel.startswith("/reports/")
-                        and rel.endswith(".html")
-                        and ".." not in rel.split("/")
-                        and "\\" not in rel
-                    ):
-                        catalog_urls.append(PAGES_BASE_URL.rstrip("/") + rel)
-                if catalog_urls:
-                    urls.extend(catalog_urls)
-                    log.info(
-                        "Report URLs sourced from R2-backed api/reports/index.json "
-                        "(%d retained published reports)", len(catalog_urls)
-                    )
-                else:
-                    log.warning("Reports catalog contained no canonical /reports/*.html paths.")
-            else:
-                log.warning("Reports catalog is missing a valid reports list.")
-        except (OSError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
-            log.warning("Reports catalog parse error: %s", exc)
-
-    # ── FALLBACK: feed.json report_url fields ─────────────────────────────────
-    if not urls:
-        log.warning(
-            "Deployment manifest and R2-backed reports catalog contain no report URLs; "
-            "falling back to feed.json. Historical continuity will remain fail-closed "
-            "unless enough independently published report URLs are present."
+        if not REPORTS_CATALOG_PATH.is_file():
+            raise ReportSelectionBlocked("Authoritative reports catalog unavailable")
+        if REPORTS_CATALOG_PATH.stat().st_size > 20_000_000:
+            raise ReportSelectionBlocked("Authoritative reports catalog exceeds size limit")
+        canonical = json.loads(REPORTS_CATALOG_PATH.read_text(encoding="utf-8"))
+        selected = select_report_probes(
+            canonical, manifest_files=manifest.get("files", {}),
+            latest_limit=MAX_REPORT_PROBES,
+            historical_limit=HIST_PROBE_COUNT,
         )
-        for item in feed:
-            url = item.get("report_url") or item.get("internal_report_url")
-            if url:
-                if not url.startswith("http"):
-                    url = PAGES_BASE_URL.rstrip("/") + "/" + url.lstrip("/")
-                urls.append(url)
-
-    # ── TERTIARY FALLBACK: scan reports/ directory for committed HTML files ──
-    # Fires when: (a) Pages manifest has no reports/ entries AND
-    #             (b) feed.json items have no probe-able report_url fields.
-    # Root cause: godmode-skip runs do not write report_url back to manifest.
-    # v160.6 FIX: scan reports/ dir and construct canonical CDN probe URLs.
-    if not urls:
-        _reports_dir = REPO_ROOT / "reports"
-        if _reports_dir.exists():
-            try:
-                _candidates = sorted(
-                    _reports_dir.rglob("intel--*.html"),
-                    key=lambda p: p.stat().st_mtime,
-                    reverse=True
-                )
-                for _rp in _candidates:
-                    _rel = _rp.relative_to(REPO_ROOT).as_posix()
-                    _cdnurl = PAGES_BASE_URL.rstrip("/") + "/" + _rel
-                    urls.append(_cdnurl)
-                    if len(urls) >= MAX_REPORT_PROBES:
-                        break
-                if urls:
-                    log.info(
-                        "Tertiary fallback: using %d CDN URLs derived from reports/ dir "
-                        "(godmode-skip run — no new reports generated this cycle).",
-                        len(urls)
-                    )
-            except Exception as _te:
-                log.warning("Tertiary fallback reports/ scan failed: %s", _te)
-
-    # ── Deduplicate preserving order ─────────────────────────────────────────
-    seen, deduped = set(), []
-    for u in urls:
-        if u not in seen:
-            seen.add(u)
-            deduped.append(u)
-
-    if not deduped:
-        log.warning("No report URLs found in manifest, R2-backed catalog, feed, or reports/ dir.")
-        return [], []
-
-    # latest  = newest MAX_REPORT_PROBES reports (last entries after alpha sort)
-    # historical = oldest HIST_PROBE_COUNT reports (first entries  -  continuity guard)
-    if len(deduped) > MAX_REPORT_PROBES:
-        latest     = deduped[-MAX_REPORT_PROBES:]
-        historical = deduped[:HIST_PROBE_COUNT]
-    else:
-        latest     = deduped
-        historical = []
-
-    log.info("Extracted %d latest URLs, %d historical URLs for convergence probing",
-             len(latest), len(historical))
-    return latest, historical
+        log.info("Strict UTC chronology precheck passed; live delivery remains unverified")
+        return selected
+    except (OSError, ValueError, UnicodeError, TypeError) as exc:
+        raise RuntimeError("P0 canonical chronology blocked convergence certification") from exc
 
 
 def _get_platform_version() -> str:
