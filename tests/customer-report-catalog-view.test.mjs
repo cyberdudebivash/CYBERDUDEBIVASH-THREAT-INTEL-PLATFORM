@@ -107,3 +107,21 @@ test('homepage labels certification, not raw report candidate count, as availabi
   assert.ok(html.includes('_cdbReportsView.ready_count'));
   assert.ok(!html.includes('reports are still accessible via direct links'));
 });
+
+test('full catalog v2 uses exactly the same fail-closed customer-ready contract', () => {
+  const view = evaluate(catalog({
+    feed_type:'customer_ready_catalog',
+    total_candidates:3,customer_ready_count:1,withheld_count:2,
+    total_reports:3,reports_listed:1,reports:[report]
+  }),NOW);
+  assert.equal(view.state,'READY');
+  assert.equal(view.ready_count,1);
+  assert.equal(view.reports[0].url, ORIGIN + path);
+});
+
+test('falsely listed withheld report never receives a clickable URL', () => {
+  const view = evaluate(catalog({reports_listed:1,reports:[report]}),NOW);
+  assert.equal(view.state,'UNVERIFIED');
+  assert.deepEqual(view.reports,[]);
+  assert.equal(view.ready_count,null);
+});
