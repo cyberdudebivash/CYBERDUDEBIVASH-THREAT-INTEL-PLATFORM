@@ -157,13 +157,27 @@ def test_incomplete_historical_sample_is_explicit_and_fail_closed(
 
 
 def test_full_healthy_protocol_completes_phase5_within_existing_cap(
-    monkeypatch, clean_budget
+    monkeypatch, clean_budget, tmp_path
 ):
     paths = [
         f"reports/2026/10/intel--{i:024x}.html"
         for i in range(20)
     ]
     manifest = {"files": {path: {} for path in paths}}
+    # Use a real canonical catalog; hash filename order is not evidence.
+    catalog = tmp_path / "index.json"
+    catalog.write_text(json.dumps({
+        "reports": [
+            {
+                "id": path.rsplit("/", 1)[-1].removesuffix(".html"),
+                "path": "/" + path,
+                "url": dcv.PAGES_BASE_URL + "/" + path,
+                "timestamp": f"2026-10-01T{i:02}:00:00Z",
+            }
+            for i, path in enumerate(paths)
+        ]
+    }), encoding="utf-8")
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
     publication_reads = []
 
     def urlopen(req, **kwargs):
