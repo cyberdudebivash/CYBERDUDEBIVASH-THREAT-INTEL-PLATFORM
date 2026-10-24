@@ -394,6 +394,39 @@ def _load_manifest() -> dict:
     return {}
 
 
+def _chronology_block_reason(exc: Exception) -> str:
+    """Bounded non-sensitive root-cause code for fail-closed convergence logs.
+
+    Never log the catalogue contents, URLs, exception message or cloud tokens.
+    The code is operator evidence only; it never authorizes a report probe.
+    """
+    if isinstance(exc, json.JSONDecodeError):
+        return "CATALOG_JSON_INVALID"
+    if isinstance(exc, OSError):
+        return "CATALOG_IO_ERROR"
+    if isinstance(exc, TypeError):
+        return "CATALOG_TYPE_INVALID"
+    message = str(exc)
+    for marker, code in (
+        ("timestamp not a validated explicit-UTC ISO timestamp", "CATALOG_TIMESTAMP_NOT_EXPLICIT_UTC"),
+        ("path month and canonical UTC publication timestamp differ", "CATALOG_MONTH_TIMESTAMP_MISMATCH"),
+        ("report publication timestamp is in the future", "CATALOG_FUTURE_REPORT"),
+        ("missing from Pages manifest", "PAGES_MANIFEST_REPORT_MISMATCH"),
+        ("Deployment manifest files must be an object", "PAGES_MANIFEST_INVALID"),
+        ("Missing reports catalogue array", "CATALOG_SCHEMA_INVALID"),
+        ("Empty report catalogue", "CATALOG_EMPTY"),
+        ("Authoritative reports catalog unavailable", "CATALOG_MISSING"),
+        ("Authoritative reports catalog exceeds size limit", "CATALOG_OVERSIZED"),
+        ("duplicate report path", "CATALOG_DUPLICATE_REPORT"),
+        ("unsafe, malformed or unrecognized canonical report path", "CATALOG_PATH_INVALID"),
+        ("report URL does not match canonical HTTPS path", "CATALOG_URL_INVALID"),
+        ("report ID does not match canonical filename", "CATALOG_ID_INVALID"),
+    ):
+        if marker in message:
+            return code
+    return "CATALOG_INTEGRITY_UNCLASSIFIED"
+
+
 def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], List[str]]:
     """
     Extract latest and historical report URLs for convergence probing.
@@ -433,6 +466,8 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
         log.info("Strict UTC chronology precheck passed; live delivery remains unverified")
         return selected
     except (OSError, ValueError, UnicodeError, TypeError) as exc:
+        log.error("P0 report chronology precheck: reason_code=%s; certification blocked",
+                  _chronology_block_reason(exc))
         raise RuntimeError("P0 canonical chronology blocked convergence certification") from exc
 
 
