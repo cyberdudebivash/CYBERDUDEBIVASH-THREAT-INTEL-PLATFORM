@@ -421,6 +421,14 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
         if REPORTS_CATALOG_PATH.stat().st_size > 20_000_000:
             raise ReportSelectionBlocked("Authoritative reports catalog exceeds size limit")
         canonical = json.loads(REPORTS_CATALOG_PATH.read_text(encoding="utf-8"))
+        # Withheld candidates are NOT delivered report evidence. Distinguish
+        # this production condition from malformed catalog timestamps.
+        if isinstance(canonical, dict) and canonical.get("feed_type") in (
+            "customer_ready_catalog", "customer_ready_latest"
+        ) and canonical.get("customer_ready_count") == 0:
+            raise ReportSelectionBlocked(
+                "Zero customer-ready reports; report authorization must be restored"
+            )
         selected = select_report_probes(
             canonical, manifest_files=manifest.get("files", {}),
             latest_limit=MAX_REPORT_PROBES,
