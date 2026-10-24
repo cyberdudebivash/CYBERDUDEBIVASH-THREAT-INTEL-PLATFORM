@@ -133,7 +133,7 @@ test('P25 trust cannot award CISA KEV exploitation points for negative string ev
 
 
 test('declared vulnerabilities with missing CVE/CVSS stay under full operational readiness controls', () => {
-  for (const threat_type of ['vulnerability', 'remote code execution', 'privilege escalation', 'CVE advisory']) {
+  for (const threat_type of ['vulnerability', 'remote code execution', 'privilege escalation', 'CVE advisory', 'CVE_VULNERABILITY', 'rce']) {
     const item = {
       title: 'Unverified vulnerability notice',
       threat_type,
