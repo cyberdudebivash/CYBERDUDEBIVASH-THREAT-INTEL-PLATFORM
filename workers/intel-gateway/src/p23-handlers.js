@@ -801,7 +801,7 @@ export async function handleP23Actionability(request, env) {
       actionability_label: as.label,
       patch_priority: patch.priority,
       severity: item.severity,
-      kev: !!(item.kev_present || item.kev),
+      kev: hasConfirmedKev(item),
     };
   });
 
