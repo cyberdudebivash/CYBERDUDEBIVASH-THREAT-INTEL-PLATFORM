@@ -395,24 +395,20 @@ def _load_manifest() -> dict:
 
 
 def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], List[str]]:
-    """
-    Extract latest and historical report URLs for convergence probing.
+    """Select convergence probes using only the authoritative UTC report catalog.
 
-    SOURCE PRIORITY:
-      1. Pages deployment manifest reports/*.html when the deployment actually carries
-         report artifacts.
-      2. R2-backed api/reports/index.json when reports are served by the Worker/R2
-         architecture instead of Pages. build_reports_index.py constructs this catalog
-         from the successful R2 publish state and canonical timestamps before this gate.
-      3. feed.json report_url fields.
-      4. local reports/ scan as last-resort evidence.
+    The canonical catalog at REPORTS_CATALOG_PATH supplies validated report paths
+    and timestamps. The strict selector orders probes by UTC chronology and checks
+    selected paths against the Pages manifest when it contains report artifacts.
+    An empty Pages manifest is compatible with R2-first publication, but does not
+    independently establish that the Worker/R2 URLs serve the reports.
 
-    The catalog path is never trusted as an arbitrary probe target: only canonical
-    root-relative /reports/*.html paths are accepted and re-based onto PAGES_BASE_URL.
+    Missing, oversized, malformed, or inconsistent catalog evidence fails closed.
+    Feed data, filesystem mtimes, hash-ordered filenames, and legacy environment
+    overrides cannot substitute for canonical evidence.
 
-    Returns (latest_urls, historical_urls):
-      latest     -  most-recent MAX_REPORT_PROBES reports (newest filenames = last alpha)
-      historical  -  oldest HIST_PROBE_COUNT reports (guard against accidental deletion)
+    Return (latest_urls, historical_urls) for subsequent LIVE HTTP probes; this
+    function alone does not certify delivery.
     """
     # Mandatory fail-closed canonical UTC chronology. No environment bypass,
     # hash-order fallback, filesystem mtime, or untrusted feed URL fallback.
