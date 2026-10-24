@@ -1694,6 +1694,7 @@
           </div>
         </div>
 
+        <script src="/js/customer-report-catalog-view.js"></script>
         <script>
         // ═══════════════════════════════════════════════════════════════════
         // P0 REPORTS PANEL — CYBERDUDEBIVASH SENTINEL APEX v184.0
@@ -1701,6 +1702,7 @@
         // ═══════════════════════════════════════════════════════════════════
         (function() {
           var _cdbReportsData = null;
+          var _cdbReportsView = null;
           var _cdbReportsFilter = 'ALL';
           var _cdbReportsLoaded = false;
 
@@ -1727,18 +1729,26 @@
             } catch(e) { return ts; }
           }
 
+          function _catalogView(data) {
+            return window.CDB_REPORT_CATALOG_VIEW &&
+                   typeof window.CDB_REPORT_CATALOG_VIEW.evaluate === 'function'
+              ? window.CDB_REPORT_CATALOG_VIEW.evaluate(data) : null;
+          }
+
           function _renderStats(data) {
             var row = document.getElementById('cdb-reports-stats-row');
             if (!row) return;
+            var view = _cdbReportsView;
+            var verified = view && view.state !== 'UNVERIFIED';
             var stats = [
-              {label:'TOTAL REPORTS', val: data.total_reports || 0, accent: true},
-              {label:'THIS INDEX',    val: data.reports_listed || 0},
-              {label:'PLATFORM',      val: (data.platform || 'SENTINEL APEX').replace('CYBERDUDEBIVASH ','')},
+              {label:'REPORT CANDIDATES', val: verified ? view.candidate_count : '—'},
+              {label:'CUSTOMER-READY',    val: verified ? view.ready_count : '—', accent: verified && view.ready_count > 0},
+              {label:'WITHHELD',          val: verified ? view.withheld_count : '—'}
             ];
-            row.innerHTML = stats.map(function(s) {
+            row.innerHTML = stats.map(function(item) {
               return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:4px;padding:8px 14px;min-width:120px;">' +
-                '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:' + (s.accent ? 'var(--accent)' : 'var(--text)') + ';">' + _esc(String(s.val)) + '</div>' +
-                '<div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-muted);margin-top:2px;">' + _esc(s.label) + '</div>' +
+                '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:' + (item.accent ? 'var(--accent)' : 'var(--text)') + ';">' + _esc(String(item.val)) + '</div>' +
+                '<div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-muted);margin-top:2px;">' + _esc(item.label) + '</div>' +
               '</div>';
             }).join('');
           }
@@ -1756,7 +1766,7 @@
             var _en = (window.CDB_NORMALIZE && typeof window.CDB_NORMALIZE.epss === 'function') ? window.CDB_NORMALIZE.epss(r.epss_score) : null;
             var epss = (_en && _en.state === 'OK') ? '<span style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);">EPSS ' + _en.percent.toFixed(1) + '%</span>' : '';
             var title = r.title || r.id || 'Intel Report';
-            var risk  = r.risk_score != null ? r.risk_score.toFixed(1) : '–';
+            var risk  = Number.isFinite(r.risk_score) ? r.risk_score.toFixed(1) : '–';
             var ts    = _fmtTs(r.timestamp);
             var url   = r.url || r.path || '#';
             // v187.0 P0 FIX: the literal quotes inside onmouseover/onmouseout's
@@ -1788,7 +1798,7 @@
           function _renderGrid(filter) {
             var grid = document.getElementById('cdb-reports-grid');
             if (!grid || !_cdbReportsData) return;
-            var reports = _cdbReportsData.reports || [];
+            var reports = (_cdbReportsView && _cdbReportsView.state === 'READY') ? _cdbReportsView.reports : [];
             if (filter && filter !== 'ALL') {
               reports = reports.filter(function(r) { return (r.severity||'UNKNOWN').toUpperCase() === filter; });
             }
@@ -1798,17 +1808,14 @@
               // truthful state -- never fabricate/show stale reports to
               // paper over it) from "filtered to zero" (a plain ALL-severity
               // set that just happens to not match the selected filter).
-              var emptyMsg = (filter === 'ALL' && _cdbReportsData && _cdbReportsData.empty_state_message)
-                ? _cdbReportsData.empty_state_message
-                : 'No reports match filter.';
+              var emptyMsg = _cdbReportsView && _cdbReportsView.state !== 'READY'
+                ? _cdbReportsView.message : 'No reports match filter.';
               grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">' + _esc(emptyMsg) + '</div>';
             } else {
               grid.innerHTML = reports.map(_renderCard).join('');
             }
             var viewAll = document.getElementById('cdb-reports-view-all');
-            if (viewAll && _cdbReportsData.total_reports > (_cdbReportsData.reports_listed || 0)) {
-              viewAll.style.display = 'block';
-            }
+            if (viewAll) viewAll.style.display = _cdbReportsView && _cdbReportsView.view_all ? 'block' : 'none';
           }
 
           window.cdbReportsFilter = function(sev) {
@@ -1872,29 +1879,32 @@
               })
               .then(function(data) {
                 _cdbReportsData = data;
+                _cdbReportsView = _catalogView(data);
                 if (loading) loading.style.display = 'none';
-                if (subtitle) {
-                  subtitle.textContent = (data.total_reports || 0).toLocaleString() + ' intel reports generated — showing latest ' + (data.reports_listed || 0);
-                }
-                _setReportsBadgeCount(typeof data.total_reports === 'number' ? data.total_reports : undefined);
-                if (btn) btn.title = (data.total_reports || 0) + ' total reports';
+                if (subtitle) subtitle.textContent = _cdbReportsView
+                  ? _cdbReportsView.message : 'Publication status cannot be verified.';
+                _setReportsBadgeCount(_cdbReportsView ? _cdbReportsView.ready_count : undefined);
+                if (btn) btn.title = _cdbReportsView
+                  ? _cdbReportsView.message : 'Report availability unknown';
                 _renderStats(data);
                 _renderGrid('ALL');
               })
               .catch(function(err) {
                 if (loading) loading.style.display = 'none';
                 if (errorEl) errorEl.style.display = 'block';
-                if (subtitle) subtitle.textContent = 'Reports index unavailable — reports are still accessible via direct links';
+                if (subtitle) subtitle.textContent = 'Report catalog unavailable — report links cannot be verified';
                 console.warn('[CDB-REPORTS] Failed to load reports index:', err);
                 // Fallback: try full index
                 fetch('/api/reports/index.json?_t=' + Date.now())
                   .then(function(r2) { return r2.ok ? r2.json() : Promise.reject('index also 404'); })
                   .then(function(d2) {
                     _cdbReportsData = d2;
+                    _cdbReportsView = _catalogView(d2);
                     if (errorEl) errorEl.style.display = 'none';
                     if (loading) loading.style.display = 'none';
-                    if (subtitle) subtitle.textContent = (d2.total_reports || 0).toLocaleString() + ' intel reports (full index)';
-                    _setReportsBadgeCount(typeof d2.total_reports === 'number' ? d2.total_reports : undefined);
+                    if (subtitle) subtitle.textContent = _cdbReportsView
+                      ? _cdbReportsView.message : 'Publication status cannot be verified.';
+                    _setReportsBadgeCount(_cdbReportsView ? _cdbReportsView.ready_count : undefined);
                     _renderStats(d2);
                     _renderGrid('ALL');
                   })
@@ -1940,7 +1950,8 @@
               fetch('/api/reports/index.json?_t=' + Date.now())
                 .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
                 .then(function(s) {
-                  _setReportsBadgeCount(typeof s.total_reports === 'number' ? s.total_reports : undefined);
+                  var view = _catalogView(s);
+                  _setReportsBadgeCount(view ? view.ready_count : undefined);
                 })
                 .catch(function(err) {
                   if (attempt < MAX_ATTEMPTS) {
