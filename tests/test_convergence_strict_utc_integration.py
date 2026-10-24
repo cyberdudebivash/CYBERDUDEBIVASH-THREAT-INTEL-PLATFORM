@@ -90,3 +90,24 @@ def test_legacy_override_with_valid_catalog_still_uses_utc(monkeypatch, tmp_path
     )
     assert latest == [later["url"]]
     assert historical == [earlier["url"]]
+
+
+def test_customer_ready_catalog_with_all_reports_withheld_blocks(monkeypatch, tmp_path):
+    """A populated candidate count must never substitute for deliverable reports."""
+    catalog = tmp_path / "index.json"
+    catalog.write_text(
+        json.dumps({
+            "schema_version": "2.0.0",
+            "feed_type": "customer_ready_catalog",
+            "total_candidates": 28,
+            "customer_ready_count": 0,
+            "withheld_count": 28,
+            "total_reports": 28,
+            "reports_listed": 0,
+            "reports": [],
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
+    with pytest.raises(RuntimeError, match="blocked"):
+        dcv._extract_report_urls([], {"files": {}})
