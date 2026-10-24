@@ -11,16 +11,20 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import weekly_threat_brief as brief  # noqa: E402
 
 
-def _entry(hours_ago=None, **extra):
+def _entry(**extra):
     row = {
         "id": "intel--test", "title": "Evidence-backed bulletin",
         "severity": "MEDIUM", "risk_score": 4.0, "tlp": "TLP:CLEAR",
-        "published_at": ((brief._report_window()[0] + timedelta(days=3, hours=12))
-                         if hours_ago is None else
-                         (datetime.now(timezone.utc) - timedelta(hours=hours_ago))).isoformat(),
+        "published_at": (brief._report_window()[0] + timedelta(days=3, hours=12)).isoformat(),
         "report_url": "https://intel.cyberdudebivash.com/reports/2026/10/intel--test.html",
     }
     return {**row, **extra}
+
+
+def _historical_entry(**extra):
+    """A source record definitively outside the completed reporting week."""
+    start, _ = brief._report_window()
+    return _entry(published_at=(start - timedelta(seconds=1)).isoformat(), **extra)
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -38,13 +42,23 @@ def test_report_url_normalization(raw, expected):
 
 
 def test_only_real_current_week_entries_are_published():
-    output = brief._build_brief([_entry(), _entry(hours_ago=240, id="intel--stale")])
+    output = brief._build_brief([_entry(), _historical_entry(id="intel--stale")])
     assert output["stats"]["total_advisories"] == 1
     assert output["top_threats"][0]["report_url"].startswith(brief.PLATFORM_URL + "/reports/")
     assert "15,000" not in json.dumps(output)
     contract = json.loads((ROOT / "config/commercial-contract.json").read_text())
     for tier, label in (("pro", "PRO"), ("enterprise", "ENTERPRISE"), ("mssp", "MSSP")):
         assert any(label in plan and f"₹{contract['tiers'][tier]['inr_monthly']:,}" in plan for plan in output["upgrade_cta"]["plans"])
+
+
+def test_historical_boundary_is_excluded_but_completed_week_start_is_included():
+    start, end = brief._report_window()
+    before = _entry(id="intel--before", published_at=(start - timedelta(seconds=1)).isoformat())
+    at_start = _entry(id="intel--start", published_at=start.isoformat())
+    at_end = _entry(id="intel--end", published_at=end.isoformat())
+    result = brief._build_brief([before, at_start, at_end])
+    assert result["stats"]["total_advisories"] == 1
+    assert result["top_threats"][0]["title"] == at_start["title"]
 
 
 def test_html_escapes_untrusted_title_and_actor_and_never_links_unknown_origin():
@@ -58,7 +72,7 @@ def test_html_escapes_untrusted_title_and_actor_and_never_links_unknown_origin()
 
 
 def test_no_stale_weekly_publish_when_source_only_has_historical_entries(tmp_path, monkeypatch):
-    old = _entry(hours_ago=240)
+    old = _historical_entry()
     target = tmp_path / "weekly-brief.html"
     target.write_text("existing_verified_release")
     dest = tmp_path / "weekly_brief.json"
