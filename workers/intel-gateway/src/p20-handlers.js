@@ -84,6 +84,14 @@ export function classifyReportType(item) {
   const title = String(item.title || '').toLowerCase();
   const hay = `${t} ${title}`;
 
+  // Explicit vulnerability taxonomy still requires full CVE/IR controls
+  // even if the upstream publisher omitted a CVE ID or CVSS evidence.
+  // A missing score must never convert a declared vulnerability into
+  // SECURITY_NEWS and thereby exclude CVE-specific readiness gates.
+  if (/\b(?:vulnerability|remote code execution|privilege escalation|cve advisory)\b/.test(t)) {
+    return 'VULNERABILITY';
+  }
+
   if (hay.includes('ransomware')) return 'RANSOMWARE';
   if (hay.includes('phishing') || hay.includes('smishing')) return 'PHISHING';
   if (hay.includes('breach') || hay.includes('data leak') || hay.includes('data-leak')) return 'BREACH';
