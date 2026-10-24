@@ -41,6 +41,20 @@ class CommercialGateTests(unittest.TestCase):
         data["payment"]["verified_at"] = "2999-01-01T00:00:00Z"
         self.assertEqual(module.evaluate(data)["verdict"], "NO_GO")
 
+    def test_partially_ready_catalog_is_allowed_as_precheck(self):
+        data = self.valid()
+        data["report_candidates"] = 39
+        data["customer_ready"] = 1
+        result = module.evaluate(data)
+        self.assertEqual(result["verdict"], "EVIDENCE_PRECHECK_ONLY")
+        self.assertFalse(result["production_go"])
+
+    def test_ready_exceeds_candidates_fails(self):
+        data = self.valid()
+        data["report_candidates"] = 1
+        data["customer_ready"] = 2
+        self.assertEqual(module.evaluate(data)["verdict"], "NO_GO")
+
     def test_positive_remains_precheck_only(self):
         result = module.evaluate(self.valid())
         self.assertEqual(result["verdict"], "EVIDENCE_PRECHECK_ONLY")
