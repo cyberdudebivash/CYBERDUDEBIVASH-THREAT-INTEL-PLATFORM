@@ -73,3 +73,20 @@ def test_unset_mode_cannot_fall_back_to_untrusted_feed(monkeypatch, tmp_path):
     forged = record("a", "2025-10-02T00:00:00Z")
     with pytest.raises(RuntimeError, match="blocked"):
         dcv._extract_report_urls([{"report_url": forged["url"]}], {"files": {}})
+
+
+def test_legacy_override_with_valid_catalog_still_uses_utc(monkeypatch, tmp_path):
+    """Setting the old bypass flag must not silently restore filename sorting."""
+    earlier = record("f", "2025-10-01T00:00:00Z")
+    later = record("a", "2025-10-02T00:00:00Z")
+    catalog = tmp_path / "index.json"
+    catalog.write_text(json.dumps({"reports": [earlier, later]}), encoding="utf-8")
+    monkeypatch.setenv("CONVERGENCE_STRICT_CHRONOLOGY", "0")
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
+    monkeypatch.setattr(dcv, "MAX_REPORT_PROBES", 1)
+    monkeypatch.setattr(dcv, "HIST_PROBE_COUNT", 1)
+    latest, historical = dcv._extract_report_urls(
+        [{"report_url": earlier["url"]}], {"files": {}}
+    )
+    assert latest == [later["url"]]
+    assert historical == [earlier["url"]]
