@@ -121,3 +121,60 @@ test('CLI no snapshots is BLOCKED, makes zero network requests',()=>{
   assert.equal(verdict.cloudflare_requests,0);
   assert.equal(verdict.customer_release_certified,false);
 });
+
+test('reports aggregate real gate blockers without emitting raw report IDs or customer data',()=>{
+  const result=perform([id2],feedSet([lowQuality]));
+  assert.equal(result.customer_release_certified,false);
+  assert.equal(result.cloudflare_requests,0);
+  assert.equal(result.blocking_reason_counts.P21_BELOW_MINIMUM,1);
+  assert.equal(result.blocking_reason_counts.P20_QUALITY_CRITICALLY_LOW,1);
+  assert.equal(result.blocking_reason_counts.P26_REJECTED,1);
+  assert.equal(result.winning_source_field_presence.evidence_chain,0);
+  assert.equal(result.winning_source_field_presence.iocs,0);
+  assert.equal(result.reason_counts_cover_only_known_codes,true);
+  const serialized=JSON.stringify(result);
+  assert.ok(!serialized.includes(id2));
+  assert.ok(!serialized.includes(lowQuality.title));
+});
+
+test('separates first-source masking from actual publication authorization',()=>{
+  const weak={id:id1,title:'redacted projection',description:'Short.',severity:'HIGH'};
+  const feeds=feedSet();
+  feeds.latest_pro={items:[weak]};
+  feeds.latest={items:[readyItem]};
+  const result=perform([id1],feeds);
+  assert.equal(result.publication_status_counts.CUSTOMER_READY,0);
+  assert.equal(result.first_source_counts.latest_pro,1);
+  assert.equal(result.first_source_counts.latest,0);
+  for(const field of ['evidence_chain','iocs','detection_bundle','source_url','cvss_score']) {
+    assert.equal(result.winning_source_field_presence[field],0,field);
+    assert.equal(result.later_source_extra_field_presence[field],1,field);
+  }
+  assert.equal(result.cloudflare_requests,0);
+  assert.equal(result.report_http_delivery_certified,false);
+  assert.ok(!JSON.stringify(result).includes(id1));
+});
+
+test('a ready first-source item has field coverage but zero later-only evidence',()=>{
+  const result=perform([id1],feedSet([readyItem]));
+  assert.equal(result.publication_status_counts.CUSTOMER_READY,1);
+  assert.equal(result.winning_source_field_presence.evidence_chain,1);
+  assert.equal(result.winning_source_field_presence.iocs,1);
+  assert.equal(result.winning_source_field_presence.detection_bundle,1);
+  for(const count of Object.values(result.later_source_extra_field_presence)) {
+    assert.equal(count,0);
+  }
+  assert.equal(result.customer_release_certified,false);
+});
+
+test('unknown reason strings and freeform snapshot data cannot leak to aggregate output',()=>{
+  const badReason='CUSTOMER_SECRET_ABCD1234';
+  const existing=resolveCertification(undefined,lowQuality).record;
+  const altered={...existing,blocking_gates:[...existing.blocking_gates,badReason]};
+  const r=perform([id2],feedSet([lowQuality]),{[id2]:altered});
+  const output=JSON.stringify(r);
+  assert.ok(!output.includes(badReason));
+  assert.ok(!output.includes(lowQuality.title));
+  assert.ok(!output.includes(id2));
+  assert.equal(r.customer_release_certified,false);
+});
