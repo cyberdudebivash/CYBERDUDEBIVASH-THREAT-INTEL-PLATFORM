@@ -29,6 +29,15 @@ def select_report_probes(
     must be present. An empty manifest can be valid for R2-first architectures;
     it is NOT considered independent delivery proof.
     """
+    # The live Worker may serve only a customer-authorized v2 catalog.
+    # An empty customer-ready selection cannot establish report delivery.
+    # Preserve the fail-closed outcome but expose a stable, actionable reason.
+    if (isinstance(catalog, dict)
+            and catalog.get("feed_type") in ("customer_ready_catalog", "customer_ready_latest")
+            and catalog.get("reports") == []):
+        raise ReportSelectionBlocked(
+            "CUSTOMER_READY_CATALOG_EMPTY: no certified reports available for convergence probes"
+        )
     if not isinstance(manifest_files, dict):
         raise ReportSelectionBlocked("Deployment manifest files must be an object")
     result = audit_catalog(
