@@ -89,7 +89,7 @@ export function replayCertificationSnapshots({
       if (!id) continue;
       if (!firstSource.has(id)) firstSource.set(id, { source: name, item });
       if (!allSources.has(id)) allSources.set(id, []);
-      allSources.get(id).push(item);
+      allSources.get(id).push({ source: name, item });
     }
   }
 
@@ -120,7 +120,8 @@ export function replayCertificationSnapshots({
         // Count candidate IDs for which a later source contains a nonempty
         // field absent from the chosen first-source record. Not proof that
         // the later field is authentic, safe, more complete or releasable.
-        else if ((allSources.get(id) || []).slice(1).some(present)) {
+        else if ((allSources.get(id) || []).some(other =>
+          other.source !== source.source && present(other.item))) {
           later_source_extra_field_presence[field]++;
         }
       }
