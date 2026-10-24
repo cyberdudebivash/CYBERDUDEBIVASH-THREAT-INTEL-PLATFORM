@@ -43,13 +43,40 @@ const Q_WEIGHTS = {
  * Returns one of: VULNERABILITY, RANSOMWARE, PHISHING, MALWARE, BREACH,
  * THREAT_ACTOR, SECURITY_NEWS (fallback).
  */
-export function classifyReportType(item) {
-  if (!item || typeof item !== 'object') return 'SECURITY_NEWS';
+/**
+ * CISA KEV confirmation is an explicit affirmative value, never JS truthiness.
+ * Real feed variants use "NO"/"FALSE"/"0" for negative states; Boolean("NO")
+ * is true and must never grant a CVE classification or an IR-ready claim.
+ */
+export function hasConfirmedKev(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+  return [item.kev_present, item.kev].some(value =>
+    value === true || value === 1 ||
+    (typeof value === 'string' && /^(?:YES|TRUE|1)$/.test(value.trim().toUpperCase()))
+  );
+}
 
-  const cvss = parseFloat(item.cvss_score || item.risk_score || 0);
+export function classifyReportType(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return 'SECURITY_NEWS';
+
+  // risk_score is a generic threat-risk rating, NOT a CVSS base score.
+  // Misusing it classified virtually every scored phishing/campaign item as a
+  // CVE vulnerability and bypassed non-CVE applicability rules in P20/P23.
+  const isCve = value =>
+    typeof value === 'string' && /^CVE-\\d{4}-\\d{4,7}$/i.test(value.trim());
+  const cvssRaw = item.cvss_score;
+  const cvss = typeof cvssRaw === 'number' || typeof cvssRaw === 'string'
+    ? Number(cvssRaw) : NaN;
+  const validCvss = cvssRaw !== '' && cvssRaw != null &&
+    Number.isFinite(cvss) && cvss > 0 && cvss <= 10;
   const hasCveSignal = Boolean(
-    item.cve_id || (item.cve_ids || []).length > 0 || cvss > 0 ||
-    item.kev_present || item.kev || (item.title || '').includes('CVE-')
+    isCve(item.cve_id) ||
+    (Array.isArray(item.cve_ids) && item.cve_ids.some(isCve)) ||
+    (Array.isArray(item.cve) && item.cve.some(isCve)) ||
+    isCve(item.cve) ||
+    validCvss ||
+    hasConfirmedKev(item) ||
+    (typeof item.title === 'string' && /\\bCVE-\\d{4}-\\d{4,7}\\b/i.test(item.title))
   );
   if (hasCveSignal) return 'VULNERABILITY';
 
