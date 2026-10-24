@@ -144,6 +144,11 @@ jobs:
           node --check workers/intel-gateway/src/intel-static-proxy.js
           node --check workers/intel-gateway/src/index.js
 
+      # Guard the storefront's stale-SW recovery path before its Pages browser
+      # smoke test. Promise rejection tests are offline and make no HTTP calls.
+      - name: "P0 stale Service Worker update-rejection negative controls (offline)"
+        run: node --test tests/sw-anti-stale-rejection.test.cjs
+
       - name: "P0 public customer-ready report fetch-back negative controls (offline)"
         run: |
           node --check js/customer-report-catalog-view.js

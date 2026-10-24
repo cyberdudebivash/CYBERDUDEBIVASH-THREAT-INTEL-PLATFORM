@@ -7373,7 +7373,20 @@ a:focus-visible {
                         sessionStorage.setItem(GUARD_KEY, live);
                         if ('serviceWorker' in navigator) {
                             navigator.serviceWorker.getRegistrations().then(function(regs) {
-                                regs.forEach(function(reg) { reg.update(); });
+                                regs.forEach(function(reg) {
+                                    // A stale registration may disappear while it is being
+                                    // unregistered during recovery. update() rejects in that
+                                    // race; do not turn a successful recovery into an
+                                    // unhandled page exception.
+                                    reg.update().catch(function(err) {
+                                        console.warn('[ANTI-STALE] Service Worker update unavailable; reload recovery remains active:',
+                                            err && err.message ? err.message : String(err));
+                                    });
+                                });
+                            }).catch(function(err) {
+                                // Enumeration failure must not block bounded reload recovery.
+                                console.warn('[ANTI-STALE] Service Worker registrations unavailable; reload recovery remains active:',
+                                    err && err.message ? err.message : String(err));
                             });
                         }
                         // Clear all caches
