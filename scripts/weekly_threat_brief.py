@@ -128,19 +128,33 @@ def _report_window(now: datetime | None = None) -> tuple[datetime, datetime]:
 
 
 def _is_this_week(item: dict) -> bool:
-    """Include an advisory only when an evidence timestamp is in the report window."""
+    """Require source publication evidence within the completed ISO week.
+
+    An updated_at value describes an edit, not original publication. If both
+    publication fields exist, each must be valid and in the reporting window:
+    contradictory or malformed provenance must never be promoted to a new
+    customer-facing weekly advisory.
+    """
+    if not isinstance(item, dict):
+        return False
     start, end = _report_window()
-    for field in ("published_at", "published", "updated_at"):
-        ts = item.get(field)
-        if not ts:
-            continue
+    publication_values = [
+        item[field] for field in ("published_at", "published") if item.get(field)
+    ]
+    if not publication_values:
+        return False
+    for value in publication_values:
+        if not isinstance(value, str):
+            return False
         try:
-            dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-            if dt.tzinfo is not None and start <= dt.astimezone(timezone.utc) < end:
-                return True
+            published = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if published.tzinfo is None or published.utcoffset() is None:
+                return False
+            if not start <= published.astimezone(timezone.utc) < end:
+                return False
         except (TypeError, ValueError, OverflowError):
-            continue
-    return False
+            return False
+    return True
 
 
 def _get_week_range() -> tuple:
