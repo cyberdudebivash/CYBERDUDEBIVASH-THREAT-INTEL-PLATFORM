@@ -19,7 +19,7 @@
  * ADDITIVE ONLY    -  no existing schema, API, KV, auth, or handler modified.
  */
 
-import { computeP20QualityScore }    from './p20-handlers.js';
+import { computeP20QualityScore, hasConfirmedKev } from './p20-handlers.js';
 import { getP21CertificationLevel }  from './p21-handlers.js';
 import { explicitCvss, explicitRiskScore } from './metric-semantics.js';
 
@@ -85,7 +85,7 @@ export function buildExplainableScoreBlock(item) {
   const sd        = item._score_details || {};
   const cvss      = (explicitCvss(item) ?? 0);
   const epss      = parseFloat(sd.epss || item.epss_score || 0);
-  const kev       = !!(sd.kev || item.kev_present || item.kev);
+  const kev       = (hasConfirmedKev(item) || hasConfirmedKev({kev: sd.kev}));
   const exploit   = !!(sd.active_exploit || item.active_exploit);
   const ransomw   = !!(sd.ransomware || item.ransomware);
   const zeroday   = !!(sd.zero_day || item.zero_day);
@@ -251,7 +251,7 @@ export function buildSourceConsensusBlock(item) {
 export function buildAnalystExplainabilityBlock(item) {
   const sd       = item._score_details || {};
   const cvss     = (explicitCvss(item) ?? 0);
-  const kev      = !!(sd.kev || item.kev_present || item.kev);
+  const kev      = (hasConfirmedKev(item) || hasConfirmedKev({kev: sd.kev}));
   const zeroday  = !!(sd.zero_day || item.zero_day);
   const exploit  = !!(sd.active_exploit || item.active_exploit);
   const conf     = parseFloat(item.confidence || 0);
@@ -343,7 +343,7 @@ export function computeEnterpriseTrustScore(item) {
   // never award more than the lowest non-zero tier for any real EPSS value.
   const epssRaw   = parseFloat(sd.epss   || item.epss_score || 0);
   const epss      = epssRaw > 1 ? epssRaw : epssRaw * 100;
-  const kev       = !!(sd.kev            || item.kev_present || item.kev);
+  const kev       = (hasConfirmedKev(item) || hasConfirmedKev({kev: sd.kev}));
   const exploit   = !!(sd.active_exploit || item.active_exploit);
   const zeroday   = !!(sd.zero_day       || item.zero_day);
   const conf      = parseFloat(item.confidence || 0);

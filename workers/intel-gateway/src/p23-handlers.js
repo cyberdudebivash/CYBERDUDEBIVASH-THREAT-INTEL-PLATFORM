@@ -19,7 +19,7 @@
  * ADDITIVE ONLY    -  no existing schema, API, KV, or handler modified.
  */
 
-import { computeP20QualityScore } from './p20-handlers.js';
+import { computeP20QualityScore, hasConfirmedKev } from './p20-handlers.js';
 import { getP21CertificationLevel } from './p21-handlers.js';
 
 export const P23_VERSION = "P23.0";
@@ -69,7 +69,7 @@ function _row(label, value, color) {
 function _computePatchPriority(item) {
   const cvss    = parseFloat(item.cvss_score || item.cvss || 0);
   const epss    = parseFloat(item.epss_score || 0);
-  const kev     = !!(item.kev_present || item.kev);
+  const kev     = hasConfirmedKev(item);
   const exploit = item.exploit_maturity || item.has_exploit || item.exploit_available;
   const hasPoc  = String(exploit || "").match(/poc|exploited|public|wild/i);
 
@@ -250,7 +250,7 @@ export function buildComplianceBlock(item) {
 // -----------------------------------------------------------------------------
 
 function _buildHuntObjectives(item) {
-  const kev    = !!(item.kev_present || item.kev);
+  const kev    = hasConfirmedKev(item);
   const cve    = item.cve_id || (item.cve_ids || [])[0] || null;
   const actor  = item.actor || item.actor_id || item.actor_tag || null;
   const iocs   = item.iocs || [];
@@ -361,7 +361,7 @@ export function buildThreatHuntingBlock(item) {
 
 export function _buildIRChecklist(item) {
   const severity = (item.severity || "").toUpperCase();
-  const kev      = !!(item.kev_present || item.kev);
+  const kev      = hasConfirmedKev(item);
   const cve      = item.cve_id || (item.cve_ids || [])[0] || null;
   const iocs     = item.iocs || [];
   const ipIocs   = iocs.filter(i => i.type === "ip").length;
@@ -434,7 +434,7 @@ export function _buildIRChecklist(item) {
 export function buildIRPackageBlock(item) {
   if (!item || typeof item !== 'object') return '';
   const cvss = parseFloat(item.cvss_score || item.cvss || 0);
-  const kev  = !!(item.kev_present || item.kev);
+  const kev  = hasConfirmedKev(item);
   if (cvss < 4 && !kev && !(item.severity || "").match(/HIGH|CRITICAL/i)) return '';
 
   const ir = _buildIRChecklist(item);
@@ -554,7 +554,7 @@ export function computeActionabilityScore(item) {
   const detects   = item.detection_bundle || item.apex?.sigma_rules || item.apex?.detections || [];
   const mitres = [item.mitre_techniques, item.apex?.mitre_techniques, item.attck_technique_ids, item.attck_techniques]
     .find(a => Array.isArray(a) && a.length > 0) || [];
-  const kev       = !!(item.kev_present || item.kev);
+  const kev       = hasConfirmedKev(item);
   const cvss      = parseFloat(item.cvss_score || item.cvss || 0);
   const epss      = parseFloat(item.epss_score || 0);
   const ec        = item.evidence_chain;
@@ -689,7 +689,7 @@ export function computeOperationalReadiness(item) {
   const p20score = computeP20QualityScore(item).total;
   const p21cert  = getP21CertificationLevel(p20score);
   const cvss     = parseFloat(item.cvss_score || 0);
-  const kev      = !!(item.kev_present || item.kev);
+  const kev      = hasConfirmedKev(item);
 
   const gates = [
     { name: "Executive Package",       pass: hasExec,               desc: "AI narrative and executive summary available" },
@@ -801,7 +801,7 @@ export async function handleP23Actionability(request, env) {
       actionability_label: as.label,
       patch_priority: patch.priority,
       severity: item.severity,
-      kev: !!(item.kev_present || item.kev),
+      kev: hasConfirmedKev(item),
     };
   });
 
@@ -848,7 +848,7 @@ export async function handleP23OperationalReadiness(request, env) {
     const hasGuid = iocs.some(i => i.response_guidance || i.detection_guidance);
     const ec      = item.evidence_chain;
     const cvss    = parseFloat(item.cvss_score || 0);
-    const kev     = !!(item.kev_present || item.kev);
+    const kev     = hasConfirmedKev(item);
     const p20     = computeP20QualityScore(item);
     const p21     = getP21CertificationLevel(p20.total);
 
@@ -883,7 +883,7 @@ export async function handleP23OperationalReadiness(request, env) {
     const iocs    = item.iocs || [];
     const detects = item.detection_bundle || item.apex?.sigma_rules || [];
     const cvss    = parseFloat(item.cvss_score || 0);
-    const kev     = !!(item.kev_present || item.kev);
+    const kev     = hasConfirmedKev(item);
     const gates   = [
       !!(item.apex?.ai_summary || item.description),
       iocs.length > 0,
