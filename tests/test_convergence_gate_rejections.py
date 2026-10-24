@@ -21,9 +21,12 @@ sys.path.insert(0, str(REPO / "scripts"))
 import deployment_convergence_validator as dcv  # noqa: E402
 
 BASE = dcv.PAGES_BASE_URL
-REJECTED = [f"{BASE}/reports/2026/09/intel--{c * 24}.html" for c in "ab"]
-OK_REPORTS = [f"{BASE}/reports/2026/09/intel--{c * 24}.html" for c in "cdefghijklmno"]
-HISTORY = [f"{BASE}/reports/2026/08/intel--{c * 24}.html" for c in "pqrst"]
+# Canonical report slugs use lowercase hexadecimal (never arbitrary letters).
+# Keep these ranges distinct so publication-gated, deliverable and historical
+# reports remain independently testable with strict UTC selection.
+REJECTED = [f"{BASE}/reports/2026/09/intel--{i:024x}.html" for i in range(0, 2)]
+OK_REPORTS = [f"{BASE}/reports/2026/09/intel--{i:024x}.html" for i in range(2, 15)]
+HISTORY = [f"{BASE}/reports/2026/08/intel--{i:024x}.html" for i in range(15, 20)]
 MANIFEST = {"files": {u[len(BASE) + 1:]: {} for u in HISTORY + REJECTED + OK_REPORTS}}
 
 
@@ -169,10 +172,11 @@ def test_unverified_permanent_report_404s_hard_fail_after_bounded_two_rounds(clo
     assert sum(s for s in clock if s > dcv.PROBE_INTERVAL) < 180
 
 
-def test_phase5_still_excludes_gate_rejections_from_continuity():
-    extra = [f"{BASE}/reports/2026/08/intel--{c * 24}.html" for c in "pqrstu"]
+def test_phase5_still_excludes_gate_rejections_from_continuity(monkeypatch, tmp_path):
+    extra = [f"{BASE}/reports/2026/08/intel--{i:024x}.html" for i in range(20, 26)]
     manifest = {"files": {u[len(BASE) + 1:]: {} for u in REJECTED + OK_REPORTS + extra}}
-    hist = sorted(REJECTED + OK_REPORTS + extra)[:dcv.HIST_PROBE_COUNT]
+    _write_catalog(monkeypatch, tmp_path, REJECTED + OK_REPORTS + extra)
+    hist = sorted(extra)[:dcv.HIST_PROBE_COUNT]
     net = FakeNet({hist[0]: 404, hist[1]: 404})
     dcv._GATE_VERDICTS.clear()
     with patch.object(dcv, "_http_probe", side_effect=net.probe), \
@@ -257,7 +261,7 @@ def test_r2_catalog_rejects_untrusted_external_url(monkeypatch, tmp_path):
 def test_malformed_reports_catalog_cannot_create_synthetic_history(monkeypatch, tmp_path):
     monkeypatch.setattr(dcv, "REPO_ROOT", tmp_path)
     catalog = tmp_path / "api" / "reports" / "index.json"
-    catalog.parent.mkdir(parents=True)
+    catalog.parent.mkdir(parents=True, exist_ok=True)
     catalog.write_text(__import__("json").dumps({
         "reports": [
             {"path": "https://attacker.invalid/reports/x.html"},
