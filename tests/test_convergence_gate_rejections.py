@@ -103,13 +103,17 @@ def test_gate_rejected_404s_do_not_stall_the_stage(clock):
     assert any(r.gate_rejected for r in p3.probes)
 
 
-def test_before_the_fix_the_same_deployment_took_over_20_minutes(clock):
-    """Negative control: without the gate verdict, the same responses cost
-    Phase 2+3 the backoff schedule that ran in production."""
+def test_without_gate_verdict_burns_over_15_minutes_of_retry_budget(clock):
+    """Negative control: unclassified 404s still trigger costly repeated backoff.
+
+    The current strict-UTC canonical sample and bounded phase protocol simulate
+    approximately 17 minutes here, not the historical 28-minute production run.
+    The separate gate-rejection test requires the accepted case to stay <120s.
+    """
     net = FakeNet({u: 404 for u in REJECTED})
     with patch.object(dcv, "PERMANENT_STOP_ROUND", 99):
         _run(net, rejected=frozenset())
-    assert sum(clock) > 20 * 60, sum(clock)
+    assert sum(clock) > 15 * 60, sum(clock)
 
 
 def test_gate_verdict_is_asked_once_per_url(clock):
