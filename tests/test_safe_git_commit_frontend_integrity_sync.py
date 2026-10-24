@@ -61,6 +61,7 @@ PROTECTED_ASSETS = [
     "css/card_renderer_styles.css",
     "css/homepage-design-system.css",
     "js/homepage-dashboard-engine.js",
+    "js/customer-report-catalog-view.js",
 ]
 
 

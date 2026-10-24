@@ -44,6 +44,8 @@ PROTECTED_ASSETS = [
     # content, so they keep index.html's protection.
     "css/homepage-design-system.css",
     "js/homepage-dashboard-engine.js",
+    # Customer-facing catalog verification boundary: no unsigned report links.
+    "js/customer-report-catalog-view.js",
 ]
 
 REGISTRY_PATH = REPO_ROOT / "config" / "frontend_checksums.json"
