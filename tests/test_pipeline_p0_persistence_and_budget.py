@@ -205,6 +205,12 @@ def test_final_retry_has_no_backoff(monkeypatch, budget):
     monkeypatch.setattr(convergence, 'MAX_RETRIES', 1)
     monkeypatch.setattr(convergence, '_http_probe', lambda url: convergence.ProbeResult(url=url, status_code=500, success=False, latency_ms=1, is_transient=True))
     monkeypatch.setattr(convergence, '_backoff_wait', lambda *a: pytest.fail('no backoff after final retry'))
+    # This test isolates retry timing, not catalog certification; strict
+    # chronology is exercised with real catalogs in the convergence tests.
+    monkeypatch.setattr(
+        convergence, '_extract_report_urls',
+        lambda *a: (['https://intel.cyberdudebivash.com/reports/2026/10/intel--0123456789abcdef.html'], []),
+    )
     assert not convergence.phase2_cdn_readiness_probe([], {}).success
     assert not convergence.phase3_incremental_retry([], {'files': {'reports/2026/10/intel--0123456789abcdef.html': {}}}).success
 
