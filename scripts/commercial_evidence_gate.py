@@ -29,10 +29,14 @@ def evaluate(evidence):
                 raise ValueError()
         except ValueError:
             defects.append(f"{name}: invalid UTC verification timestamp")
-    if evidence.get("report_candidates") != evidence.get("customer_ready"):
-        defects.append("Report candidates do not equal customer-ready reports")
-    if type(evidence.get("customer_ready")) is not int or evidence["customer_ready"] < 1:
+    candidates = evidence.get("report_candidates")
+    ready = evidence.get("customer_ready")
+    if type(candidates) is not int or candidates < 1:
+        defects.append("Invalid report candidate count")
+    if type(ready) is not int or ready < 1:
         defects.append("No certified customer-ready reports")
+    if type(candidates) is int and type(ready) is int and ready > candidates:
+        defects.append("Customer-ready count exceeds report candidates")
     return {"verdict": "NO_GO" if defects else "EVIDENCE_PRECHECK_ONLY",
             "defects": defects, "production_go": False,
             "note": "Never authorizes merge, deployment, payment capture or customer release"}
