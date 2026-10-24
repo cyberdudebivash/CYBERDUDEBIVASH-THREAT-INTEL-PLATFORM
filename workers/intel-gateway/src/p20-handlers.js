@@ -88,7 +88,11 @@ export function classifyReportType(item) {
   // even if the upstream publisher omitted a CVE ID or CVSS evidence.
   // A missing score must never convert a declared vulnerability into
   // SECURITY_NEWS and thereby exclude CVE-specific readiness gates.
-  if (/\b(?:vulnerability|remote code execution|privilege escalation|cve advisory)\b/.test(t)) {
+  if (t.includes('vulnerability') ||
+      t.includes('remote code execution') ||
+      t.includes('privilege escalation') ||
+      t.includes('cve advisory') ||
+      /(?:^|[\s_-])rce(?:$|[\s_-])/.test(t)) {
     return 'VULNERABILITY';
   }
 
