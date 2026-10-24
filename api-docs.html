@@ -156,38 +156,35 @@ li{margin-bottom:6px}
     </div>
     <div style="position:relative;border:1px solid #1e3a5f;border-radius:0 4px 4px 4px;background:#060d18;">
       <button onclick="apexCopy(this)" style="position:absolute;top:10px;right:12px;background:rgba(79,195,247,0.1);border:1px solid rgba(79,195,247,0.3);color:#4fc3f7;font-size:10px;font-family:monospace;padding:4px 10px;border-radius:3px;cursor:pointer;letter-spacing:1px;">COPY</button>
-      <pre id="qs-curl" class="qs-panel" style="margin:0;border:none;background:transparent;"># 1. Get your API key: https://intel.cyberdudebivash.com/pricing.html
-# 2. Replace YOUR_API_KEY — Community tier is FREE (50 req/day)
+      <pre id="qs-curl" class="qs-panel" style="margin:0;border:none;background:transparent;"># Community public feed: no API key required (50 requests/day).
+# Pro/Enterprise exports require a separately provisioned API key.
 
-curl -s -H "X-API-Key: YOUR_API_KEY" \
+curl -fsS \
   "https://intel.cyberdudebivash.com/api/feed?limit=5&severity=CRITICAL" \
   | python3 -m json.tool
 
-# Returns: JSON array of critical advisories with CVSS, EPSS, IOCs, Sigma rules</pre>
+# Returns: JSON object containing an items array; paid exports are separate.</pre>
       <pre id="qs-python" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">import requests
 
-API_KEY = "YOUR_API_KEY"  # Pro and above; the Free tier needs no key
-BASE    = "https://intel.cyberdudebivash.com/api"
-headers = {"X-API-Key": API_KEY}
+BASE = "https://intel.cyberdudebivash.com/api"
+# The Community public feed does not require X-API-Key.
 
 # Fetch latest CRITICAL advisories
-resp = requests.get(f"{BASE}/feed", headers=headers,
-                    params={"limit": 10, "severity": "CRITICAL"})
+resp = requests.get(f"{BASE}/feed",
+                    params={"limit": 10, "severity": "CRITICAL"}, timeout=15)
 resp.raise_for_status()
 
 for adv in resp.json()["items"]:
     print(f"[{adv['severity']}] {adv['title']}")
     print(f"  CVSS: {adv.get('cvss_score')}  EPSS: {adv.get('epss_score')}%  IOCs: {adv.get('ioc_count',0)}")
 
-# Fetch Sigma rules for SIEM
-print(requests.get(f"{BASE}/feed/sigma", headers=headers).text)</pre>
-      <pre id="qs-js" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">const API_KEY = 'YOUR_API_KEY'; // Pro and above; the Free tier needs no key
+# Sigma rule export is a separate authenticated Pro+ endpoint:
+# GET /api/v1/export/sigma with X-API-Key from a paid subscription.</pre>
+      <pre id="qs-js" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;">const API_KEY = 'YOUR_ENTERPRISE_API_KEY'; // Only for authenticated Enterprise webhook operations.
 const BASE    = 'https://intel.cyberdudebivash.com/api';
 
 async function getThreats() {
-  const resp = await fetch(`${BASE}/feed?limit=10&severity=CRITICAL`, {
-    headers: { 'X-API-Key': API_KEY }
-  });
+  const resp = await fetch(`${BASE}/feed?limit=10&severity=CRITICAL`);
   const data = await resp.json();
   data.items.forEach(adv =&gt; console.log(`[${adv.severity}] ${adv.title} — CVSS:${adv.cvss_score}`));
 }
@@ -212,13 +209,11 @@ import (
 )
 
 const (
-    apiKey = "YOUR_API_KEY"
-    base   = "https://intel.cyberdudebivash.com/api"
+    base = "https://intel.cyberdudebivash.com/api"
 )
 
 func main() {
     req, _ := http.NewRequest("GET", base+"/feed?limit=10&severity=CRITICAL", nil)
-    req.Header.Set("X-API-Key", apiKey)
     resp, _ := http.DefaultClient.Do(req)
     defer resp.Body.Close()
     body, _ := io.ReadAll(resp.Body)
@@ -231,15 +226,14 @@ func main() {
     }
 }</pre>
       <pre id="qs-ps" class="qs-panel" style="margin:0;border:none;background:transparent;display:none;"># PowerShell (Windows/macOS/Linux)
-$Key  = "YOUR_API_KEY"; $Base = "https://intel.cyberdudebivash.com/api"
-$Hdrs = @{ "X-API-Key" = $Key }
+$Base = "https://intel.cyberdudebivash.com/api"
+# Community public feed is keyless; paid exports require X-API-Key.
 
 # Critical advisories
-(Invoke-RestMethod "$Base/feed?limit=10&severity=CRITICAL" -Headers $Hdrs).items |
+(Invoke-RestMethod "$Base/feed?limit=10&severity=CRITICAL").items |
   ForEach-Object { Write-Host "[$($_.severity)] $($_.title) CVSS:$($_.cvss_score)" }
 
-# Save Sigma rules for Microsoft Sentinel / Splunk
-Invoke-RestMethod "$Base/feed/sigma" -Headers $Hdrs | Out-File sentinel_rules.yaml -Encoding UTF8</pre>
+# Pro+ Sigma export: GET /api/v1/export/sigma with your paid X-API-Key.</pre>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 28px;">
       <a href="/upgrade.html?plan=pro&utm_source=api-docs&utm_medium=quickstart" style="display:inline-flex;align-items:center;gap:6px;background:#00d4aa;color:#020a14;font-family:monospace;font-size:11px;font-weight:800;letter-spacing:1px;padding:8px 18px;border-radius:4px;text-decoration:none;">GET PRO API KEY</a>
@@ -300,7 +294,7 @@ Invoke-RestMethod "$Base/feed/sigma" -Headers $Hdrs | Out-File sentinel_rules.ya
     </table>
 
     <h2 id="feed">GET /api/feed</h2>
-    <p>Returns the latest threat intelligence feed as a JSON array of advisories.</p>
+    <p>Returns a JSON object containing an <code>items</code> array of public advisories. Paid enrichment and export endpoints require authenticated access.</p>
     <div class="endpoint"><span class="method-badge get">GET</span><strong>/api/feed</strong></div>
     <h3>Query Parameters</h3>
     <table>
