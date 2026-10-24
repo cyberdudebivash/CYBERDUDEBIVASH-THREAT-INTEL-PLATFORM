@@ -193,3 +193,62 @@ def test_generator_never_overwrites_customer_live_html(monkeypatch, tmp_path):
     assert live_shell.read_text(encoding="utf-8") == original
     assert generated.read_text(encoding="utf-8").startswith("<!DOCTYPE html>")
     assert json.loads(weekly_json.read_text(encoding="utf-8"))["top_threats"]
+
+
+def test_weekly_updated_at_cannot_launder_historical_publication():
+    start, _ = brief._report_window()
+    old = _entry(
+        published_at=(start - timedelta(days=1)).isoformat(),
+        updated_at=(start + timedelta(days=2)).isoformat(),
+    )
+    assert not brief._is_this_week(old)
+    assert brief._build_brief([old])["stats"]["total_advisories"] == 0
+
+
+def test_weekly_updated_at_alone_is_not_publication_provenance():
+    start, _ = brief._report_window()
+    record = _entry(updated_at=(start + timedelta(days=2)).isoformat())
+    del record["published_at"]
+    assert not brief._is_this_week(record)
+
+
+def test_weekly_malformed_primary_publication_never_falls_back():
+    start, _ = brief._report_window()
+    row = _entry(
+        published_at="invalid timestamp",
+        published=(start + timedelta(days=1)).isoformat(),
+    )
+    assert not brief._is_this_week(row)
+
+
+def test_weekly_conflicting_publication_timestamps_fail_closed():
+    start, _ = brief._report_window()
+    row = _entry(
+        published_at=(start + timedelta(days=2)).isoformat(),
+        published=(start - timedelta(days=1)).isoformat(),
+    )
+    assert not brief._is_this_week(row)
+
+
+def test_weekly_valid_published_alias_without_published_at_is_supported():
+    row = _entry()
+    row["published"] = row.pop("published_at")
+    assert brief._is_this_week(row)
+
+
+def test_stale_updated_record_never_overwrites_verified_weekly_release(tmp_path, monkeypatch):
+    start, _ = brief._report_window()
+    stale = _entry(
+        published_at=(start - timedelta(days=1)).isoformat(),
+        updated_at=(start + timedelta(days=2)).isoformat(),
+    )
+    previous_html = tmp_path / "weekly-brief.html"
+    previous_json = tmp_path / "weekly_brief.json"
+    previous_html.write_text("verified_prior_html", encoding="utf-8")
+    previous_json.write_text('{"verified":"prior"}', encoding="utf-8")
+    monkeypatch.setattr(brief, "_load_feed", lambda: [stale])
+    monkeypatch.setattr(brief, "BRIEF_HTML_PATH", previous_html)
+    monkeypatch.setattr(brief, "BRIEF_JSON_PATH", previous_json)
+    assert brief.main() == 1
+    assert previous_html.read_text(encoding="utf-8") == "verified_prior_html"
+    assert previous_json.read_text(encoding="utf-8") == '{"verified":"prior"}'
