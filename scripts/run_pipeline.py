@@ -2949,7 +2949,7 @@ def stage_validate_write_integrity() -> None:
             pass
 
     # v134.0 SOFT-FAIL POLICY:
-    # - V1 (missing files): SOFT FAIL — payloads in recovery, retry next run
+    # - V1 (missing local files): soft in R2-first mode; remote fetchback is still required
     # - V3 (write_error/render_error): SOFT FAIL — write pressure, not corruption
     # - V4 (write_failures.jsonl entries): SOFT FAIL — recovery buffer populated
     # HARD FAIL only on: V2 (manifest JSON corrupt/unreadable)
@@ -2966,8 +2966,8 @@ def stage_validate_write_integrity() -> None:
 
     if soft_failures:
         log.warning(
-            "[3.6-validate] %d write-pressure failure(s) — "
-            "recovery buffer populated, pipeline continues:",
+            "[3.6-validate] %d local integrity finding(s); "
+            "R2 existence, retrieval and recovery are NOT certified:",
             len(soft_failures),
         )
         for sf in soft_failures:
@@ -2986,7 +2986,7 @@ def stage_validate_write_integrity() -> None:
             log.error("[3.6-validate]   %s", hf)
         sys.exit(1)
     elif soft_failures or issues:
-        log.warning("[3.6-validate] Write pressure events logged — pipeline continues (ZERO DATA LOSS)")
+        log.warning("[3.6-validate] DEGRADED: pipeline continues for reconciliation; customer report delivery NOT certified")
     else:
         log.info("[3.6-validate] ALL WRITE INTEGRITY CHECKS PASSED [OK]")
 
