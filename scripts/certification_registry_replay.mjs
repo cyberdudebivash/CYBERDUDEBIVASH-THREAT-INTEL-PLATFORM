@@ -16,6 +16,25 @@ import { resolveCertification, CERTIFICATION_POLICY_VERSION } from
 
 export const FEED_ORDER = Object.freeze(['latest_pro', 'latest', 'top10', 'apex']);
 const REPORT_ID = /^intel--[a-f0-9]{8,64}$/;
+const KNOWN_REASONS = new Set([
+  'ITEM_MISSING', 'CERTIFICATION_ENGINE_ERROR', 'P21_BELOW_MINIMUM',
+  'P20_QUALITY_CRITICALLY_LOW', 'P25_BELOW_THRESHOLD',
+  'P23_OPERATIONAL_READINESS_DO_NOT_PUBLISH', 'P26_REJECTED',
+]);
+// Presence, NOT validation: an item can carry a string or field that does not
+// satisfy real P20-P26 evidence checks. Never use these counts as approval.
+const SIGNAL_FIELDS = Object.freeze({
+  evidence_chain: item => object(item.evidence_chain) && Object.keys(item.evidence_chain).length > 0,
+  iocs: item => Array.isArray(item.iocs) && item.iocs.length > 0,
+  detection_bundle: item => Array.isArray(item.detection_bundle) && item.detection_bundle.length > 0,
+  corroborating_sources: item => Array.isArray(item.corroborating_sources) && item.corroborating_sources.length > 0,
+  source_url: item => typeof item.source_url === 'string' && item.source_url.trim().length > 0,
+  cvss_score: item => item.cvss_score !== undefined && item.cvss_score !== null && item.cvss_score !== '',
+  cve_reference: item => !!item.cve_id || (Array.isArray(item.cve_ids) && item.cve_ids.length > 0),
+});
+function emptySignalCounts() {
+  return Object.fromEntries(Object.keys(SIGNAL_FIELDS).map(field => [field, 0]));
+}
 const MAX_OBJECT_BYTES = 8 * 1024 * 1024;
 const MAX_ITEMS = 20000;
 const FIELDS = Object.freeze({
@@ -63,10 +82,14 @@ export function replayCertificationSnapshots({
   // Mirror _resolveFeedItemsById(): four R2 objects fetched independently;
   // first appearance in precedence order is selected for each report ID.
   const firstSource = new Map();
+  const allSources = new Map();
   for (const name of FEED_ORDER) {
     for (const item of rows(feeds[name], name)) {
       const id = normalizedId(item);
-      if (id && !firstSource.has(id)) firstSource.set(id, { source: name, item });
+      if (!id) continue;
+      if (!firstSource.has(id)) firstSource.set(id, { source: name, item });
+      if (!allSources.has(id)) allSources.set(id, []);
+      allSources.get(id).push(item);
     }
   }
 
@@ -75,6 +98,9 @@ export function replayCertificationSnapshots({
     WITHHELD: 0, NOT_EVALUATED: 0, OTHER_FAIL_CLOSED: 0,
   };
   const first_source_counts = Object.fromEntries(FEED_ORDER.map(s => [s, 0]));
+  const winning_source_field_presence = emptySignalCounts();
+  const later_source_extra_field_presence = emptySignalCounts();
+  const blocking_reason_counts = Object.fromEntries([...KNOWN_REASONS].map(k => [k, 0]));
   let persistedFound = 0, reusedPersisted = 0, newlyEvaluated = 0;
   let outsideFeed = 0, storedReadyWithoutFeed = 0;
   const seen = new Set();
@@ -87,8 +113,18 @@ export function replayCertificationSnapshots({
     const id = entry.id;
     seen.add(id);
     const source = firstSource.get(id);
-    if (source) first_source_counts[source.source]++;
-    else outsideFeed++;
+    if (source) {
+      first_source_counts[source.source]++;
+      for (const [field, present] of Object.entries(SIGNAL_FIELDS)) {
+        if (present(source.item)) winning_source_field_presence[field]++;
+        // Count candidate IDs for which a later source contains a nonempty
+        // field absent from the chosen first-source record. Not proof that
+        // the later field is authentic, safe, more complete or releasable.
+        else if ((allSources.get(id) || []).slice(1).some(present)) {
+          later_source_extra_field_presence[field]++;
+        }
+      }
+    } else outsideFeed++;
     const existing = Object.hasOwn(records, id) ? records[id] : undefined;
     if (existing !== undefined) persistedFound++;
     const { record, isNew } = resolveCertification(existing, source?.item);
@@ -100,6 +136,13 @@ export function replayCertificationSnapshots({
     if (record.certification_status === 'NOT_EVALUATED') counts.NOT_EVALUATED++;
     else if (Object.hasOwn(counts, state)) counts[state]++;
     else counts.OTHER_FAIL_CLOSED++;
+    if (state !== 'CUSTOMER_READY' && Array.isArray(record.blocking_gates)) {
+      for (const code of new Set(record.blocking_gates)) {
+        if (KNOWN_REASONS.has(code)) blocking_reason_counts[code]++;
+        // Unknown codes are intentionally NOT emitted, since they can
+        // contain identifiers or untrusted strings from local snapshots.
+      }
+    }
     if (!source && state === 'CUSTOMER_READY')
       storedReadyWithoutFeed++;
   }
@@ -113,6 +156,12 @@ export function replayCertificationSnapshots({
     report_feed_matches: seen.size - outsideFeed,
     outside_feed_windows: outsideFeed,
     first_source_counts,
+    // Diagnostic only: field presence in the FIRST-SOURCE-WINS record versus
+    // later feed windows. These counts are NOT publication quality scores.
+    winning_source_field_presence,
+    later_source_extra_field_presence,
+    blocking_reason_counts,
+    reason_counts_cover_only_known_codes: true,
     persisted_records_present: persistedFound,
     persisted_records_reused: reusedPersisted,
     re_evaluated_from_source: newlyEvaluated,
