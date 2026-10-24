@@ -12,7 +12,7 @@ const end = home.indexOf('})();', start);
 assert.ok(start >= 0 && end > start, 'anti-stale recovery guard must exist');
 const guard = home.slice(start, end + 5);
 
-async function runScenario({ rejectEnumeration = false } = {}) {
+async function runScenario({ rejectEnumeration = false, cachesUnavailable = false, storedVersion = 'previous-release' } = {}) {
   const events = { updates: 0, handled: 0, reloads: 0, warnings: [], storedVersion: null };
   const registration = {
     update() {
@@ -45,7 +45,7 @@ async function runScenario({ rejectEnumeration = false } = {}) {
     console: { log(){}, warn(...args){ events.warnings.push(args.join(' ')); } },
     navigator: { serviceWorker: sw },
     sessionStorage: {
-      getItem(name) { assert.equal(name, 'cdb_ver_stamp'); return 'previous-release'; },
+      getItem(name) { assert.equal(name, 'cdb_ver_stamp'); return storedVersion; },
       setItem(name, value) { events.storedVersion = value; }
     },
     fetch(url) {
@@ -58,6 +58,7 @@ async function runScenario({ rejectEnumeration = false } = {}) {
     },
     window: { location: { reload() { events.reloads++; } } }
   };
+  if (cachesUnavailable) delete context.caches;
   vm.runInNewContext(guard, context, { filename: 'anti-stale-recovery-inline.js' });
   // Drain promise continuations, including update + cache deletion + reload.
   for (let i = 0; i < 6; i++) await Promise.resolve();
@@ -80,4 +81,21 @@ test('getRegistrations rejection does not interrupt cache cleanup or reload', as
   assert.equal(events.handled, 1);
   assert.equal(events.reloads, 1);
   assert.ok(events.warnings.some(msg => msg.includes('registrations unavailable')));
+});
+
+
+test('version-change recovery reloads once even when CacheStorage is unavailable', async () => {
+  const events = await runScenario({ cachesUnavailable: true });
+  assert.equal(events.updates, 2);
+  assert.equal(events.handled, 2);
+  assert.equal(events.reloads, 1);
+  assert.equal(events.storedVersion, 'new-release');
+});
+
+test('stable version does not cause an unnecessary reload or second update attempt', async () => {
+  const events = await runScenario({ storedVersion: 'new-release' });
+  assert.equal(events.updates, 1);
+  assert.equal(events.handled, 1);
+  assert.equal(events.reloads, 0);
+  assert.equal(events.storedVersion, 'new-release');
 });
