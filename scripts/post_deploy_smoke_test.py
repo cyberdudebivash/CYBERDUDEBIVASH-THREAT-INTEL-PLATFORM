@@ -16,6 +16,7 @@ import sys, os, time
 from pathlib import Path
 from datetime import datetime, timezone
 from urllib import request, error
+from public_manifest_smoke_contract import MAX_BODY_BYTES, classify_manifest_response
 
 if hasattr(sys.stdout, 'reconfigure'):
     try: sys.stdout.reconfigure(encoding='utf-8')
@@ -74,6 +75,41 @@ def smoke(name, url, expect_status=200, min_size=500, must_contain=None, critica
             warnings.append((name, str(e)))
         return False
 
+def smoke_feed_manifest(url):
+    """Check the actual JSON policy contract, not a historical byte-size floor.
+
+    POLICY_WITHHELD is a visible warning, never a claim of public availability.
+    Unexpected JSON, errors, or accidental disclosure still fail closed.
+    """
+    req = request.Request(url, headers={'User-Agent': 'SENTINEL-APEX-SMOKE-TEST/158.0'})
+    for attempt in range(MAX_RETRIES):
+        try:
+            start = time.monotonic()
+            with request.urlopen(req, timeout=TIMEOUT_SEC) as response:
+                status = response.status
+                body = response.read(MAX_BODY_BYTES + 1)
+            elapsed = int((time.monotonic() - start) * 1000)
+            result = classify_manifest_response(status, body)
+            detail = f"HTTP {status} | {len(body)} bytes | {elapsed}ms | {result}"
+            if result == "PUBLIC_SUMMARY":
+                print("  [PASS] Feed Manifest public summary\n         " + url + "\n         " + detail)
+                return True
+            if result == "POLICY_WITHHELD":
+                print("  [WARN] Feed Manifest intentionally withheld by TLP policy\n         " + url + "\n         " + detail)
+                warnings.append(("Feed Manifest", "TLP policy withholding; not a public manifest"))
+                return True
+            print("  [FAIL] Feed Manifest invalid public contract\n         " + url + "\n         " + detail)
+            failures.append(("Feed Manifest", detail))
+            return False
+        except Exception as exc:
+            if attempt == MAX_RETRIES - 1:
+                print("  [FAIL] Feed Manifest fetch error: " + type(exc).__name__)
+                failures.append(("Feed Manifest", type(exc).__name__))
+                return False
+            time.sleep(2)
+    return False
+
+
 print("=" * 62)
 print("  SENTINEL APEX POST-DEPLOY SMOKE TESTS v158.0")
 print("  Platform: " + PLATFORM_URL)
@@ -110,7 +146,7 @@ smoke("Live Feed",              PLATFORM_URL + "/feed.json",               200, 
 # verifying a stale artifact's mere presence, never its freshness. Pointed at the
 # real canonical feed api/v1/intel/latest.json (workers/intel-gateway) instead.
 smoke("Latest Feed",            PLATFORM_URL + "/api/v1/intel/latest.json", 200, 10_000)
-smoke("Feed Manifest",          PLATFORM_URL + "/feed_manifest.json",      200, 500)
+smoke_feed_manifest(PLATFORM_URL + "/feed_manifest.json")
 
 # ── ASSETS ────────────────────────────────────────────────────────
 print("\n[STATIC ASSETS]")
