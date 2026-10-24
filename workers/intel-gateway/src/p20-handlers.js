@@ -63,7 +63,7 @@ export function classifyReportType(item) {
   // Misusing it classified virtually every scored phishing/campaign item as a
   // CVE vulnerability and bypassed non-CVE applicability rules in P20/P23.
   const isCve = value =>
-    typeof value === 'string' && /^CVE-\\d{4}-\\d{4,7}$/i.test(value.trim());
+    typeof value === 'string' && /^CVE-\d{4}-\d{4,7}$/i.test(value.trim());
   const cvssRaw = item.cvss_score;
   const cvss = typeof cvssRaw === 'number' || typeof cvssRaw === 'string'
     ? Number(cvssRaw) : NaN;
@@ -76,7 +76,7 @@ export function classifyReportType(item) {
     isCve(item.cve) ||
     validCvss ||
     hasConfirmedKev(item) ||
-    (typeof item.title === 'string' && /\\bCVE-\\d{4}-\\d{4,7}\\b/i.test(item.title))
+    (typeof item.title === 'string' && /\bCVE-\d{4}-\d{4,7}\b/i.test(item.title))
   );
   if (hasCveSignal) return 'VULNERABILITY';
 
