@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { classifyReportType, hasConfirmedKev, computeP20QualityScore } from '../p20-handlers.js';
 import { computeOperationalReadiness } from '../p23-handlers.js';
 import { evaluatePublicationGate } from '../publication-gate.js';
+import { computeEnterpriseTrustScore, buildExplainableScoreBlock } from '../p25-handlers.js';
 
 test('general risk score is never treated as a CVSS vulnerability signal', () => {
   for (const [threat_type, expected] of [
@@ -96,4 +97,36 @@ test('correcting report type does not grant customer publication to a weak item'
   assert.ok(gate.blocking_gates.length > 0);
   assert.ok(gate.P20_SCORE < 25);
   assert.equal(computeP20QualityScore(item).total, gate.P20_SCORE);
+});
+
+
+test('P25 trust cannot award CISA KEV exploitation points for negative string evidence', () => {
+  const item = {
+    id: 'intel--' + 'c'.repeat(24),
+    title: 'CVE-2026-12345 Vendor Notice',
+    threat_type: 'security-news',
+    risk_score: 8.4,
+    kev_present: false,
+    kev: 'NO',
+    _score_details: { kev: 'NO' },
+    active_exploit: false,
+  };
+  const unverified = computeEnterpriseTrustScore(item);
+  const exploitation = unverified.dims.find(d => d.name === 'Exploitation Verification');
+  assert.ok(exploitation, 'P25 exploitation verification dimension exists');
+  assert.equal(exploitation.earned, 0);
+  assert.doesNotMatch(exploitation.rationale, /CISA KEV listing provides highest/i);
+  assert.match(buildExplainableScoreBlock(item), /Not listed in CISA Known Exploited Vulnerabilities/);
+  assert.doesNotMatch(buildExplainableScoreBlock(item), /Confirmed active exploitation in the wild/);
+
+  const affirmed = computeEnterpriseTrustScore({
+    ...item, kev_present: true, kev: true, _score_details: { kev: true }
+  });
+  const confirmedDim = affirmed.dims.find(d => d.name === 'Exploitation Verification');
+  assert.equal(confirmedDim.earned, 10);
+
+  const detailOnly = computeEnterpriseTrustScore({
+    ...item, _score_details: { kev: 'YES' }
+  });
+  assert.equal(detailOnly.dims.find(d => d.name === 'Exploitation Verification').earned, 10);
 });
