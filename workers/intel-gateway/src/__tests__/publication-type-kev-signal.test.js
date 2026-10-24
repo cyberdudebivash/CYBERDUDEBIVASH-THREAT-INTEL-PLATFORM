@@ -130,3 +130,23 @@ test('P25 trust cannot award CISA KEV exploitation points for negative string ev
   });
   assert.equal(detailOnly.dims.find(d => d.name === 'Exploitation Verification').earned, 10);
 });
+
+
+test('declared vulnerabilities with missing CVE/CVSS stay under full operational readiness controls', () => {
+  for (const threat_type of ['vulnerability', 'remote code execution', 'privilege escalation', 'CVE advisory']) {
+    const item = {
+      title: 'Unverified vulnerability notice',
+      threat_type,
+      risk_score: 9.7,
+      kev: 'NO',
+      cvss_score: null,
+      description: 'Unverified notice lacking CVSS, IOCs and detection package'
+    };
+    assert.equal(classifyReportType(item), 'VULNERABILITY', threat_type);
+    const gate = evaluatePublicationGate(item);
+    assert.equal(gate.customer_ready, false);
+    assert.deepEqual(gate.P23_NOT_APPLICABLE_GATES, [],
+      'full IR and Patch Priority checks must stay applicable');
+    assert.ok(gate.blocking_gates.includes('P23_OPERATIONAL_READINESS_DO_NOT_PUBLISH'));
+  }
+});
