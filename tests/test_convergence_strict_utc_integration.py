@@ -109,8 +109,9 @@ def test_customer_ready_catalog_with_all_reports_withheld_blocks(monkeypatch, tm
         encoding="utf-8",
     )
     monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
-    with pytest.raises(RuntimeError, match="blocked"):
+    with pytest.raises(RuntimeError, match="blocked") as exc:
         dcv._extract_report_urls([], {"files": {}})
+    assert "Zero customer-ready reports" in str(exc.value.__cause__)
 
 
 def test_invalid_catalog_logs_bounded_chronology_reason(monkeypatch, tmp_path, caplog):
