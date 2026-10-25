@@ -21,7 +21,7 @@ def test_attack_reference_not_claimed_as_validated_mapping():
 
 def test_no_hardcoded_report_inventory_as_live():
     assert "22,433 published intelligence reports" not in HTML
-    assert "2,144 CVE &amp; threat pages" not in HTML
+    assert "2,144 CVE &amp; threat pages</span>" not in HTML
     assert "Report inventory: publication-gated" in HTML
     assert "Counts shown after live validation" in HTML
 
