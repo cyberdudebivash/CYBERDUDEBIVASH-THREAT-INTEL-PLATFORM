@@ -13,14 +13,49 @@
     {
       "type": "Microsoft.SecurityInsights/alertRules",
       "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--7451f493ec173808c4bd26c0')]",
+      "name": "[guid('intel--75a7c8a9b561a971')]",
       "kind": "Scheduled",
       "properties": {
-        "displayName": "APEX - CVE-2026-9465 Tiandy Easy7 Integrated Management Platform GetDBDataEx.jsp sql injection",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--7451f493ec173808c4bd26c0. Techniques: T1190, T1059, T1190.001",
+        "displayName": "APEX - CVE-2026-16832: IBM Power Systems Firmware FW1120.00, FW1110.00 through FW1110.30, FW1060.00 through",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--75a7c8a9b561a971. Techniques: ",
         "severity": "High",
         "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9465 Tiandy Easy7 Integrated Management Platform Ge | intel--7451f493ec173808c4bd26c0 | Techniques: TT1190 | TT1059.001\n// Severity: high\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--7451f493ec173808c4bd26c0\", Techniques=\"TT1190 | TT1059.001\"",
+        "query": "// Sentinel Rule: CVE-2026-16832: IBM Power Systems Firmware FW1120.00, FW1110 | intel--75a7c8a9b561a971 | Techniques: TT1190\n// Severity: medium\nDeviceProcessEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--75a7c8a9b561a971\", Techniques=\"TT1190\"",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [],
+        "techniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AnyAlert",
+            "groupByEntities": [
+              "Account",
+              "Host"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.SecurityInsights/alertRules",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[guid('intel--5c0e56b791677747')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "APEX - CVE-2026-16828: IBM Power Systems Firmware FW1120.00, FW1110.00 through FW1110.30, FW1060.00 through",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--5c0e56b791677747. Techniques: T1190",
+        "severity": "High",
+        "enabled": true,
+        "query": "// Sentinel Rule: CVE-2026-16828: IBM Power Systems Firmware FW1120.00, FW1110 | intel--5c0e56b791677747 | Techniques: TT1203 | TT1190\n// Severity: high\nDeviceProcessEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--5c0e56b791677747\", Techniques=\"TT1203 | TT1190\"",
         "queryFrequency": "PT1H",
         "queryPeriod": "P1D",
         "triggerOperator": "GreaterThan",
@@ -28,13 +63,10 @@
         "suppressionDuration": "PT1H",
         "suppressionEnabled": false,
         "tactics": [
-          "Execution",
           "InitialAccess"
         ],
         "techniques": [
-          "T1190",
-          "T1059",
-          "T1190.001"
+          "T1190"
         ],
         "alertRuleTemplateName": null,
         "incidentConfiguration": {
@@ -55,14 +87,55 @@
     {
       "type": "Microsoft.SecurityInsights/alertRules",
       "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--ff1ab1a1c16f82371ba751f6')]",
+      "name": "[guid('intel--922f5302efa56990')]",
       "kind": "Scheduled",
       "properties": {
-        "displayName": "APEX - CVE-2026-9058 - Improper Certificate Verification in Szafir SDK",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--ff1ab1a1c16f82371ba751f6. Techniques: T1190, T1059, T1078",
+        "displayName": "APEX - CVE-2026-16687: IBM Power Systems Firmware FW1120.00, FW1110.00 through FW1110.30, FW1060.00 through",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--922f5302efa56990. Techniques: T1059, T1190",
         "severity": "High",
         "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9058 - Improper Certificate Verification in Szafir  | intel--ff1ab1a1c16f82371ba751f6 | Techniques: TT1190 | TT1078 | TT1190\n// Severity: medium\nDeviceNetworkEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--ff1ab1a1c16f82371ba751f6\", Techniques=\"TT1190 | TT1078 | TT1190\"",
+        "query": "// Sentinel Rule: CVE-2026-16687: IBM Power Systems Firmware FW1120.00, FW1110 | intel--922f5302efa56990 | Techniques: TT1190 | TT1190 | TT1059\n// Severity: medium\nDeviceProcessEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--922f5302efa56990\", Techniques=\"TT1190 | TT1190 | TT1059\"",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "Execution",
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1059",
+          "T1190"
+        ],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AnyAlert",
+            "groupByEntities": [
+              "Account",
+              "Host"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.SecurityInsights/alertRules",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[guid('intel--64b5c51a7231bf43')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "APEX - CVE-2026-75149: marimo before 0.23.15 contains a code injection vulnerability in the notebook config",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--64b5c51a7231bf43. Techniques: T1059, T1055, T1190",
+        "severity": "High",
+        "enabled": true,
+        "query": "// Sentinel Rule: CVE-2026-75149: marimo before 0.23.15 contains a code inject | intel--64b5c51a7231bf43 | Techniques: TT1190 | TT1055 | TT1190\n// Severity: medium\nDeviceProcessEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--64b5c51a7231bf43\", Techniques=\"TT1190 | TT1055 | TT1190\"",
         "queryFrequency": "PT1H",
         "queryPeriod": "P1D",
         "triggerOperator": "GreaterThan",
@@ -72,12 +145,12 @@
         "tactics": [
           "Execution",
           "InitialAccess",
-          "DefenseEvasion"
+          "PrivilegeEscalation"
         ],
         "techniques": [
-          "T1190",
           "T1059",
-          "T1078"
+          "T1055",
+          "T1190"
         ],
         "alertRuleTemplateName": null,
         "incidentConfiguration": {
@@ -98,14 +171,14 @@
     {
       "type": "Microsoft.SecurityInsights/alertRules",
       "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--a74d0267735c6b96861ddf94')]",
+      "name": "[guid('intel--858c48f2a46dbb88')]",
       "kind": "Scheduled",
       "properties": {
-        "displayName": "APEX - Netherlands Seizes 800 Servers, Arrests 2 for Aiding Cyberattacks",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--a74d0267735c6b96861ddf94. Techniques: T1190, T1059",
+        "displayName": "APEX - CVE-2026-66794: A flaw was found in the cluster-proxy-addon component of Multicluster Engine for Kub",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--858c48f2a46dbb88. Techniques: T1190, T1083",
         "severity": "High",
         "enabled": true,
-        "query": "// Sentinel Rule: Netherlands Seizes 800 Servers, Arrests 2 for Aiding Cyberat | intel--a74d0267735c6b96861ddf94 | Techniques: TT1190 | TT1190 | TT1059\n// Severity: medium\nDeviceNetworkEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--a74d0267735c6b96861ddf94\", Techniques=\"TT1190 | TT1190 | TT1059\"",
+        "query": "// Sentinel Rule: CVE-2026-66794: A flaw was found in the cluster-proxy-addon  | intel--858c48f2a46dbb88 | Techniques: TT1078 | TT1548 | TT1083\n// Severity: high\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"admin\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--858c48f2a46dbb88\", Techniques=\"TT1078 | TT1548 | TT1083\"",
         "queryFrequency": "PT1H",
         "queryPeriod": "P1D",
         "triggerOperator": "GreaterThan",
@@ -113,299 +186,10 @@
         "suppressionDuration": "PT1H",
         "suppressionEnabled": false,
         "tactics": [
-          "Execution",
           "InitialAccess"
         ],
         "techniques": [
           "T1190",
-          "T1059"
-        ],
-        "alertRuleTemplateName": null,
-        "incidentConfiguration": {
-          "createIncident": true,
-          "groupingConfiguration": {
-            "enabled": true,
-            "reopenClosedIncident": false,
-            "lookbackDuration": "PT5H",
-            "matchingMethod": "AnyAlert",
-            "groupByEntities": [
-              "Account",
-              "Host"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.SecurityInsights/alertRules",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--8436ef84a26f5d14e01feaa4')]",
-      "kind": "Scheduled",
-      "properties": {
-        "displayName": "APEX - CVE-2026-9461 - Edimax EW-7438RPn formRadius stack-based overflow",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--8436ef84a26f5d14e01feaa4. Techniques: T1190, T1059",
-        "severity": "High",
-        "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9461 - Edimax EW-7438RPn formRadius stack-based ove | intel--8436ef84a26f5d14e01feaa4 | Techniques: TT1190 | TT1190 | TT1059\n// Severity: medium\nDeviceNetworkEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--8436ef84a26f5d14e01feaa4\", Techniques=\"TT1190 | TT1190 | TT1059\"",
-        "queryFrequency": "PT1H",
-        "queryPeriod": "P1D",
-        "triggerOperator": "GreaterThan",
-        "triggerThreshold": 0,
-        "suppressionDuration": "PT1H",
-        "suppressionEnabled": false,
-        "tactics": [
-          "Execution",
-          "InitialAccess"
-        ],
-        "techniques": [
-          "T1190",
-          "T1059"
-        ],
-        "alertRuleTemplateName": null,
-        "incidentConfiguration": {
-          "createIncident": true,
-          "groupingConfiguration": {
-            "enabled": true,
-            "reopenClosedIncident": false,
-            "lookbackDuration": "PT5H",
-            "matchingMethod": "AnyAlert",
-            "groupByEntities": [
-              "Account",
-              "Host"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.SecurityInsights/alertRules",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--0480eaa264dc898151449221')]",
-      "kind": "Scheduled",
-      "properties": {
-        "displayName": "APEX - Kazuar Malware Evolves Into Modular Espionage Ecosystem for Secret Blizzard Operations",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--0480eaa264dc898151449221. Techniques: T1203, T1071",
-        "severity": "High",
-        "enabled": true,
-        "query": "// Sentinel Rule: Kazuar Malware Evolves Into Modular Espionage Ecosystem for  | intel--0480eaa264dc898151449221 | Techniques: TT1190 | TT1071 | TT1203\n// Severity: medium\nDeviceNetworkEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--0480eaa264dc898151449221\", Techniques=\"TT1190 | TT1071 | TT1203\"",
-        "queryFrequency": "PT1H",
-        "queryPeriod": "P1D",
-        "triggerOperator": "GreaterThan",
-        "triggerThreshold": 0,
-        "suppressionDuration": "PT1H",
-        "suppressionEnabled": false,
-        "tactics": [
-          "InitialAccess",
-          "CommandAndControl"
-        ],
-        "techniques": [
-          "T1203",
-          "T1071"
-        ],
-        "alertRuleTemplateName": null,
-        "incidentConfiguration": {
-          "createIncident": true,
-          "groupingConfiguration": {
-            "enabled": true,
-            "reopenClosedIncident": false,
-            "lookbackDuration": "PT5H",
-            "matchingMethod": "AnyAlert",
-            "groupByEntities": [
-              "Account",
-              "Host"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.SecurityInsights/alertRules",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--7b8717436cb504e96ade43bc')]",
-      "kind": "Scheduled",
-      "properties": {
-        "displayName": "APEX - CVE-2026-9460 - Edimax EW-7438RPn formAccept stack-based overflow",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--7b8717436cb504e96ade43bc. Techniques: T1190, T1059",
-        "severity": "High",
-        "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9460 - Edimax EW-7438RPn formAccept stack-based ove | intel--7b8717436cb504e96ade43bc | Techniques: TT1190 | TT1190 | TT1059\n// Severity: medium\nDeviceNetworkEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--7b8717436cb504e96ade43bc\", Techniques=\"TT1190 | TT1190 | TT1059\"",
-        "queryFrequency": "PT1H",
-        "queryPeriod": "P1D",
-        "triggerOperator": "GreaterThan",
-        "triggerThreshold": 0,
-        "suppressionDuration": "PT1H",
-        "suppressionEnabled": false,
-        "tactics": [
-          "Execution",
-          "InitialAccess"
-        ],
-        "techniques": [
-          "T1190",
-          "T1059"
-        ],
-        "alertRuleTemplateName": null,
-        "incidentConfiguration": {
-          "createIncident": true,
-          "groupingConfiguration": {
-            "enabled": true,
-            "reopenClosedIncident": false,
-            "lookbackDuration": "PT5H",
-            "matchingMethod": "AnyAlert",
-            "groupByEntities": [
-              "Account",
-              "Host"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.SecurityInsights/alertRules",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--ff51162f3a8787497d6030f6')]",
-      "kind": "Scheduled",
-      "properties": {
-        "displayName": "APEX - CVE-2026-9459 - Edimax EW-7438RPn formConnectionSetting stack-based overflow",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--ff51162f3a8787497d6030f6. Techniques: T1190, T1059",
-        "severity": "High",
-        "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9459 - Edimax EW-7438RPn formConnectionSetting stac | intel--ff51162f3a8787497d6030f6 | Techniques: TT1190 | TT1190 | TT1059\n// Severity: medium\nDeviceNetworkEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--ff51162f3a8787497d6030f6\", Techniques=\"TT1190 | TT1190 | TT1059\"",
-        "queryFrequency": "PT1H",
-        "queryPeriod": "P1D",
-        "triggerOperator": "GreaterThan",
-        "triggerThreshold": 0,
-        "suppressionDuration": "PT1H",
-        "suppressionEnabled": false,
-        "tactics": [
-          "Execution",
-          "InitialAccess"
-        ],
-        "techniques": [
-          "T1190",
-          "T1059"
-        ],
-        "alertRuleTemplateName": null,
-        "incidentConfiguration": {
-          "createIncident": true,
-          "groupingConfiguration": {
-            "enabled": true,
-            "reopenClosedIncident": false,
-            "lookbackDuration": "PT5H",
-            "matchingMethod": "AnyAlert",
-            "groupByEntities": [
-              "Account",
-              "Host"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.SecurityInsights/alertRules",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--1e933a57a0897562d3f5ac01')]",
-      "kind": "Scheduled",
-      "properties": {
-        "displayName": "APEX - CVE-2026-9458 - Totolink A8000RU Web Management cstecgi.cgi setWanCfg os command injection",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--1e933a57a0897562d3f5ac01. Techniques: T1190, T1059",
-        "severity": "Medium",
-        "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9458 - Totolink A8000RU Web Management cstecgi.cgi  | intel--1e933a57a0897562d3f5ac01 | Techniques: TT1059 | TT1190\n// Severity: critical\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--1e933a57a0897562d3f5ac01\", Techniques=\"TT1059 | TT1190\"",
-        "queryFrequency": "PT1H",
-        "queryPeriod": "P1D",
-        "triggerOperator": "GreaterThan",
-        "triggerThreshold": 0,
-        "suppressionDuration": "PT1H",
-        "suppressionEnabled": false,
-        "tactics": [
-          "Execution",
-          "InitialAccess"
-        ],
-        "techniques": [
-          "T1190",
-          "T1059"
-        ],
-        "alertRuleTemplateName": null,
-        "incidentConfiguration": {
-          "createIncident": true,
-          "groupingConfiguration": {
-            "enabled": true,
-            "reopenClosedIncident": false,
-            "lookbackDuration": "PT5H",
-            "matchingMethod": "AnyAlert",
-            "groupByEntities": [
-              "Account",
-              "Host"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.SecurityInsights/alertRules",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--70dc4c482d03c866f394dc32')]",
-      "kind": "Scheduled",
-      "properties": {
-        "displayName": "APEX - CVE-2026-9457 - Totolink A8000RU Web Management cstecgi.cgi UploadFirmwareFile os command injection",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--70dc4c482d03c866f394dc32. Techniques: T1190, T1059",
-        "severity": "Medium",
-        "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9457 - Totolink A8000RU Web Management cstecgi.cgi  | intel--70dc4c482d03c866f394dc32 | Techniques: TT1059 | TT1190\n// Severity: critical\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--70dc4c482d03c866f394dc32\", Techniques=\"TT1059 | TT1190\"",
-        "queryFrequency": "PT1H",
-        "queryPeriod": "P1D",
-        "triggerOperator": "GreaterThan",
-        "triggerThreshold": 0,
-        "suppressionDuration": "PT1H",
-        "suppressionEnabled": false,
-        "tactics": [
-          "Execution",
-          "InitialAccess"
-        ],
-        "techniques": [
-          "T1190",
-          "T1059"
-        ],
-        "alertRuleTemplateName": null,
-        "incidentConfiguration": {
-          "createIncident": true,
-          "groupingConfiguration": {
-            "enabled": true,
-            "reopenClosedIncident": false,
-            "lookbackDuration": "PT5H",
-            "matchingMethod": "AnyAlert",
-            "groupByEntities": [
-              "Account",
-              "Host"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.SecurityInsights/alertRules",
-      "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--27e3b060487d8bd84b86b7ac')]",
-      "kind": "Scheduled",
-      "properties": {
-        "displayName": "APEX - CVE-2026-7766 - Path Traversal in Kenik cameras",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--27e3b060487d8bd84b86b7ac. Techniques: T1190, T1059, T1083",
-        "severity": "High",
-        "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-7766 - Path Traversal in Kenik cameras | intel--27e3b060487d8bd84b86b7ac | Techniques: TT1190 | TT1083\n// Severity: high\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--27e3b060487d8bd84b86b7ac\", Techniques=\"TT1190 | TT1083\"",
-        "queryFrequency": "PT1H",
-        "queryPeriod": "P1D",
-        "triggerOperator": "GreaterThan",
-        "triggerThreshold": 0,
-        "suppressionDuration": "PT1H",
-        "suppressionEnabled": false,
-        "tactics": [
-          "Execution",
-          "InitialAccess"
-        ],
-        "techniques": [
-          "T1190",
-          "T1059",
           "T1083"
         ],
         "alertRuleTemplateName": null,
@@ -427,14 +211,92 @@
     {
       "type": "Microsoft.SecurityInsights/alertRules",
       "apiVersion": "2023-05-01-preview",
-      "name": "[guid('intel--11f3d939c15d69eba10ccb5a')]",
+      "name": "[guid('intel--e34d10cb64de5e17')]",
       "kind": "Scheduled",
       "properties": {
-        "displayName": "APEX - CVE-2026-9453 - FoundDream miniclawd SkillsLoader skills-loader.ts which command injection",
-        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--11f3d939c15d69eba10ccb5a. Techniques: T1190, T1059",
-        "severity": "Medium",
+        "displayName": "APEX - CVE-2026-63117: FreeRDP is a free implementation of the Remote Desktop Protocol. Prior to 3.28.0, an",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--e34d10cb64de5e17. Techniques: T1210",
+        "severity": "High",
         "enabled": true,
-        "query": "// Sentinel Rule: CVE-2026-9453 - FoundDream miniclawd SkillsLoader skills-loa | intel--11f3d939c15d69eba10ccb5a | Techniques: TT1059 | TT1190\n// Severity: critical\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--11f3d939c15d69eba10ccb5a\", Techniques=\"TT1059 | TT1190\"",
+        "query": "// Sentinel Rule: CVE-2026-63117: FreeRDP is a free implementation of the Remo | intel--e34d10cb64de5e17 | Techniques: TT1190 | TT1210\n// Severity: medium\nDeviceProcessEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--e34d10cb64de5e17\", Techniques=\"TT1190 | TT1210\"",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1210"
+        ],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AnyAlert",
+            "groupByEntities": [
+              "Account",
+              "Host"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.SecurityInsights/alertRules",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[guid('intel--5d0ad94e57fb124b')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "APEX - CVE-2026-62680: Orval generates type-safe JavaScript clients in TypeScript from OpenAPI v3 and Swagg",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--5d0ad94e57fb124b. Techniques: T1059.007",
+        "severity": "High",
+        "enabled": true,
+        "query": "// Sentinel Rule: CVE-2026-62680: Orval generates type-safe JavaScript clients | intel--5d0ad94e57fb124b | Techniques: TT1190 | TT1059.007\n// Severity: medium\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--5d0ad94e57fb124b\", Techniques=\"TT1190 | TT1059.007\"",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1059.007"
+        ],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AnyAlert",
+            "groupByEntities": [
+              "Account",
+              "Host"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.SecurityInsights/alertRules",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[guid('intel--e348c8c1c75ff1b6')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "APEX - CVE-2026-61518: ISPConfig contains an authenticated SQL injection vulnerability in the Remote API. T",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--e348c8c1c75ff1b6. Techniques: T1059, T1190.001, T1190",
+        "severity": "High",
+        "enabled": true,
+        "query": "// Sentinel Rule: CVE-2026-61518: ISPConfig contains an authenticated SQL inje | intel--e348c8c1c75ff1b6 | Techniques: TT1190 | TT1059.001\n// Severity: high\nDeviceNetworkEvents | union W3CIISLog\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--e348c8c1c75ff1b6\", Techniques=\"TT1190 | TT1059.001\"",
         "queryFrequency": "PT1H",
         "queryPeriod": "P1D",
         "triggerOperator": "GreaterThan",
@@ -446,8 +308,48 @@
           "InitialAccess"
         ],
         "techniques": [
-          "T1190",
-          "T1059"
+          "T1059",
+          "T1190.001",
+          "T1190"
+        ],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AnyAlert",
+            "groupByEntities": [
+              "Account",
+              "Host"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.SecurityInsights/alertRules",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[guid('intel--13591e0895767233')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "APEX - CVE-2026-19875: IBM Langflow OSS 1.0.0 through 1.10.0 could allow a remote attacker to overwrite adm",
+        "description": "CYBERDUDEBIVASH SENTINEL APEX detection rule. Advisory: intel--13591e0895767233. Techniques: T1566",
+        "severity": "High",
+        "enabled": true,
+        "query": "// Sentinel Rule: CVE-2026-19875: IBM Langflow OSS 1.0.0 through 1.10.0 could  | intel--13591e0895767233 | Techniques: TT1190 | TT1566\n// Severity: medium\nDeviceProcessEvents\n| where TimeGenerated > ago(30d)\n| where ProcessCommandLine has_any (\"<indicator>\")\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine,\n          InitiatingProcessFileName, ProcessCommandLine\n| extend AdvisoryID=\"intel--13591e0895767233\", Techniques=\"TT1190 | TT1566\"",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1566"
         ],
         "alertRuleTemplateName": null,
         "incidentConfiguration": {
@@ -469,7 +371,7 @@
   "outputs": {
     "ruleCount": {
       "type": "int",
-      "value": 11
+      "value": 9
     }
   }
 }
