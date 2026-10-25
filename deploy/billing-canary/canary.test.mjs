@@ -79,6 +79,8 @@ function deployment({ keyId = "rzp_test_TEST_ONLY_key", planOverride = null, pag
   // engine (wrangler.toml); root pages are the static site.
   const intel = async (method, path, opts) => {
     if (path.startsWith("/api/v2/billing/")) return revenue(method, path, opts);
+    if (path === "/admin") return pages["admin"] === "UNPROTECTED" ? { status: 200, body: null, text: "<html>admin</html>" } : { status: 404, body: null, text: "" };
+    if (path === "/admin.html") return pages["admin.html"] === "UNPROTECTED" ? { status: 200, body: null, text: "<html>admin</html>" } : pages["admin.html"] === "BAD_REDIRECT" ? { status: 302, body: null, text: "", location: "https://example.com/login" } : pages["admin.html"] === "ACCESS_REDIRECT" ? { status: 302, body: null, text: "", location: "https://example.cloudflareaccess.com/cdn-cgi/access/login" } : { status: 403, body: null, text: "" };
     const page = path.match(/^\/([a-z0-9-]+\.html)$/);
     if (page) {
       if (page[1] in pages) return pages[page[1]] === null ? { status: 404, body: null, text: "" } : { status: 200, body: null, text: pages[page[1]] };
@@ -96,7 +98,7 @@ test("public canary passes against a correct deployment and mutates nothing", as
   const d = deployment();
   const steps = await runPublicChecks(d);
   assert.deepEqual(failed(steps), [], JSON.stringify(steps.filter((s) => !s.ok)));
-  assert.equal(steps.length, 15, "every public boundary is probed");
+  assert.equal(steps.length, 16, "every public boundary is probed");
   assert.equal(d.revenueEnv.API_KEYS_KV.store.size, 0, "no key minted");
 });
 
@@ -140,7 +142,25 @@ test("canary FAILS when the Billing Center page is missing or the admin page is 
   const d = deployment({ pages: { "billing.html": null, "admin.html": "<html><script>setTimeout(() => { t.style." } });
   const f = failed(await runPublicChecks(d));
   assert.ok(f.includes("billing_center_page_served"));
-  assert.ok(f.includes("admin_page_complete"));
+  assert.ok(!f.includes("admin_page_requires_access"));
+});
+
+test("public canary rejects exposed admin HTML", async () => {
+  const d = deployment({ pages: { "admin.html": "UNPROTECTED" } });
+  const failures = failed(await runPublicChecks(d));
+  assert.ok(failures.includes("admin_page_requires_access"));
+});
+
+test("public canary rejects arbitrary admin redirects and accepts Access redirects", async () => {
+  const bad = deployment({ pages: { "admin.html": "BAD_REDIRECT" } });
+  assert.ok(failed(await runPublicChecks(bad)).includes("admin_page_requires_access"));
+  const access = deployment({ pages: { "admin.html": "ACCESS_REDIRECT" } });
+  assert.ok(!failed(await runPublicChecks(access)).includes("admin_page_requires_access"));
+});
+
+test("public canary rejects exposed /admin alias", async () => {
+  const d = deployment({ pages: { admin: "UNPROTECTED" } });
+  assert.ok(failed(await runPublicChecks(d)).includes("admin_alias_not_public"));
 });
 
 test("canary FAILS when a webhook secret is missing (500 is not a refusal: real payments would be rejected too)", async () => {

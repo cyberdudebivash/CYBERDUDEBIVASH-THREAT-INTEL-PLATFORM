@@ -87,8 +87,21 @@ export async function runPublicChecks({ intel, revenue }) {
   step(steps, "billing_center_page_served", page.status === 200 && /Billing Center/.test(page.text) && page.text.includes("/api/v2/billing/account"),
     { status: page.status });
 
+  const adminAccessDenied = (response) =>
+    response.status === 401 || response.status === 403 ||
+    ([302, 303, 307, 308].includes(response.status) &&
+      !!response.location &&
+      /^https:\/\/[^/]+\.cloudflareaccess\.com(?:[:/]|$)/i.test(response.location));
+
   const admin = await intel("GET", "/admin.html");
-  step(steps, "admin_page_complete", admin.status === 200 && admin.text.trimEnd().toLowerCase().endsWith("</html>"), { status: admin.status });
+  step(steps, "admin_page_requires_access", adminAccessDenied(admin), { status: admin.status });
+
+  // An alias may legitimately be absent (404/410), but must never serve the
+  // administrative frontend or redirect to an untrusted login destination.
+  const adminAlias = await intel("GET", "/admin");
+  step(steps, "admin_alias_not_public",
+    adminAlias.status === 404 || adminAlias.status === 410 || adminAccessDenied(adminAlias),
+    { status: adminAlias.status });
 
   return steps;
 }
