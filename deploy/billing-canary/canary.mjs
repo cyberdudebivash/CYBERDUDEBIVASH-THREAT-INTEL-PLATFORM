@@ -38,7 +38,7 @@ function client(root) {
     const text = await res.text();
     let json = null;
     try { json = JSON.parse(text); } catch { json = null; }
-    return { status: res.status, body: json, text };
+    return { status: res.status, body: json, text, location: res.headers.get("location") };
   };
 }
 
