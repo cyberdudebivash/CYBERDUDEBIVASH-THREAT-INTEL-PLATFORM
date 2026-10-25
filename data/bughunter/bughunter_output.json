@@ -1,290 +1,125 @@
 {
-  "subsystem": "bughunter_external_recon",
-  "version": "1.0.0",
-  "codename": "AUTHORIZED EXTERNAL RECON",
-  "scan_id": "BH-1792047714",
-  "domain": "cyberdudebivash.com",
-  "status": "COMPLETED",
-  "timestamp": "2026-10-15T07:01:54.844553+00:00",
-  "duration_seconds": 27.44,
-  "collector": {
-    "subdomains": "crt.sh name_value plus DNS A/AAAA of a fixed wordlist; wildcard sink excluded",
-    "live_hosts": "HTTPS GET; any HTTP status including 401 counts, transport failure does not",
-    "api_endpoints": "same-site script string literals matching /api/; no guessed paths",
-    "critical_findings": "only evidenced CRITICAL issues; missing security headers are MEDIUM",
-    "bola": "unauthenticated GET of the 16 script-literal paths, plus /1 and /2 on non-auth paths; no authorized session, so this is not a logged-in BOLA test",
-    "ct_note": "crt.sh rows 113",
-    "wildcard_ips": [],
-    "takeover": "DoH CNAME via cloudflare-dns.com for 9 hosts; no CNAMEs; blog and lab NXDOMAIN; takeover_candidates empty",
-    "cloud_buckets": "homepage HTML searched for s3.amazonaws.com, blob.core.windows.net, storage.googleapis.com, digitaloceanspaces.com; none",
-    "follow_up_checked_at": "2026-10-15T07:45:51.714024+00:00"
-  },
-  "metrics": {
-    "subdomains": 8,
-    "live_hosts": 7,
-    "api_endpoints": 16,
-    "total_findings": 2,
-    "critical_findings": 0,
-    "high_findings": 0
-  },
-  "findings_summary": [
-    {
-      "id": "F-0001",
-      "type": "MISSING_SECURITY_HEADERS",
-      "target": "https://intel.cyberdudebivash.com/",
-      "severity": "MEDIUM",
-      "evidence": "Missing: content-security-policy, x-content-type-options, x-frame-options, referrer-policy",
-      "timestamp": "2026-10-15T07:01:54.844553+00:00"
+    "subsystem": "v54_bughunter_resilience",
+    "version": "54.0.0",
+    "codename": "BUG HUNTER RESILIENCE",
+    "scan_id": "BH-1792902917",
+    "domain": "cyberdudebivash.com",
+    "status": "COMPLETED",
+    "timestamp": "2026-10-25T04:35:34.203645+00:00",
+    "duration_seconds": 16.86,
+    "metrics": {
+        "subdomains": 4,
+        "live_hosts": 3,
+        "api_endpoints": 1,
+        "total_findings": 1,
+        "critical_findings": 0,
+        "high_findings": 0,
+        "risk_exposure": 12000,
+        "rosi": 95.0
     },
-    {
-      "id": "F-0002",
-      "type": "MISSING_SECURITY_HEADERS",
-      "target": "https://revenue.intel.cyberdudebivash.com/",
-      "severity": "MEDIUM",
-      "evidence": "Missing: content-security-policy, x-content-type-options, x-frame-options, referrer-policy",
-      "timestamp": "2026-10-15T07:01:54.844553+00:00"
-    }
-  ],
-  "api_endpoints": [
-    {
-      "host": "intel.cyberdudebivash.com",
-      "path": "/api/watchdog/brief",
-      "evidence": "script_literal"
+    "findings_summary": [
+        {
+            "id": "F-0001",
+            "type": "MISSING_SECURITY_HEADERS",
+            "target": "https://intel.cyberdudebivash.com",
+            "severity": "MEDIUM",
+            "evidence": "Missing: content-security-policy, x-content-type-options, x-frame-options, permissions-policy, referrer-policy",
+            "timestamp": "2026-10-25T04:35:34.199468+00:00"
+        }
+    ],
+    "assets": [
+        {
+            "hostname": "cyberdudebivash.com",
+            "url": "https://cyberdudebivash.com",
+            "status": 200,
+            "technologies": []
+        },
+        {
+            "hostname": "intel.cyberdudebivash.com",
+            "url": "https://intel.cyberdudebivash.com",
+            "status": 200,
+            "technologies": []
+        },
+        {
+            "hostname": "www.cyberdudebivash.com",
+            "url": "https://www.cyberdudebivash.com",
+            "status": 200,
+            "technologies": []
+        }
+    ],
+    "technologies": {},
+    "roi_metrics": {
+        "total_risk_exposure": 12000,
+        "mitigated_value": 11400,
+        "rosi_percentage": 95.0,
+        "finding_breakdown": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 1,
+            "LOW": 0,
+            "INFO": 0
+        }
     },
-    {
-      "host": "intel.cyberdudebivash.com",
-      "path": "/api/watchdog/health",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/admin/commercial/kpis",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/auth/register",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/auth/login",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/auth/refresh",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/auth/logout",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/commercial/readiness",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/commercial/assessment-requests",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/commercial/demo-requests",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/commercial/contact",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/commercial/enterprise-inquiries",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/commercial/pilot-requests",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/commercial/offers",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/users/me",
-      "evidence": "script_literal"
-    },
-    {
-      "host": "trustx.cyberdudebivash.com",
-      "path": "/api/v1/workspace/commercial-overview",
-      "evidence": "script_literal"
-    }
-  ],
-  "assets": [
-    {
-      "hostname": "academy.cyberdudebivash.com",
-      "url": "https://academy.cyberdudebivash.com/",
-      "status": 200,
-      "resolved": true,
-      "discovery": [
-        "ct",
-        "dns"
-      ],
-      "missing_headers": [],
-      "server": "cloudflare"
-    },
-    {
-      "hostname": "blog.cyberdudebivash.com",
-      "url": "https://blog.cyberdudebivash.com/",
-      "status": null,
-      "resolved": false,
-      "discovery": [
-        "ct"
-      ]
-    },
-    {
-      "hostname": "cyberdudebivash.com",
-      "url": "https://cyberdudebivash.com/",
-      "status": 200,
-      "resolved": true,
-      "discovery": [
-        "ct",
-        "dns"
-      ],
-      "missing_headers": [],
-      "server": "cloudflare"
-    },
-    {
-      "hostname": "intel.cyberdudebivash.com",
-      "url": "https://intel.cyberdudebivash.com/",
-      "status": 200,
-      "resolved": true,
-      "discovery": [
-        "ct",
-        "dns"
-      ],
-      "missing_headers": [
-        "content-security-policy",
-        "x-content-type-options",
-        "x-frame-options",
-        "referrer-policy"
-      ],
-      "server": "cloudflare"
-    },
-    {
-      "hostname": "lab.cyberdudebivash.com",
-      "url": "https://lab.cyberdudebivash.com/",
-      "status": null,
-      "resolved": false,
-      "discovery": [
-        "ct"
-      ]
-    },
-    {
-      "hostname": "revenue.intel.cyberdudebivash.com",
-      "url": "https://revenue.intel.cyberdudebivash.com/",
-      "status": 401,
-      "resolved": true,
-      "discovery": [
-        "ct",
-        "dns"
-      ],
-      "missing_headers": [
-        "content-security-policy",
-        "x-content-type-options",
-        "x-frame-options",
-        "referrer-policy"
-      ],
-      "server": "cloudflare"
-    },
-    {
-      "hostname": "tools.cyberdudebivash.com",
-      "url": "https://tools.cyberdudebivash.com/",
-      "status": 200,
-      "resolved": true,
-      "discovery": [
-        "ct",
-        "dns"
-      ],
-      "missing_headers": [],
-      "server": "cloudflare"
-    },
-    {
-      "hostname": "trustx.cyberdudebivash.com",
-      "url": "https://trustx.cyberdudebivash.com/",
-      "status": 200,
-      "resolved": true,
-      "discovery": [
-        "ct",
-        "dns"
-      ],
-      "missing_headers": [],
-      "server": "cloudflare"
-    },
-    {
-      "hostname": "www.cyberdudebivash.com",
-      "url": "https://www.cyberdudebivash.com/",
-      "status": 200,
-      "resolved": true,
-      "discovery": [
-        "ct",
-        "dns"
-      ],
-      "missing_headers": [],
-      "server": "cloudflare"
-    }
-  ],
-  "subdomains": [
-    "academy.cyberdudebivash.com",
-    "blog.cyberdudebivash.com",
-    "intel.cyberdudebivash.com",
-    "lab.cyberdudebivash.com",
-    "revenue.intel.cyberdudebivash.com",
-    "tools.cyberdudebivash.com",
-    "trustx.cyberdudebivash.com",
-    "www.cyberdudebivash.com"
-  ],
-  "technologies": {},
-  "engines": [
-    {
-      "id": "subdomain_engine",
-      "name": "CT + DNS",
-      "status": "ONLINE"
-    },
-    {
-      "id": "http_probe",
-      "name": "HTTP Probe Engine",
-      "status": "ONLINE"
-    },
-    {
-      "id": "js_endpoint_extractor",
-      "name": "JS Endpoint Extractor",
-      "status": "ONLINE"
-    },
-    {
-      "id": "takeover_detector",
-      "name": "Subdomain Takeover Detector",
-      "status": "ONLINE",
-      "note": "DoH CNAME on 9 hosts at 2026-10-15T07:45:51Z. No CNAME. blog and lab are NXDOMAIN. No claimable dangling CNAME."
-    },
-    {
-      "id": "bola_agent",
-      "name": "BOLA Intelligence Agent",
-      "status": "ONLINE",
-      "note": "Unauthenticated GET of 16 script-literal API paths at 2026-10-15T07:45:51Z. intel watchdog brief and health return 200 by design; their /1 and /2 are 404. All trustx /api/v1 paths return 404. No unauthenticated object body. Not a logged-in BOLA test."
-    },
-    {
-      "id": "cloud_bucket_hunter",
-      "name": "Cloud Bucket Hunter",
-      "status": "ONLINE",
-      "note": "Homepage HTML of live hosts checked at 2026-10-15T07:45:51Z. No s3, azure blob, gcs, or digitalocean spaces URL."
-    }
-  ]
+    "engines": [
+        {
+            "id": "subdomain_engine",
+            "name": "Subdomain Intelligence",
+            "status": "FALLBACK"
+        },
+        {
+            "id": "http_probe",
+            "name": "HTTP Probe Engine",
+            "status": "ONLINE"
+        },
+        {
+            "id": "tech_fingerprint",
+            "name": "Technology Fingerprinter",
+            "status": "ONLINE"
+        },
+        {
+            "id": "js_endpoint_extractor",
+            "name": "JS Endpoint Extractor",
+            "status": "ONLINE"
+        },
+        {
+            "id": "bola_agent",
+            "name": "BOLA Intelligence Agent",
+            "status": "ONLINE"
+        },
+        {
+            "id": "cloud_bucket_hunter",
+            "name": "Multi-Cloud Bucket Hunter",
+            "status": "ONLINE"
+        },
+        {
+            "id": "port_scanner",
+            "name": "Port Scanner Engine",
+            "status": "ONLINE"
+        },
+        {
+            "id": "takeover_detector",
+            "name": "Subdomain Takeover Detector",
+            "status": "ONLINE"
+        },
+        {
+            "id": "asset_delta",
+            "name": "Asset Delta Analyzer",
+            "status": "ONLINE"
+        },
+        {
+            "id": "roi_engine",
+            "name": "ROI & Risk Calculator",
+            "status": "ONLINE"
+        },
+        {
+            "id": "recon_pipeline",
+            "name": "Recon Pipeline Orchestrator",
+            "status": "ONLINE"
+        },
+        {
+            "id": "report_generator",
+            "name": "Audit Report Generator",
+            "status": "ONLINE"
+        }
+    ]
 }
