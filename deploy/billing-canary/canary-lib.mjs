@@ -103,6 +103,11 @@ export async function runPublicChecks({ intel, revenue }) {
     adminAlias.status === 404 || adminAlias.status === 410 || adminAccessDenied(adminAlias),
     { status: adminAlias.status });
 
+  const adminSlash = await intel("GET", "/admin/");
+  step(steps, "admin_trailing_slash_not_public",
+    adminSlash.status === 404 || adminSlash.status === 410 || adminAccessDenied(adminSlash),
+    { status: adminSlash.status });
+
   return steps;
 }
 
