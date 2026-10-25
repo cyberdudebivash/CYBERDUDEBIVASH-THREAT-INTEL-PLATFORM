@@ -138,7 +138,7 @@ test("canary FAILS when a Razorpay Plan charges the wrong amount", async () => {
   assert.ok(admin.readiness.blockers.includes("razorpay_plan_prices"));
 });
 
-test("canary FAILS when the Billing Center page is missing or the admin page is truncated", async () => {
+test("canary FAILS when the public Billing Center page is missing, without requiring public admin HTML", async () => {
   const d = deployment({ pages: { "billing.html": null, "admin.html": "<html><script>setTimeout(() => { t.style." } });
   const f = failed(await runPublicChecks(d));
   assert.ok(f.includes("billing_center_page_served"));
