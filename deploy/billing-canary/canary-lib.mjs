@@ -91,7 +91,7 @@ export async function runPublicChecks({ intel, revenue }) {
   // Cloudflare Access may redirect to its login (302/303/307/308) or deny
   // directly (401/403). An anonymous 200 containing the admin HTML is a leak.
   step(steps, "admin_page_requires_access",
-    [301, 302, 303, 307, 308, 401, 403].includes(admin.status),
+    [302, 303, 307, 308, 401, 403].includes(admin.status),
     { status: admin.status });
 
   return steps;
