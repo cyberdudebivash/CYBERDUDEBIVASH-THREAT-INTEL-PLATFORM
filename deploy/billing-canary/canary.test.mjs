@@ -79,6 +79,7 @@ function deployment({ keyId = "rzp_test_TEST_ONLY_key", planOverride = null, pag
   // engine (wrangler.toml); root pages are the static site.
   const intel = async (method, path, opts) => {
     if (path.startsWith("/api/v2/billing/")) return revenue(method, path, opts);
+    if (path === "/admin.html") return { status: pages["admin.html"] === "UNPROTECTED" ? 200 : 403, body: null, text: pages["admin.html"] === "UNPROTECTED" ? "<html>admin</html>" : "" };
     const page = path.match(/^\/([a-z0-9-]+\.html)$/);
     if (page) {
       if (page[1] in pages) return pages[page[1]] === null ? { status: 404, body: null, text: "" } : { status: 200, body: null, text: pages[page[1]] };
@@ -140,7 +141,13 @@ test("canary FAILS when the Billing Center page is missing or the admin page is 
   const d = deployment({ pages: { "billing.html": null, "admin.html": "<html><script>setTimeout(() => { t.style." } });
   const f = failed(await runPublicChecks(d));
   assert.ok(f.includes("billing_center_page_served"));
-  assert.ok(f.includes("admin_page_complete"));
+  assert.ok(!f.includes("admin_page_requires_access"));
+});
+
+test("public canary rejects exposed admin HTML", async () => {
+  const d = deployment({ pages: { "admin.html": "UNPROTECTED" } });
+  const failures = failed(await runPublicChecks(d));
+  assert.ok(failures.includes("admin_page_requires_access"));
 });
 
 test("canary FAILS when a webhook secret is missing (500 is not a refusal: real payments would be rejected too)", async () => {
