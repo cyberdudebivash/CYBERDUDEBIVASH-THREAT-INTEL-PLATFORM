@@ -4377,6 +4377,8 @@ async function handleCopilot(request, env, auth, method, path) {
 
   // POST /api/v1/copilot/query
   if (method !== "POST") return jsonResp({ error: "Method not allowed" }, 405);
+  if (!auth?.key || auth.error) return jsonResp({ error: "Authentication required" }, 401);
+  if (!tierAllowsLLM) return jsonResp({ error: "Subscription required" }, 403);
 
   let body = {};
   try { body = await request.json(); } catch (_) {
