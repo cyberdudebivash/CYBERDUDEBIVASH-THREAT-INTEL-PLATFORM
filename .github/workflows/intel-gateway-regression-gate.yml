@@ -152,7 +152,7 @@ jobs:
       - name: "P0 public customer-ready report fetch-back negative controls (offline)"
         run: |
           node --check js/customer-report-catalog-view.js
-          node --test tests/customer-report-fetchback-probe.test.mjs tests/customer-report-catalog-view.test.mjs
+          node --test tests/customer-report-fetchback-probe.test.mjs tests/customer-report-catalog-view.test.mjs tests/api-docs-public-feed-contract.test.mjs
 
       # Exactly the same resolveCertification() used by the deployed Worker.
       # Six fixture snapshots only; no network calls or Cloudflare writes.
@@ -273,6 +273,18 @@ jobs:
       # errors -- an environment gap in this gate, not a code regression.
       - name: "Install pytest + PyYAML"
         run: pip install pytest pyyaml --quiet
+
+      # P0 #819/#909: strict UTC chronology and manifest selection are release
+      # blockers, not merely diagnostics. This explicit offline PR gate ensures
+      # the new sanitized reason codes and the existing fail-closed controls
+      # actually execute (the curated Python suite otherwise omits these files).
+      # No network, Cloudflare API, R2 writes, customer data or notifications.
+      - name: "P0 canonical chronology diagnostics and selection negative controls"
+        run: |
+          python3 -m pytest -q --strict-markers \
+            tests/test_deployment_convergence_chronology_diagnostics.py \
+            tests/test_strict_report_probe_selection.py \
+            tests/test_report_chronology_integrity.py
 
       # P0 report-catalog / feed-window resolution is an offline precheck.
       # Mandatory explicit test step: Python CI uses a scoped test allowlist.

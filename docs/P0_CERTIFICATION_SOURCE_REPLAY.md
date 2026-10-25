@@ -29,7 +29,20 @@ node scripts/certification_registry_replay.mjs `
   --apex C:\CDB\evidence\apex.json
 ```
 
-The script validates document shape, report-ID uniqueness, policy version, source completeness, local size bounds, and then enumerates aggregate states. It emits **no report IDs, full text, raw indicators, tokens or entitlement data**. Persisted records that are trusted in this replay remain *unverified against independent R2/object delivery*; even `LOCAL_ALL_READY_NOT_DELIVERY_CERTIFIED` is **not a production release result**.
+The script validates document shape, report-ID uniqueness, policy version, source completeness, local size bounds, and then enumerates aggregate states.
+
+### Evidence-gap summary (aggregate only)
+
+The replay also emits:
+
+- `blocking_reason_counts`: counts of **known** P20/P21/P23/P25/P26 rejection reasons among locally resolved/reused records. Unknown or untrusted text is never printed; unresolved/NOT_EVALUATED candidates are counted separately.
+- `winning_source_field_presence`: how many catalog candidates have a nonempty field **on the actual first-source-wins record** selected from `latest_pro`, `latest`, `top10`, or `apex`. Signals include evidence-chain, IOCs, detection-bundle, corroboration, source URL, CVSS and CVE reference.
+- `later_source_extra_field_presence`: how many candidates have each field **only in a later-priority source**. This highlights possible projection/precedence gaps without changing the existing certification or publication algorithm.
+
+These are **field-presence counters, not verified evidence quality, full gate reasons, or permission to choose a later source**. The authoritative quality engine may reject a nonempty field. A later source can be stale, contradictory or untrusted. Do not combine fields, bypass first-source-wins, or change score thresholds to produce artificial customer-ready reports.
+
+The output contains no report IDs, titles, URLs, IOC values, customer identifiers, raw source records or credentials. An unavailable/invalid local snapshot remains fail-closed, and this command still makes zero Cloudflare calls.
+ It emits **no report IDs, full text, raw indicators, tokens or entitlement data**. Persisted records that are trusted in this replay remain *unverified against independent R2/object delivery*; even `LOCAL_ALL_READY_NOT_DELIVERY_CERTIFIED` is **not a production release result**.
 
 Exit 2 means withheld, not evaluated, missing or invalid evidence. Exit 0 means local replay completed with all candidate states ready, **never** customer release. The actual Worker version, R2 object integrity, TLP policy, tenant authorization, paid checkout and 2-cycle publishing gates are all separate mandatory checks.
 

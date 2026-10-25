@@ -156,6 +156,9 @@ jobs:
       - name: Install test dependencies
         run: pip install pytest pyyaml requests==2.34.2 'PyJWT[crypto]==2.15.1' --quiet
 
+      - name: P0 public manifest TLP policy smoke contract (offline)
+        run: python -m unittest discover -s tests -p 'test_post_deploy_manifest_policy.py' -v
+
       - name: P0 R41 source-evidence preservation and publication selection regressions
         run: python -m pytest tests/test_p0_r45_supplemental_rss_evidence.py tests/test_p0_r44_publication_boundary.py tests/test_p0_r41_publication_selection.py tests/test_p0_r39_rss_evidence.py tests/test_p0_r35_feed_prewrite_guard.py tests/test_v70_full.py -v --tb=short
 

@@ -12,7 +12,8 @@ REQUIRED = ("chronology", "publication", "delivery", "entitlement", "revocation"
 def evaluate(evidence):
     defects = []
     if not isinstance(evidence, dict):
-        return {"verdict": "NO_GO", "defects": ["Evidence must be an object"]}
+        return {"verdict": "NO_GO", "production_go": False,
+                "defects": ["Evidence must be an object"]}
     for name in REQUIRED:
         item = evidence.get(name)
         if not isinstance(item, dict) or item.get("passed") is not True:
