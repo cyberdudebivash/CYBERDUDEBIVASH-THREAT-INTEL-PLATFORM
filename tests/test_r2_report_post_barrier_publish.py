@@ -291,14 +291,37 @@ class TestCatalogRefreshUpload(unittest.TestCase):
         _uploaded, code = self._run(s3_ok=False)
         self.assertEqual(code, 1)
 
-    def test_stage_3_5_plan_still_carries_the_same_keys(self):
+    def test_stage_3_5_plan_includes_catalog_keys_when_chronology_is_valid(self):
+        # Stage 3.5 now requires a canonical, non-empty UTC report catalog.
+        # The former empty-catalog fixture incorrectly expected an R2 PUT.
+        now = datetime.now(timezone.utc)
+        fresh = now.isoformat().replace("+00:00", "Z")
+        report_id = "intel--" + "a" * 24
+        path = f"/reports/{now:%Y/%m}/{report_id}.html"
+        for rel, _dst in r2_upload.REPORTS_INDEX_FILES:
+            payload = {"generated_at": fresh, "reports": []}
+            if rel == "api/reports/index.json":
+                payload["reports"] = [{
+                    "id": report_id,
+                    "path": path,
+                    "url": "https://intel.cyberdudebivash.com" + path,
+                    "timestamp": fresh,
+                }]
+            self._write(rel, payload)
+        with mock.patch.object(r2_upload, "REPO_ROOT", self.dir):
+            keys = {dst for _src, dst in r2_upload.build_upload_plan()}
+        for _src, dst in r2_upload.REPORTS_INDEX_FILES:
+            self.assertIn(dst, keys)
+
+    def test_stage_3_5_plan_excludes_all_catalog_keys_when_chronology_invalid(self):
+        # A fresh timestamp does not make an empty catalog publishable.
         fresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         for rel, _dst in r2_upload.REPORTS_INDEX_FILES:
             self._write(rel, {"generated_at": fresh, "reports": []})
         with mock.patch.object(r2_upload, "REPO_ROOT", self.dir):
             keys = {dst for _src, dst in r2_upload.build_upload_plan()}
         for _src, dst in r2_upload.REPORTS_INDEX_FILES:
-            self.assertIn(dst, keys)
+            self.assertNotIn(dst, keys)
 
 
 class TestUploadR2Deprecated(unittest.TestCase):
