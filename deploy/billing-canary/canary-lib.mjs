@@ -93,8 +93,7 @@ export async function runPublicChecks({ intel, revenue }) {
   step(steps, "admin_page_requires_access",
     (admin.status === 401 || admin.status === 403 ||
       ([302, 303, 307, 308].includes(admin.status) &&
-        !!admin.location && /^https:\/\//i.test(admin.location) &&
-        new URL(admin.location).hostname.endsWith(".cloudflareaccess.com"))),
+        !!admin.location && /^https:\/\/[^/]+\.cloudflareaccess\.com(?:[:/]|$)/i.test(admin.location))),
     { status: admin.status });
 
   return steps;
