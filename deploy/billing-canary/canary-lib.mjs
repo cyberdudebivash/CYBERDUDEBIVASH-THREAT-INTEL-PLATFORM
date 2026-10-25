@@ -87,14 +87,21 @@ export async function runPublicChecks({ intel, revenue }) {
   step(steps, "billing_center_page_served", page.status === 200 && /Billing Center/.test(page.text) && page.text.includes("/api/v2/billing/account"),
     { status: page.status });
 
+  const adminAccessDenied = (response) =>
+    response.status === 401 || response.status === 403 ||
+    ([302, 303, 307, 308].includes(response.status) &&
+      !!response.location &&
+      /^https:\/\/[^/]+\.cloudflareaccess\.com(?:[:/]|$)/i.test(response.location));
+
   const admin = await intel("GET", "/admin.html");
-  // Cloudflare Access may redirect to its login (302/303/307/308) or deny
-  // directly (401/403). An anonymous 200 containing the admin HTML is a leak.
-  step(steps, "admin_page_requires_access",
-    (admin.status === 401 || admin.status === 403 ||
-      ([302, 303, 307, 308].includes(admin.status) &&
-        !!admin.location && /^https:\/\/[^/]+\.cloudflareaccess\.com(?:[:/]|$)/i.test(admin.location))),
-    { status: admin.status });
+  step(steps, "admin_page_requires_access", adminAccessDenied(admin), { status: admin.status });
+
+  // An alias may legitimately be absent (404/410), but must never serve the
+  // administrative frontend or redirect to an untrusted login destination.
+  const adminAlias = await intel("GET", "/admin");
+  step(steps, "admin_alias_not_public",
+    adminAlias.status === 404 || adminAlias.status === 410 || adminAccessDenied(adminAlias),
+    { status: adminAlias.status });
 
   return steps;
 }
