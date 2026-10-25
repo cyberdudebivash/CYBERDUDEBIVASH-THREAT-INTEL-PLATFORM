@@ -4341,42 +4341,31 @@ async function handleCopilot(request, env, auth, method, path) {
     return jsonResp({
       status: "success",
       llm_enabled: LLM_ENABLED && tierAllowsLLM,
-      llm_stack: {
-        primary:   "DeepSeek V4 Pro (deepseek-v4-pro)  -  api.deepseek.com",
-        secondary: "DeepSeek Flash (deepseek-flash)  -  api.deepseek.com",
-        fallback1: "GROQ LPU (deepseek-r1-distill-llama-70b)  -  ultra-fast",
-        fallback2: "OpenRouter (deepseek/deepseek-r1)",
-        fallback3: "Deterministic template  -  always on",
-      },
       modes: [
-        { id: "explain_threat",   label: "Explain Threat",           model: "deepseek-flash",          new: false },
-        { id: "what_to_do",       label: "What Should I Do?",        model: "deepseek-flash",          new: false },
-        { id: "soc_report",       label: "SOC Report",               model: "deepseek-flash",          new: false },
-        { id: "risk_brief",       label: "Executive Risk Brief",     model: "deepseek-flash",          new: false },
-        { id: "ioc_summary",      label: "IOC Intelligence",         model: "deterministic",               new: false },
-        { id: "mitre_mapping",    label: "MITRE ATT&CK Mapping",     model: "deterministic",               new: false },
-        { id: "threat_hunt",      label: "Threat Hunt Package",      model: "deepseek-v4-pro",      new: true  },
-        { id: "detection_write",  label: "Write Detection Rules",    model: "deepseek-v4-pro",      new: true  },
-        { id: "incident_brief",   label: "Incident Commander Brief", model: "deepseek-v4-pro",      new: true  },
-        { id: "natural_language", label: "Ask Anything",             model: "deepseek-v4-pro",      new: true  },
+        { id: "explain_threat",   label: "Explain Threat",          new: false },
+        { id: "what_to_do",       label: "What Should I Do?",          new: false },
+        { id: "soc_report",       label: "SOC Report",          new: false },
+        { id: "risk_brief",       label: "Executive Risk Brief",          new: false },
+        { id: "ioc_summary",      label: "IOC Intelligence",               new: false },
+        { id: "mitre_mapping",    label: "MITRE ATT&CK Mapping",               new: false },
+        { id: "threat_hunt",      label: "Threat Hunt Package",      new: true  },
+        { id: "detection_write",  label: "Write Detection Rules",      new: true  },
+        { id: "incident_brief",   label: "Incident Commander Brief",      new: true  },
+        { id: "natural_language", label: "Ask Anything",      new: true  },
       ],
     });
   }
 
   // GET /api/v1/copilot/health
+  // Public readiness intentionally excludes provider configuration and model inventory.
   if (method === "GET" && path.includes("/health")) {
-    return jsonResp({
-      status:        "ok",
-      engine:        "CDB-Copilot v3.0 (Worker-native)",
-      llm_enabled:   LLM_ENABLED,
-      tier_llm:      tierAllowsLLM,
-      providers:     { deepseek: !!env.DEEPSEEK_API_KEY, groq: !!env.GROQ_API_KEY, openrouter: !!env.OPENROUTER_API_KEY },
-      modes_total:   10, r1_modes: 4, v3_modes: 4, deterministic: 2,
-    });
+    return jsonResp({ status: "ok", engine: "CDB-Copilot" });
   }
 
   // POST /api/v1/copilot/query
   if (method !== "POST") return jsonResp({ error: "Method not allowed" }, 405);
+  if (!auth?.key || auth.error) return jsonResp({ error: "Authentication required" }, 401);
+  if (!tierAllowsLLM) return jsonResp({ error: "Subscription required" }, 403);
 
   let body = {};
   try { body = await request.json(); } catch (_) {
