@@ -18,6 +18,21 @@
 6. Update `deploy/billing-canary/canary.test.mjs` and any browser tests expecting anonymous 200. Run locally; Actions availability is not assumed.
 7. Capture redacted HTTP status evidence, Access policy identifiers, test results, change approval and rollback evidence. Never capture secrets in logs.
 
+## Local pre-release test commands (Windows PowerShell)
+
+From `C:\\CDB\\repos\\CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM` after fetching the PR branch:
+
+```powershell
+node --version
+node --test deploy/billing-canary/canary.test.mjs
+node --check deploy/billing-canary/canary-lib.mjs
+node --check deploy/billing-canary/canary.mjs
+```
+
+Do not run the public production canary until Access is enforced; its new expectation deliberately fails against an exposed admin frontend. After rollout, execute `node deploy/billing-canary/canary.mjs public` and retain redacted output. Do not put administrator secrets in command-line arguments or issue comments.
+
+**Limitations:** A 401/403 may come from an unrelated middleware or WAF, not necessarily Access. A successful public canary is necessary but not sufficient; inspect the actual Access policy and verify that an authorized operator can reach the page. The redirect-host check is a coarse sanity check, not cryptographic proof of a trusted Access tenant.
+
 ## Acceptance gates
 - Anonymous and unauthorized identities cannot retrieve admin frontend assets.
 - Authorized operator login and backend operations work.
