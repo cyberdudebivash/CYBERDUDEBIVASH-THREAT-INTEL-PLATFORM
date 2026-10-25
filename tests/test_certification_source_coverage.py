@@ -143,3 +143,40 @@ def test_late_catalog_chronology_cli_rejects_naive_utc_without_network(tmp_path)
     accepted_verdict = json.loads(accepted.stdout)
     assert accepted_verdict["verdict"] == "CHRONOLOGY_PRECHECK_ONLY"
     assert accepted_verdict["delivery_certified"] is False
+
+
+@pytest.mark.parametrize(
+    ("timestamp", "allowed"),
+    [
+        ("2026-10-24T19:00:00", False),  # ambiguous timezone
+        ("2026-10-24T19:00:00Z", True),  # canonical UTC
+        (None, False),                   # missing index
+    ],
+)
+def test_stage35_report_catalog_is_all_or_none_without_r2(tmp_path, monkeypatch, timestamp, allowed):
+    """Stage 3.5 withholds the entire catalog trio while retaining intel feeds."""
+    import r2_upload
+
+    monkeypatch.setattr(r2_upload, "REPO_ROOT", tmp_path)
+    report_dir = tmp_path / "api/reports"
+    report_dir.mkdir(parents=True)
+    (tmp_path / "api/feed.json").write_text('{"items":[]}', encoding="utf-8")
+    for name in ("latest.json", "stats.json"):
+        (report_dir / name).write_text("{}", encoding="utf-8")
+    if timestamp is not None:
+        path = "/reports/2026/10/intel--aaaaaaaaaaaaaaaa.html"
+        catalog = {"reports": [{
+            "id": "intel--aaaaaaaaaaaaaaaa",
+            "path": path,
+            "url": "https://intel.cyberdudebivash.com" + path,
+            "timestamp": timestamp,
+        }]}
+        (report_dir / "index.json").write_text(json.dumps(catalog), encoding="utf-8")
+
+    pairs = r2_upload.build_upload_plan()  # local filesystem only; no R2 calls
+    keys = {dst for _src, dst in pairs}
+    report_keys = {dst for _src, dst in r2_upload.REPORTS_INDEX_FILES}
+    assert ("api/feed.json" in keys)
+    assert report_keys.issubset(keys) is allowed
+    assert report_keys.isdisjoint(keys) is (not allowed)
+    assert r2_upload.report_catalog_chronology_precheck() is allowed
