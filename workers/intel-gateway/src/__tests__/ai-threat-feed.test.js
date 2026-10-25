@@ -348,11 +348,14 @@ test("router: ingest needs X-Admin-Key, rejects a missing source_url with 400, p
   assert.equal(pro.body.item.source_url, HUB.source_url);
 });
 
-test("router: listed in the 404 endpoint inventory", async () => {
+test("router: unknown API routes return a minimal 404 without privileged endpoint inventory", async () => {
   const { req } = gateway(600);
   const r = await req("/api/no-such-route");
   assert.equal(r.status, 404);
-  assert.ok(r.body.available_endpoints.includes("/api/ai-feed/live"));
+  assert.equal(r.body.error, "Not found");
+  assert.equal(r.body.path, "/api/no-such-route");
+  assert.equal(Object.hasOwn(r.body, "available_endpoints"), false);
+  assert.equal(JSON.stringify(r.body).includes("/api/admin/keys"), false);
 });
 
 // A Cyber Watchdog browser session (aud cdb-watchdog) reads the AI feed it is
