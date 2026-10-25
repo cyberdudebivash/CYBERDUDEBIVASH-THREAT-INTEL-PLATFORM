@@ -969,6 +969,28 @@ def tlp_safe_public_json_source(source: Path, scratch_dir: Path, dst_key: str, p
     return safe
 
 
+def report_catalog_chronology_precheck() -> bool:
+    """Fail closed on the Stage 3.5 report trio without blocking other intel feeds.
+
+    This is an offline syntax/UTC precheck only, NOT customer-delivery proof.
+    No Cloudflare/R2 calls, mutations, or raw report data in diagnostics.
+    """
+    catalog = REPO_ROOT / "api/reports/index.json"
+    try:
+        if not catalog.is_file() or catalog.stat().st_size > 20_000_000:
+            return False
+        # Publish the three catalog keys together or not at all.
+        for src, _dst in REPORTS_INDEX_FILES:
+            path = REPO_ROOT / src
+            if not path.is_file() or stale_manifest_reason(path):
+                return False
+        from report_chronology_integrity import audit_catalog
+        result = audit_catalog(json.loads(catalog.read_text(encoding="utf-8")))
+        return result.get("verdict") == "CHRONOLOGY_PRECHECK_ONLY"
+    except (OSError, UnicodeError, ValueError, TypeError, ImportError, RecursionError):
+        return False
+
+
 def build_upload_plan() -> list[tuple[str, str]]:
     """
     Enumerates every (src, dst_key) pair main()'s normal run intends to PUT
@@ -1015,8 +1037,11 @@ def build_upload_plan() -> list[tuple[str, str]]:
         ("api/v1/intel/apex.json",        "api/v1/intel/apex.json"),
         ("api/v1/intel/manifest.json",    "api/v1/intel/manifest.json"),
         ("api/v1/intel/ai_summary.json",  "api/v1/intel/ai_summary.json"),
-        *REPORTS_INDEX_FILES,
     ]
+    if report_catalog_chronology_precheck():
+        intel_v1_manifests.extend(REPORTS_INDEX_FILES)
+    else:
+        log.warning("P0 Stage 3.5: report catalog UTC chronology precheck blocked; all three catalog PUTs withheld")
     for src, dst_key in intel_v1_manifests:
         if (REPO_ROOT / src).exists():
             stale = stale_manifest_reason(REPO_ROOT / src)
