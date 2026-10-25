@@ -4364,15 +4364,9 @@ async function handleCopilot(request, env, auth, method, path) {
   }
 
   // GET /api/v1/copilot/health
+  // Public readiness intentionally excludes provider configuration and model inventory.
   if (method === "GET" && path.includes("/health")) {
-    return jsonResp({
-      status:        "ok",
-      engine:        "CDB-Copilot v3.0 (Worker-native)",
-      llm_enabled:   LLM_ENABLED,
-      tier_llm:      tierAllowsLLM,
-      providers:     { deepseek: !!env.DEEPSEEK_API_KEY, groq: !!env.GROQ_API_KEY, openrouter: !!env.OPENROUTER_API_KEY },
-      modes_total:   10, r1_modes: 4, v3_modes: 4, deterministic: 2,
-    });
+    return jsonResp({ status: "ok", engine: "CDB-Copilot" });
   }
 
   // POST /api/v1/copilot/query
