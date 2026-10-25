@@ -79,6 +79,7 @@ function deployment({ keyId = "rzp_test_TEST_ONLY_key", planOverride = null, pag
   // engine (wrangler.toml); root pages are the static site.
   const intel = async (method, path, opts) => {
     if (path.startsWith("/api/v2/billing/")) return revenue(method, path, opts);
+    if (path === "/admin") return pages["admin"] === "UNPROTECTED" ? { status: 200, body: null, text: "<html>admin</html>" } : { status: 404, body: null, text: "" };
     if (path === "/admin.html") return pages["admin.html"] === "UNPROTECTED" ? { status: 200, body: null, text: "<html>admin</html>" } : pages["admin.html"] === "BAD_REDIRECT" ? { status: 302, body: null, text: "", location: "https://example.com/login" } : pages["admin.html"] === "ACCESS_REDIRECT" ? { status: 302, body: null, text: "", location: "https://example.cloudflareaccess.com/cdn-cgi/access/login" } : { status: 403, body: null, text: "" };
     const page = path.match(/^\/([a-z0-9-]+\.html)$/);
     if (page) {
@@ -97,7 +98,7 @@ test("public canary passes against a correct deployment and mutates nothing", as
   const d = deployment();
   const steps = await runPublicChecks(d);
   assert.deepEqual(failed(steps), [], JSON.stringify(steps.filter((s) => !s.ok)));
-  assert.equal(steps.length, 15, "every public boundary is probed");
+  assert.equal(steps.length, 16, "every public boundary is probed");
   assert.equal(d.revenueEnv.API_KEYS_KV.store.size, 0, "no key minted");
 });
 
@@ -155,6 +156,11 @@ test("public canary rejects arbitrary admin redirects and accepts Access redirec
   assert.ok(failed(await runPublicChecks(bad)).includes("admin_page_requires_access"));
   const access = deployment({ pages: { "admin.html": "ACCESS_REDIRECT" } });
   assert.ok(!failed(await runPublicChecks(access)).includes("admin_page_requires_access"));
+});
+
+test("public canary rejects exposed /admin alias", async () => {
+  const d = deployment({ pages: { admin: "UNPROTECTED" } });
+  assert.ok(failed(await runPublicChecks(d)).includes("admin_alias_not_public"));
 });
 
 test("canary FAILS when a webhook secret is missing (500 is not a refusal: real payments would be rejected too)", async () => {
