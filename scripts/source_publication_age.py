@@ -32,9 +32,12 @@ Consumers:
 """
 from __future__ import annotations
 
+import calendar
 import os
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -112,9 +115,46 @@ def source_published_at(item: Dict) -> Optional[datetime]:
     return None
 
 
+def _securityaffairs_archive_conflict(item: Dict) -> Optional[datetime]:
+    """Conservative archive-month upper bound for a demonstrably misdated source.
+
+    SecurityAffairs uses /YYYYMM/ article archive permalinks. If a claimed
+    publication timestamp is >31 days after that archive month, the claimed
+    timestamp cannot establish *fresh* intelligence. Return the last instant
+    of the archive month (not its first day) to avoid overstating age.
+
+    Deliberately restricted to this verified source and explicit timestamp
+    conflicts; generic URL numbers, other publishers and undated items are
+    never reinterpreted. No network or source mutation.
+    """
+    url = item.get("source_url")
+    if not isinstance(url, str):
+        return None
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme not in ("https", "http") or parsed.hostname not in (
+            "securityaffairs.com", "www.securityaffairs.com"
+        ):
+            return None
+        match = re.match(r"^/(20[0-9]{2})(0[1-9]|1[0-2])(?:/|$)", parsed.path)
+        if match is None:
+            return None
+        year, month = map(int, match.groups())
+        month_end = datetime(
+            year, month, calendar.monthrange(year, month)[1],
+            23, 59, 59, tzinfo=timezone.utc
+        )
+        stated = source_published_at(item)
+        if stated is None or stated <= month_end + timedelta(days=31):
+            return None
+        return month_end
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def source_age_days(item: Dict, now: Optional[datetime] = None) -> Optional[float]:
     """Days since the source published the item; None when no source date."""
-    dt = source_published_at(item)
+    dt = _securityaffairs_archive_conflict(item) or source_published_at(item)
     if dt is None:
         return None
     now = now or datetime.now(timezone.utc)
