@@ -62,6 +62,29 @@ def test_asset_list_change_rewrites(sandbox, monkeypatch):
 
 
 def test_repo_registry_is_left_alone_when_assets_unchanged():
-    before = (REPO / "config" / "frontend_checksums.json").read_bytes()
-    fi.cmd_generate(None)
-    assert (REPO / "config" / "frontend_checksums.json").read_bytes() == before
+    # Read-only check: never regenerate the real repository registry during pytest.
+    # A legitimate protected-asset edit must be accompanied by a reviewed
+    # checksum baseline update; missing that update must fail closed.
+    registry_path = REPO / "config" / "frontend_checksums.json"
+    before = registry_path.read_bytes()
+    baseline = json.loads(before)
+    assert baseline["protected_count"] == len(fi.PROTECTED_ASSETS)
+    assert set(baseline["assets"]) == set(fi.PROTECTED_ASSETS)
+    for rel in fi.PROTECTED_ASSETS:
+        asset = REPO / rel
+        assert asset.is_file(), f"Missing protected asset: {rel}"
+        assert baseline["assets"][rel]["sha256"] == fi.sha256_file(asset), (
+            f"Protected asset changed without matching integrity baseline: {rel}"
+        )
+        assert baseline["assets"][rel]["size_bytes"] == asset.stat().st_size
+    assert registry_path.read_bytes() == before
+
+
+def test_verification_rejects_tampered_asset_without_mutating_registry(sandbox):
+    _generate()
+    baseline = fi.REGISTRY_PATH.read_bytes()
+    (sandbox / "a.html").write_text("<html>tampered</html>")
+    exit_code, violations, _warnings = fi.verify(strict=True)
+    assert exit_code == 1
+    assert any("a.html" in violation for violation in violations)
+    assert fi.REGISTRY_PATH.read_bytes() == baseline
