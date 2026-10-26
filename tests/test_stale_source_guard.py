@@ -97,6 +97,71 @@ def test_env_window(monkeypatch):
         assert spa._env_days("X_DAYS", 14) == 14
 
 
+# --- archival source provenance (production regression, 2026-10-26) ---------
+
+def test_securityaffairs_2017_archive_is_not_new_intel():
+    """Live feed advertised a 2017 archive permalink as published in 2025."""
+    now = datetime(2026, 10, 26, 14, 30, tzinfo=timezone.utc)
+    item = {
+        "title": "SECURITY AFFAIRS MALWARE NEWSLETTER ROUND 120",
+        "source_url": "https://securityaffairs.com/201709/security/security-affairs-malware-newsletter-round-120.html",
+        "published_at": "2025-10-25T13:27:05Z",
+        "processed_at": "2026-10-26T10:06:21Z",
+        "kev": "NO",
+    }
+    assert spa.is_stale_source(item, now=now)
+    assert spa.source_age_days(item, now=now) > 3000
+
+
+def test_securityaffairs_current_archive_keeps_fresh_item():
+    now = datetime(2026, 10, 26, 14, 30, tzinfo=timezone.utc)
+    item = {
+        "source_url": "https://securityaffairs.com/202610/security/new-report.html",
+        "published_at": "2026-10-25T13:27:05Z",
+    }
+    assert not spa.is_stale_source(item, now=now)
+
+
+def test_other_domains_and_undated_items_are_not_inferred_from_url():
+    now = datetime(2026, 10, 26, 14, 30, tzinfo=timezone.utc)
+    url = "/201709/security/security-affairs-malware-newsletter-round-120.html"
+    assert not spa.is_stale_source({
+        "source_url": "https://example.com" + url,
+        "published_at": "2026-10-25T13:27:05Z",
+    }, now=now)
+    assert spa.source_age_days({
+        "source_url": "https://securityaffairs.com" + url,
+    }, now=now) is None
+
+
+def test_archival_kev_signal_preserves_active_exploitation_exception():
+    now = datetime(2026, 10, 26, 14, 30, tzinfo=timezone.utc)
+    item = {
+        "source_url": "https://securityaffairs.com/201709/security/old-case.html",
+        "published_at": "2025-10-25T13:27:05Z",
+        "kev_present": True,
+    }
+    assert not spa.is_stale_source(item, now=now)
+
+
+def test_guard_prunes_misdated_archival_item_with_safe_feed_floor():
+    now = datetime(2026, 10, 26, 14, 30, tzinfo=timezone.utc)
+    fresh = [{"id": f"fresh-{i}", "published_at": "2026-10-25T13:27:05Z"}
+             for i in range(12)]
+    archive = {
+        "id": "intel--cd849d195e784709650c4fd4",
+        "source_url": "https://securityaffairs.com/201709/security/security-affairs-malware-newsletter-round-120.html",
+        "published_at": "2025-10-25T13:27:05Z",
+        "kev": "NO",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        p = _write(tmp, "feed.json", fresh + [archive])
+        result = ssg.guard_file(p, now)
+        assert result["status"] == "PRUNED"
+        assert result["after"] == 12
+        assert [r["id"] for r in result["removed"]] == [archive["id"]]
+
+
 # --- the guard -------------------------------------------------------------
 
 def _feed(n_fresh, n_stale):
