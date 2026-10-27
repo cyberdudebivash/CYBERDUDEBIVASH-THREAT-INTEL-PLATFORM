@@ -2,6 +2,7 @@
 import copy
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -211,3 +212,25 @@ def test_mobile_publication_does_not_promote_nonboolean_source(tmp_path):
     assert run.returncode != 0
     assert target.read_bytes() == original
     assert "Explicit publication denial or malformed flag" in run.stdout + run.stderr
+
+
+def test_manifest_generator_console_compatibility_cp1252(tmp_path):
+    """A non-UTF8 Windows PowerShell pipe must never abort verified publication.
+
+    Regression: the old Unicode verification banner threw UnicodeEncodeError
+    AFTER the generator had written JSON, producing a false publication failure.
+    """
+    observed, _ = candidates(tmp_path)
+    write_source(tmp_path, observed)
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
+        cwd=tmp_path, env=env, capture_output=True, text=True,
+        encoding="cp1252", timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "MANIFEST GENERATION COMPLETE" in result.stdout
+    latest = json.loads((tmp_path / "api/v1/intel/latest.json").read_text(encoding="utf-8"))
+    assert latest["count"] == len(observed)
+    assert all(item.get("is_published") is True for item in latest["items"])
+    assert all("ioc_payload" not in item and "stix_bundle" not in item for item in latest["items"])
