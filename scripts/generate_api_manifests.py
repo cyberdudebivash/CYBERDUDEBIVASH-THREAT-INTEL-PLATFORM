@@ -376,6 +376,33 @@ except Exception as _e:
     warn("[SANITIZER] Could not write audit report: " + str(_e))
 
 # ── STEP 3: Build /api/v1/intel/latest.json ──────────────────────────────────
+# P0 MOBILE PUBLICATION CONTRACT: the source-to-mobile gateway requires a
+# boolean is_published=True in the public listing. Do not copy an untrusted
+# source flag or synthesize approval from 'published' (which is a timestamp).
+# Only emit this derived claim after rechecking the exact complete source
+# against the established final prewrite evidence and TLP authorization gates.
+try:
+    from p0_r35_feed_prewrite_guard import assert_publishable as _assert_mobile_publication
+    if not sorted_feed or len(sorted_feed) != len(sorted_feed_public):
+        fatal('[MOBILE PUBLICATION] Nonempty 1:1 source/public projection required')
+    # Explicitly withheld/unparseable flags must never be promoted to public.
+    if any('is_published' in it and it['is_published'] is not True for it in sorted_feed):
+        fatal('[MOBILE PUBLICATION] Explicit publication denial or malformed flag in source')
+    _assert_mobile_publication(sorted_feed)
+    if any(not _tlp_policy.publication_decision(it)['allowed'] for it in sorted_feed):
+        fatal('[MOBILE PUBLICATION] Source TLP decision no longer permits anonymous distribution')
+except (ImportError, ValueError, TypeError, AttributeError, KeyError) as _e:
+    fatal('[MOBILE PUBLICATION] Authorization proof failed: ' + str(_e))
+_public_latest_items = _project_public_latest(sorted_feed_public)
+if len(_public_latest_items) != len(sorted_feed):
+    fatal('[MOBILE PUBLICATION] Producer projection count drift')
+for _approved_item in _public_latest_items:
+    if not isinstance(_approved_item, dict):
+        fatal('[MOBILE PUBLICATION] Invalid anonymous projection')
+    # This boolean attests to the producer's gates above, NOT to a raw
+    # is_published field (some historical ingestion paths default it true).
+    _approved_item['is_published'] = True
+
 timestamp_now = now_iso()
 latest_payload = {
     'schema_version': SCHEMA_VER,
@@ -383,7 +410,7 @@ latest_payload = {
     'generator': SCRIPT_NAME,
     'version': VERSION,
     'count': len(sorted_feed_public),
-    'items': _project_public_latest(sorted_feed_public),
+    'items': _public_latest_items,
 }
 # A complete public summary of every eligible advisory must fit the existing
 # hard Worker 1MiB JSON body limit. No advisory is silently removed/truncated
