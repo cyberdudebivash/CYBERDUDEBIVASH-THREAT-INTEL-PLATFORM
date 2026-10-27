@@ -1,5 +1,6 @@
 """Zero-network negative controls for P0 report certification coverage."""
 import json
+from datetime import datetime, timezone
 import subprocess
 import sys
 from pathlib import Path
@@ -161,17 +162,25 @@ def test_stage35_report_catalog_is_all_or_none_without_r2(tmp_path, monkeypatch,
     report_dir = tmp_path / "api/reports"
     report_dir.mkdir(parents=True)
     (tmp_path / "api/feed.json").write_text('{"items":[]}', encoding="utf-8")
-    for name in ("latest.json", "stats.json"):
-        (report_dir / name).write_text("{}", encoding="utf-8")
     if timestamp is not None:
         path = "/reports/2026/10/intel--aaaaaaaaaaaaaaaa.html"
-        catalog = {"reports": [{
+        report = {
             "id": "intel--aaaaaaaaaaaaaaaa",
             "path": path,
             "url": "https://intel.cyberdudebivash.com" + path,
             "timestamp": timestamp,
-        }]}
-        (report_dir / "index.json").write_text(json.dumps(catalog), encoding="utf-8")
+            "severity": "HIGH",
+        }
+        generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        common = {"schema_version": "1.0", "generated_at": generated_at, "total_reports": 1}
+        trio = {
+            "index.json": {**common, "reports_listed": 1, "reports": [report]},
+            "latest.json": {**common, "reports_listed": 1, "reports": [report]},
+            "stats.json": {**common, "by_severity": {
+                "CRITICAL": 0, "HIGH": 1, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}},
+        }
+        for name, payload in trio.items():
+            (report_dir / name).write_text(json.dumps(payload), encoding="utf-8")
 
     pairs = r2_upload.build_upload_plan()  # local filesystem only; no R2 calls
     keys = {dst for _src, dst in pairs}
