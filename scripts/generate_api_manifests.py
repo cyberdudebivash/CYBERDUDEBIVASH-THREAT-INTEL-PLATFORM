@@ -37,6 +37,17 @@ import tempfile
 import shutil
 import traceback
 
+# Windows PowerShell / subprocess pipes can use CP1252 instead of UTF-8.
+# Terminal decoration and diagnostic text must NEVER abort an otherwise
+# validated atomic manifest publication. Preserve the active encoding;
+# backslash-escape only characters that the terminal cannot represent.
+for _manifest_log_stream in (sys.stdout, sys.stderr):
+    if hasattr(_manifest_log_stream, "reconfigure"):
+        try:
+            _manifest_log_stream.reconfigure(errors="backslashreplace")
+        except (OSError, ValueError):
+            pass
+
 # PUBLIC API SANITIZER -- mandatory before any public write
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
