@@ -2,6 +2,7 @@
 import copy
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -107,12 +108,25 @@ def test_r2_main_filters_after_collectors_before_any_credentials_or_network(tmp_
 def test_real_public_bundle_generator_publishes_only_qualified_candidates(tmp_path):
     observed, unproven = candidates(tmp_path)
     write_source(tmp_path, observed + [unproven])
+    # Production source-control audit evidence must be immutable when the
+    # generator processes a sandbox feed in a separate working directory.
+    checkout_audit = ROOT / "reports/public_api_sanitization_audit.json"
+    prior_audit = checkout_audit.read_bytes() if checkout_audit.is_file() else None
     run = subprocess.run([sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
                          cwd=tmp_path, capture_output=True, text=True, timeout=30)
     assert run.returncode == 0, run.stdout + run.stderr
+    generated_audit = tmp_path / "reports/public_api_sanitization_audit.json"
+    assert generated_audit.is_file()
+    assert json.loads(generated_audit.read_text(encoding="utf-8"))["VERDICT"] == "PASS"
+    actual_audit = checkout_audit.read_bytes() if checkout_audit.is_file() else None
+    assert actual_audit == prior_audit, "Isolated generator altered source repository audit"
     latest = json.loads((tmp_path / "api/v1/intel/latest.json").read_text())
     assert latest["count"] == 12
     assert {r["id"] for r in latest["items"]} == {r["id"] for r in observed}
+    # Anonymous mobile consumers receive a producer-derived approval claim,
+    # never raw/unreviewed metadata or subscription-only content.
+    assert all(r.get("is_published") is True for r in latest["items"])
+    assert all("ioc_payload" not in r and "stix_bundle" not in r for r in latest["items"])
     assert all(r["id"] != unproven["id"] for r in latest["items"])
     expected_public = [{k: v for k, v in record.items() if k != "stix_id"} for record in observed]
     assert json.loads((tmp_path / "api/feed.json").read_text()) == expected_public
@@ -177,3 +191,55 @@ def test_public_r2_upload_copy_sanitizes_aliases_without_modifying_source(tmp_pa
     assert uploaded[0]["stix_id"] == valid
     assert all("stix_id" not in r for r in uploaded[1:])
     assert source.read_bytes() == before
+
+
+def test_mobile_publication_does_not_promote_explicit_false_source(tmp_path):
+    observed, _ = candidates(tmp_path)
+    observed[0]["is_published"] = False
+    write_source(tmp_path, observed)
+    target = tmp_path / "api/v1/intel/latest.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    previous = b'{"generated_at":"2026-10-26T00:00:00Z","items":[]}'
+    target.write_bytes(previous)
+    run = subprocess.run([sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
+                         cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert run.returncode != 0
+    assert target.read_bytes() == previous
+    assert "Explicit publication denial or malformed flag" in run.stdout + run.stderr
+
+
+def test_mobile_publication_does_not_promote_nonboolean_source(tmp_path):
+    observed, _ = candidates(tmp_path)
+    observed[0]["is_published"] = "true"
+    write_source(tmp_path, observed)
+    target = tmp_path / "api/v1/intel/latest.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    original = b'{"previous":"trusted"}'
+    target.write_bytes(original)
+    run = subprocess.run([sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
+                         cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert run.returncode != 0
+    assert target.read_bytes() == original
+    assert "Explicit publication denial or malformed flag" in run.stdout + run.stderr
+
+
+def test_manifest_generator_console_compatibility_cp1252(tmp_path):
+    """A non-UTF8 Windows PowerShell pipe must never abort verified publication.
+
+    Regression: the old Unicode verification banner threw UnicodeEncodeError
+    AFTER the generator had written JSON, producing a false publication failure.
+    """
+    observed, _ = candidates(tmp_path)
+    write_source(tmp_path, observed)
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
+        cwd=tmp_path, env=env, capture_output=True, text=True,
+        encoding="cp1252", timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "MANIFEST GENERATION COMPLETE" in result.stdout
+    latest = json.loads((tmp_path / "api/v1/intel/latest.json").read_text(encoding="utf-8"))
+    assert latest["count"] == len(observed)
+    assert all(item.get("is_published") is True for item in latest["items"])
+    assert all("ioc_payload" not in item and "stix_bundle" not in item for item in latest["items"])
