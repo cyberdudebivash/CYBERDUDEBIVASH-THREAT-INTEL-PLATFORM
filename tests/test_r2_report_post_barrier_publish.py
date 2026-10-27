@@ -244,6 +244,23 @@ class TestCatalogRefreshUpload(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data), encoding="utf-8")
 
+    def _write_valid_trio(self):
+        now = datetime.now(timezone.utc)
+        fresh = now.isoformat().replace("+00:00", "Z")
+        report_id = "intel--" + "a" * 24
+        path = f"/reports/{now:%Y/%m}/{report_id}.html"
+        row = {"id": report_id, "path": path,
+               "url": "https://intel.cyberdudebivash.com" + path,
+               "timestamp": fresh, "severity": "HIGH"}
+        common = {"schema_version": "1.0", "generated_at": fresh, "total_reports": 1}
+        self._write("api/reports/index.json",
+                    {**common, "reports_listed": 1, "reports": [row]})
+        self._write("api/reports/latest.json",
+                    {**common, "reports_listed": 1, "reports": [row]})
+        self._write("api/reports/stats.json",
+                    {**common, "by_severity": {
+                        "CRITICAL": 0, "HIGH": 1, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}})
+
     def _run(self, s3_ok=True):
         uploaded = []
 
@@ -265,9 +282,7 @@ class TestCatalogRefreshUpload(unittest.TestCase):
         return uploaded, code
 
     def test_uploads_exactly_the_three_catalog_keys_to_data_bucket(self):
-        fresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        for rel, _dst in r2_upload.REPORTS_INDEX_FILES:
-            self._write(rel, {"generated_at": fresh, "reports": []})
+        self._write_valid_trio()
         uploaded, code = self._run()
         self.assertEqual(code, 0)
         self.assertEqual(
@@ -275,39 +290,24 @@ class TestCatalogRefreshUpload(unittest.TestCase):
             sorted((r2_upload.BUCKET_DATA, dst) for _src, dst in r2_upload.REPORTS_INDEX_FILES),
         )
 
-    def test_stale_catalog_is_never_uploaded(self):
-        fresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        self._write("api/reports/index.json", {"generated_at": fresh, "reports": []})
-        self._write("api/reports/latest.json", {"generated_at": "2026-08-26T09:55:27Z", "reports": []})
+    def test_stale_catalog_blocks_all_three_keys_before_credentials(self):
+        self._write_valid_trio()
+        latest = json.loads((self.dir / "api/reports/latest.json").read_text(encoding="utf-8"))
+        latest["generated_at"] = "2026-08-26T09:55:27Z"
+        self._write("api/reports/latest.json", latest)
         uploaded, code = self._run()
-        self.assertEqual(code, 0)
-        keys = [k for _b, k in uploaded]
-        self.assertIn("api/reports/index.json", keys)
-        self.assertNotIn("api/reports/latest.json", keys)
+        self.assertEqual(code, 1)
+        self.assertEqual(uploaded, [])
 
     def test_failed_put_exits_nonzero(self):
-        fresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        self._write("api/reports/index.json", {"generated_at": fresh, "reports": []})
+        self._write_valid_trio()
         _uploaded, code = self._run(s3_ok=False)
         self.assertEqual(code, 1)
 
     def test_stage_3_5_plan_includes_catalog_keys_when_chronology_is_valid(self):
-        # Stage 3.5 now requires a canonical, non-empty UTC report catalog.
-        # The former empty-catalog fixture incorrectly expected an R2 PUT.
-        now = datetime.now(timezone.utc)
-        fresh = now.isoformat().replace("+00:00", "Z")
-        report_id = "intel--" + "a" * 24
-        path = f"/reports/{now:%Y/%m}/{report_id}.html"
-        for rel, _dst in r2_upload.REPORTS_INDEX_FILES:
-            payload = {"generated_at": fresh, "reports": []}
-            if rel == "api/reports/index.json":
-                payload["reports"] = [{
-                    "id": report_id,
-                    "path": path,
-                    "url": "https://intel.cyberdudebivash.com" + path,
-                    "timestamp": fresh,
-                }]
-            self._write(rel, payload)
+        # Chronology alone is insufficient: the three files must share one
+        # generation and an authoritative severity distribution.
+        self._write_valid_trio()
         with mock.patch.object(r2_upload, "REPO_ROOT", self.dir):
             keys = {dst for _src, dst in r2_upload.build_upload_plan()}
         for _src, dst in r2_upload.REPORTS_INDEX_FILES:
