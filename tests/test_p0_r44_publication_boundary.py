@@ -113,6 +113,10 @@ def test_real_public_bundle_generator_publishes_only_qualified_candidates(tmp_pa
     latest = json.loads((tmp_path / "api/v1/intel/latest.json").read_text())
     assert latest["count"] == 12
     assert {r["id"] for r in latest["items"]} == {r["id"] for r in observed}
+    # Anonymous mobile consumers receive a producer-derived approval claim,
+    # never raw/unreviewed metadata or subscription-only content.
+    assert all(r.get("is_published") is True for r in latest["items"])
+    assert all("ioc_payload" not in r and "stix_bundle" not in r for r in latest["items"])
     assert all(r["id"] != unproven["id"] for r in latest["items"])
     expected_public = [{k: v for k, v in record.items() if k != "stix_id"} for record in observed]
     assert json.loads((tmp_path / "api/feed.json").read_text()) == expected_public
@@ -177,3 +181,33 @@ def test_public_r2_upload_copy_sanitizes_aliases_without_modifying_source(tmp_pa
     assert uploaded[0]["stix_id"] == valid
     assert all("stix_id" not in r for r in uploaded[1:])
     assert source.read_bytes() == before
+
+
+def test_mobile_publication_does_not_promote_explicit_false_source(tmp_path):
+    observed, _ = candidates(tmp_path)
+    observed[0]["is_published"] = False
+    write_source(tmp_path, observed)
+    target = tmp_path / "api/v1/intel/latest.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    previous = b'{"generated_at":"2026-10-26T00:00:00Z","items":[]}'
+    target.write_bytes(previous)
+    run = subprocess.run([sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
+                         cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert run.returncode != 0
+    assert target.read_bytes() == previous
+    assert "Explicit publication denial or malformed flag" in run.stdout + run.stderr
+
+
+def test_mobile_publication_does_not_promote_nonboolean_source(tmp_path):
+    observed, _ = candidates(tmp_path)
+    observed[0]["is_published"] = "true"
+    write_source(tmp_path, observed)
+    target = tmp_path / "api/v1/intel/latest.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    original = b'{"previous":"trusted"}'
+    target.write_bytes(original)
+    run = subprocess.run([sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
+                         cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert run.returncode != 0
+    assert target.read_bytes() == original
+    assert "Explicit publication denial or malformed flag" in run.stdout + run.stderr
