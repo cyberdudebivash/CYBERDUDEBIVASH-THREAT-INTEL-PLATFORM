@@ -379,7 +379,10 @@ if not _post_audit["PASS"]:
 info("[SANITIZER] " + str(_pre_audit["leaking_items"]) + " items cleaned. Public feed is premium-field-free.")
 try:
     import json as _j
-    _srp = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'reports', 'public_api_sanitization_audit.json')
+    # Audit evidence belongs to the FEED/OUTPUT workspace, not the installed
+    # generator's source checkout. Isolated fixture runs must never modify
+    # production/source-controlled reports in a different working tree.
+    _srp = os.path.join(os.path.abspath(os.curdir), 'reports', 'public_api_sanitization_audit.json')
     os.makedirs(os.path.dirname(_srp), exist_ok=True)
     open(_srp, 'w', encoding='utf-8').write(_j.dumps({"report_type": "public_api_sanitization_audit", "generated_at": now_iso(), "pre_sanitize": _pre_audit, "post_sanitize": _post_audit, "VERDICT": "PASS", "sanitizer_active": _SANITIZER_AVAILABLE}, indent=2))
     info("[SANITIZER] Report: reports/public_api_sanitization_audit.json")
