@@ -845,6 +845,12 @@ def main_reports_index_only() -> None:
             continue
         candidates.append((src, dst_key))
 
+    # Recheck after plan assembly: a file can become stale/disappear between
+    # admission and enumeration. Never PUT a partial three-key registry.
+    if len(candidates) != len(REPORTS_INDEX_FILES):
+        log.critical("P0 report catalog trio changed during admission; no R2 PUTs allowed")
+        sys.exit(1)
+
     plan = R2OperationPlan(label="r2_upload_reports_index", bucket=BUCKET_DATA)
     plan.record_put(len(candidates))
 
