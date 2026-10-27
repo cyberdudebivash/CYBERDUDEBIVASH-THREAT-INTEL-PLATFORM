@@ -53,6 +53,31 @@ def audit_registry(index: Any, latest: Any, stats: Any) -> dict[str, Any]:
         defects.append("stats: missing or invalid authoritative by_severity counts")
     elif _nonnegative_int(index.get("reports_listed")) and sum(counts.values()) != index["reports_listed"]:
         defects.append("stats: severity sum differs from indexed report count")
+    # Counts alone are insufficient: a corrupted writer can swap severity buckets
+    # while preserving the sum. Cross-check every indexed report against stats.
+    if isinstance(counts, dict) and set(counts) == set(SEVERITIES) and all(
+        _nonnegative_int(v) for v in counts.values()
+    ) and isinstance(index.get("reports"), list):
+        observed = {severity: 0 for severity in SEVERITIES}
+        seen_ids: set[str] = set()
+        for position, report in enumerate(index["reports"]):
+            if not isinstance(report, dict):
+                defects.append(f"index: reports[{position}] is not an object")
+                continue
+            severity = report.get("severity")
+            if severity not in SEVERITIES:
+                defects.append(f"index: reports[{position}] has invalid severity")
+            else:
+                observed[severity] += 1
+            report_id = report.get("id")
+            if not isinstance(report_id, str) or not report_id.strip():
+                defects.append(f"index: reports[{position}] has invalid ID")
+            elif report_id in seen_ids:
+                defects.append(f"index: reports[{position}] has duplicate ID")
+            else:
+                seen_ids.add(report_id)
+        if observed != counts:
+            defects.append("stats: severity distribution disagrees with indexed reports")
     if isinstance(index.get("reports"), list) and isinstance(latest.get("reports"), list):
         expected = index["reports"][:len(latest["reports"])]
         if latest["reports"] != expected:
