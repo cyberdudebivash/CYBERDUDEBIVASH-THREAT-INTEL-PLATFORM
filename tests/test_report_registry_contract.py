@@ -61,5 +61,33 @@ class RegistryContractTests(unittest.TestCase):
         self.assertEqual(module.audit_registry(index, latest, stats)["verdict"], "BLOCKED")
 
 
+    def test_equal_total_but_swapped_severity_buckets_is_blocked(self):
+        index, latest, stats = self.fixture()
+        stats["by_severity"]["HIGH"] = 0
+        stats["by_severity"]["MEDIUM"] = 2
+        result = module.audit_registry(index, latest, stats)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("severity distribution", " ".join(result["defects"]))
+
+    def test_unknown_report_severity_is_rejected(self):
+        index, latest, stats = self.fixture()
+        index["reports"][0]["severity"] = "UNVERIFIED"
+        self.assertEqual(module.audit_registry(index, latest, stats)["verdict"], "BLOCKED")
+
+    def test_duplicate_report_id_is_rejected(self):
+        index, latest, stats = self.fixture()
+        index["reports"][1]["id"] = index["reports"][0]["id"]
+        self.assertEqual(module.audit_registry(index, latest, stats)["verdict"], "BLOCKED")
+
+    def test_valid_unknown_severity_bucket_is_accepted_as_precheck_only(self):
+        index, latest, stats = self.fixture()
+        index["reports"][1]["severity"] = "UNKNOWN"
+        stats["by_severity"]["MEDIUM"] = 0
+        stats["by_severity"]["UNKNOWN"] = 1
+        result = module.audit_registry(index, latest, stats)
+        self.assertEqual(result["verdict"], "ARTIFACT_CONSISTENCY_ONLY")
+        self.assertFalse(result["delivery_certified"])
+
+
 if __name__ == "__main__":
     unittest.main()
