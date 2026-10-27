@@ -824,6 +824,11 @@ def main_reports_index_only() -> None:
     log.info("SENTINEL APEX v%s -- R2 Upload Engine (reports-index-only)", PIPELINE_VERSION)
     log.info("=" * 60)
     os.chdir(REPO_ROOT)
+    # The late catalog refresh must not bypass the Stage 3.5 trio contract.
+    # Reject BEFORE credentials, AWS CLI installation, or any R2 operation.
+    if not report_catalog_chronology_precheck():
+        log.critical("P0 report catalog chronology/registry precheck refused late R2 publication")
+        sys.exit(1)
     cf_account, _access_key, _secret_key = get_credentials()
     endpoint = f"https://{cf_account}.r2.cloudflarestorage.com"
     install_awscli()
@@ -970,10 +975,11 @@ def tlp_safe_public_json_source(source: Path, scratch_dir: Path, dst_key: str, p
 
 
 def report_catalog_chronology_precheck() -> bool:
-    """Fail closed on the Stage 3.5 report trio without blocking other intel feeds.
+    """Fail closed on chronology AND same-run registry consistency.
 
-    This is an offline syntax/UTC precheck only, NOT customer-delivery proof.
-    No Cloudflare/R2 calls, mutations, or raw report data in diagnostics.
+    The three report keys must be a coherent generation before any R2 PUT.
+    This is an offline precheck, NOT customer-delivery certification.
+    No Cloudflare/R2 calls, mutations, or report contents in diagnostics.
     """
     catalog = REPO_ROOT / "api/reports/index.json"
     try:
@@ -985,8 +991,18 @@ def report_catalog_chronology_precheck() -> bool:
             if not path.is_file() or stale_manifest_reason(path):
                 return False
         from report_chronology_integrity import audit_catalog
-        result = audit_catalog(json.loads(catalog.read_text(encoding="utf-8")))
-        return result.get("verdict") == "CHRONOLOGY_PRECHECK_ONLY"
+        from report_registry_contract import audit_registry
+        payloads = {}
+        for src, _dst in REPORTS_INDEX_FILES:
+            path = REPO_ROOT / src
+            if path.stat().st_size > 2_000_000:
+                return False
+            payloads[path.name] = json.loads(path.read_text(encoding="utf-8"))
+        if audit_catalog(payloads["index.json"]).get("verdict") != "CHRONOLOGY_PRECHECK_ONLY":
+            return False
+        return audit_registry(
+            payloads["index.json"], payloads["latest.json"], payloads["stats.json"]
+        ).get("verdict") == "ARTIFACT_CONSISTENCY_ONLY"
     except (OSError, UnicodeError, ValueError, TypeError, ImportError, RecursionError):
         return False
 
