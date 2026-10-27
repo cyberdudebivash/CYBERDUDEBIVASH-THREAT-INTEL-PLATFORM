@@ -108,9 +108,18 @@ def test_r2_main_filters_after_collectors_before_any_credentials_or_network(tmp_
 def test_real_public_bundle_generator_publishes_only_qualified_candidates(tmp_path):
     observed, unproven = candidates(tmp_path)
     write_source(tmp_path, observed + [unproven])
+    # Production source-control audit evidence must be immutable when the
+    # generator processes a sandbox feed in a separate working directory.
+    checkout_audit = ROOT / "reports/public_api_sanitization_audit.json"
+    prior_audit = checkout_audit.read_bytes() if checkout_audit.is_file() else None
     run = subprocess.run([sys.executable, str(ROOT / "scripts/generate_api_manifests.py")],
                          cwd=tmp_path, capture_output=True, text=True, timeout=30)
     assert run.returncode == 0, run.stdout + run.stderr
+    generated_audit = tmp_path / "reports/public_api_sanitization_audit.json"
+    assert generated_audit.is_file()
+    assert json.loads(generated_audit.read_text(encoding="utf-8"))["VERDICT"] == "PASS"
+    actual_audit = checkout_audit.read_bytes() if checkout_audit.is_file() else None
+    assert actual_audit == prior_audit, "Isolated generator altered source repository audit"
     latest = json.loads((tmp_path / "api/v1/intel/latest.json").read_text())
     assert latest["count"] == 12
     assert {r["id"] for r in latest["items"]} == {r["id"] for r in observed}
