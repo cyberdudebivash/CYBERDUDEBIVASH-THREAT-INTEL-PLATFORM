@@ -19,9 +19,9 @@ from tlp_policy import load_policy, publication_decision
 # vulnerabilities. This is intentionally narrow: ordinary reporting *about*
 # rejected CVEs remains eligible, and historical source records are preserved.
 _REJECTED_CVE_TITLE = re.compile(
-    r"^\\s*CVE-\\d{4}-\\d{4,}\\s*[-:]\\s*Rejected(?:\\s+reason)?\\b", re.I
+    r"^\s*CVE-\d{4}-\d{4,}\s*[-:]\s*Rejected(?:\s+reason)?\b", re.I
 )
-_CVE_ID = re.compile(r"^CVE-\\d{4}-\\d{4,}$", re.I)
+_CVE_ID = re.compile(r"^CVE-\d{4}-\d{4,}$", re.I)
 _REJECTED_STATES = frozenset({"REJECTED", "WITHDRAWN"})
 
 
