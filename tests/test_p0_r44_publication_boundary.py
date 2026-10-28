@@ -71,6 +71,31 @@ def test_supplemental_inventory_is_preserved_and_excluded_from_both_public_files
     assert result["reason_counts"] == {"PREWRITE_DENIED": 1, "RESTRICTED_UPSTREAM_LABEL": 1}
 
 
+
+def test_rejected_cve_retained_in_history_but_excluded_from_both_public_feeds(tmp_path):
+    observed, _ = candidates(tmp_path)
+    rejected = {
+        **observed[0],
+        "title": "CVE-2026-97028 - Rejected reason: Maintainers determined it is not a vulnerability",
+        "cve_id": "CVE-2026-97028",
+    }
+    write_source(tmp_path, [rejected, *observed[1:]])
+    report = finalize_public_feed(tmp_path)
+    assert report["candidate_count"] == 12
+    assert report["published_count"] == 11
+    assert report["withheld_count"] == 1
+    assert report["reason_counts"] == {"CVE_LIFECYCLE_REJECTED": 1}
+    for name in ("api/feed.json", "feed.json"):
+        public = json.loads((tmp_path / name).read_text())
+        assert len(public) == 11
+        assert all(item["id"] != rejected["id"] for item in public)
+    archive = json.loads((tmp_path / "data/stix/feed_manifest.json").read_text())
+    assert any(item["id"] == rejected["id"] and item["title"] == rejected["title"]
+               for item in archive["advisories"])
+
+
+
+
 @pytest.mark.parametrize("mode", ["unproven", "malformed", "empty", "restricted"])
 def test_invalid_final_batch_cannot_overwrite_either_feed(tmp_path, mode):
     observed, unproven = candidates(tmp_path)
