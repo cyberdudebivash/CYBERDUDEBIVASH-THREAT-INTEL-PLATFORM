@@ -107,6 +107,10 @@ jobs:
             --no-header \
             -x
 
+      - name: Verify drift-watchdog blobless checkout regression contract
+        run: |
+          python -m pytest tests/test_p0_deploy_drift_partial_clone.py -q --tb=short
+
       - name: Run deployment governance gate
         run: |
           python scripts/deployment_gate.py --strict --skip-tests
