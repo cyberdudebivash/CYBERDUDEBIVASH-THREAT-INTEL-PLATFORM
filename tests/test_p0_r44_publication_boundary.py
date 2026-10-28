@@ -90,8 +90,11 @@ def test_rejected_cve_retained_in_history_but_excluded_from_both_public_feeds(tm
         assert len(public) == 11
         assert all(item["id"] != rejected["id"] for item in public)
     archive = json.loads((tmp_path / "data/stix/feed_manifest.json").read_text())
+    # The reconciler may preserve a dict manifest or bootstrap a list manifest.
+    # Both are valid historical representations; the rejected source must remain.
+    archive_rows = archive["advisories"] if isinstance(archive, dict) else archive
     assert any(item["id"] == rejected["id"] and item["title"] == rejected["title"]
-               for item in archive["advisories"])
+               for item in archive_rows)
 
 
 
