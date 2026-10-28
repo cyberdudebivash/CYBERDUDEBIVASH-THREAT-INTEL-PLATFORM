@@ -64,6 +64,49 @@ def test_denial_rules_are_preserved(change, reason):
     assert held[0]["reason_code"] == reason
 
 
+
+@pytest.mark.parametrize("rejected_fields", [
+    {"title": "CVE-2026-97028 - Rejected reason: Maintainers determined it is not a vulnerability",
+     "cve_id": "CVE-2026-97028"},
+    {"title": "CVE-2026-109111: Rejected reason: This CVE ID has been rejected",
+     "cve_id": "CVE-2026-109111"},
+    {"cve_id": "CVE-2026-111326", "vuln_status": "Rejected"},
+    {"cve_id": "CVE-2026-108537", "cve_status": "WITHDRAWN"},
+    {"cve_id": "CVE-2026-108793", "cve_lifecycle": "REJECTED"},
+])
+def test_rejected_cve_lifecycle_is_withheld_without_modifying_source(rejected_fields):
+    rejected = {**valid_record("rejected"), **rejected_fields}
+    eligible = valid_record("eligible")
+    original = copy.deepcopy([rejected, eligible])
+    selected, held = guard.select_publishable([rejected, eligible])
+    assert [r["id"] for r in selected] == ["eligible"]
+    assert held == [{
+        "id": "rejected", "reason_code": "CVE_LIFECYCLE_REJECTED",
+        "reason": "Explicitly rejected or withdrawn CVE; historical record only",
+    }]
+    assert [rejected, eligible] == original
+    with pytest.raises(ValueError, match="P0_FEED_PREWRITE_BLOCKED: CVE_LIFECYCLE_REJECTED"):
+        guard.assert_publishable([rejected])
+
+
+@pytest.mark.parametrize("fields", [
+    {"title": "Research discussion about rejected CVE IDs", "cve_id": "CVE-2026-97028"},
+    {"title": "CVE-2026-97028 - Security patch released", "cve_id": "CVE-2026-97028"},
+    {"title": "CVE-2026-97028 - Rejected reason appears in a quoted source",
+     "cve_id": "CVE-2026-97028", "cve_status": "PUBLISHED"},
+])
+def test_rejected_cve_filter_is_conservative(fields):
+    row = {**valid_record("article"), **fields}
+    selected, held = guard.select_publishable([row])
+    # A title explicitly identifying a rejected CVE cannot be overridden by
+    # an inconsistent PUBLISHED status supplied by another source.
+    if row["title"].startswith("CVE-2026-97028 - Rejected reason"):
+        assert not selected and held[0]["reason_code"] == "CVE_LIFECYCLE_REJECTED"
+    else:
+        assert selected == [row] and held == []
+
+
+
 def test_empty_selection_still_blocks_and_does_not_invent_evidence():
     original = [{"id": "unproven", "title": "A source report"}, None]
     rows = copy.deepcopy(original)
