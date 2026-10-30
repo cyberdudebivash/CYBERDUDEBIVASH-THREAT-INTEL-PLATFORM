@@ -104,7 +104,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Keep the complete commit graph for path-scoped git log and
+          # gh-pages SHA comparisons, but defer historical blob downloads.
+          # This bounds checkout transfer on the multi-GB repository without
+          # weakening the watchdog's historical correctness checks.
           fetch-depth: 0
+          filter: blob:none
 
       - name: Find latest main commit touching a pages-fast-publish.yml trigger path
         id: latest
