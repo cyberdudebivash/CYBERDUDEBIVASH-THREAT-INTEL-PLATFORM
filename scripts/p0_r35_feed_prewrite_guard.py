@@ -3,6 +3,7 @@
 Preserves the last known feed and never manufactures provenance.
 """
 from __future__ import annotations
+import re
 import sys
 from pathlib import Path
 
@@ -13,6 +14,28 @@ from sentinel_apex_mandate_enforcer import (
     check_mandate_11,
 )
 from tlp_policy import load_policy, publication_decision
+
+# The public actionable feed must not represent explicitly rejected CVE IDs as
+# vulnerabilities. This is intentionally narrow: ordinary reporting *about*
+# rejected CVEs remains eligible, and historical source records are preserved.
+_REJECTED_CVE_TITLE = re.compile(
+    r"^\s*CVE-\d{4}-\d{4,}\s*[-:]\s*Rejected(?:\s+reason)?\b", re.I
+)
+_CVE_ID = re.compile(r"^CVE-\d{4}-\d{4,}$", re.I)
+_REJECTED_STATES = frozenset({"REJECTED", "WITHDRAWN"})
+
+
+def _is_rejected_cve(record: dict) -> bool:
+    if not isinstance(record, dict):
+        return False
+    if _REJECTED_CVE_TITLE.match(str(record.get("title") or "")):
+        return True
+    if not _CVE_ID.fullmatch(str(record.get("cve_id") or "").strip()):
+        return False
+    return any(
+        str(record.get(key) or "").strip().upper() in _REJECTED_STATES
+        for key in ("vuln_status", "cve_status", "cve_lifecycle")
+    )
 
 
 def select_publishable(records: list[dict], *, limit: int = 500) -> tuple[list[dict], list[dict]]:
@@ -28,6 +51,10 @@ def select_publishable(records: list[dict], *, limit: int = 500) -> tuple[list[d
     policy = load_policy()
     eligible, held = [], []
     for record in records:
+        if _is_rejected_cve(record):
+            held.append({"id": record.get("id"), "reason_code": "CVE_LIFECYCLE_REJECTED",
+                         "reason": "Explicitly rejected or withdrawn CVE; historical record only"})
+            continue
         try:
             assert_publishable([record])
         except (ValueError, TypeError, AttributeError) as exc:
@@ -45,6 +72,8 @@ def select_publishable(records: list[dict], *, limit: int = 500) -> tuple[list[d
 def assert_publishable(records: list[dict]) -> None:
     if not isinstance(records, list) or not records or any(not isinstance(r, dict) for r in records):
         raise ValueError("P0_FEED_PREWRITE_BLOCKED: empty or invalid feed")
+    if any(_is_rejected_cve(record) for record in records):
+        raise ValueError("P0_FEED_PREWRITE_BLOCKED: CVE_LIFECYCLE_REJECTED")
     counts = {
         "M1": len(check_mandate_1(records)),
         "M3": len(check_mandate_3(records)),
