@@ -66,3 +66,19 @@ export function evaluateKeyRecordAccess(record) {
   }
   return { allowed: true, error: null };
 }
+
+
+/**
+ * Resolve a customer entitlement from an explicit canonical tier only.
+ * Missing/malformed tier records must NEVER inherit PRO. Own properties are
+ * required: JavaScript prototype names (e.g. "constructor") are not plans.
+ * Keeping this pure allows both Worker and CI to use the same decision.
+ *
+ * null signals that the caller must reject the credential / SSO configuration.
+ */
+export function resolveCanonicalTier(tier, tiers) {
+  if (typeof tier !== "string" || !tiers || typeof tiers !== "object" ||
+      !Object.prototype.hasOwnProperty.call(tiers, tier)) return null;
+  const value = tiers[tier];
+  return typeof value === "string" && value === tier ? value : null;
+}
