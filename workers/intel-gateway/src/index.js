@@ -2633,12 +2633,18 @@ async function handleLogin(request, env, ctx, ip) {
     return jsonResp({ error: "API key is not active", code: loginAccess.error }, 401);
   }
 
+  const loginTier = resolveCanonicalTier(record.tier, TIERS);
+  if (!loginTier) {
+    auditLog(ctx, env, { action: "login_failed", ip, reason: "invalid_tier" });
+    return jsonResp({ error: "API key has an invalid subscription tier", code: "invalid_tier" }, 401);
+  }
+
   await clearAuthFailures(env, ip);
 
   const now_sec = Math.floor(Date.now() / 1000);
   const payload = {
     sub: record.customer_id || rawKey.slice(0, 8),
-    tier: record.tier || TIERS.PRO,
+    tier: loginTier,
     iat: now_sec,
     exp: now_sec + JWT_EXPIRY_SEC,
     iss: "SENTINEL-APEX",
