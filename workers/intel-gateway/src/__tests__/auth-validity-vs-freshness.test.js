@@ -70,7 +70,7 @@ function harness(feedState, keyTier = "PRO") {
   };
   const waits = [];
   const ctx = { waitUntil: (p) => waits.push(p) };
-  return async (path, key, options = {}) => {
+  const invoke = async (path, key, options = {}) => {
     const headers = { "cf-connecting-ip": "198.51.100.9", ...(options.headers || {}) };
     if (key) headers["X-API-Key"] = key;
     const res = await worker.fetch(new Request(`https://intel.cyberdudebivash.com${path}`, {
@@ -79,6 +79,9 @@ function harness(feedState, keyTier = "PRO") {
     await Promise.allSettled(waits);
     return { status: res.status, body: await res.json() };
   };
+  // Test-only mutation point: simulate outages AFTER a real JWT was issued.
+  invoke.env = env;
+  return invoke;
 }
 
 const CASES = [
@@ -156,4 +159,56 @@ test("an explicitly provisioned PRO key can still obtain a scoped JWT", async ()
   assert.equal(result.body.tier, "PRO");
   assert.equal(typeof result.body.token, "string");
   assert.equal(result.body.token.split(".").length, 3);
+});
+
+test("JWT revocation and its authority outages fail closed without breaking valid customers", async () => {
+  const call = harness("fresh", "PRO");
+  const login = await call("/api/auth/login", null, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: VALID_KEY }),
+  });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
+  const token = login.body.token;
+  assert.equal(typeof token, "string");
+  const validate = () => call("/api/auth/validate", null, {
+    headers: { Authorization: "Bearer " + token },
+  });
+  const live = await validate();
+  assert.equal(live.status, 200);
+  assert.equal(live.body.valid, true, "a genuine PRO customer remains authenticated");
+  assert.equal(live.body.tier, "PRO");
+
+  // Billing-deny mirror and self-service revocation have independent reads.
+  await call.env.SECURITY_HUB_KV.put("jwt_revoked:" + token.slice(-24), "1");
+  const revoked = await validate();
+  assert.equal(revoked.body.valid, false, "logout revocation is honored");
+  await call.env.SECURITY_HUB_KV.delete("jwt_revoked:" + token.slice(-24));
+
+  const goodSecurityGet = call.env.SECURITY_HUB_KV.get;
+  call.env.SECURITY_HUB_KV.get = async () => { throw Error("private KV outage"); };
+  const revocationUnavailable = await validate();
+  assert.equal(revocationUnavailable.status, 200);
+  assert.equal(revocationUnavailable.body.valid, false, "unknown JWT revocation state must never grant paid access");
+  assert.equal(revocationUnavailable.body.tier, "free");
+  assert.equal(JSON.stringify(revocationUnavailable.body).includes("private KV outage"), false);
+  call.env.SECURITY_HUB_KV.get = goodSecurityGet;
+  assert.equal((await validate()).body.valid, true, "access recovers when authority recovers");
+
+  const goodBillingGet = call.env.API_KEYS_KV.get;
+  call.env.API_KEYS_KV.get = async key => {
+    if (key.startsWith("jwt_deny:")) throw Error("private billing mirror outage");
+    return goodBillingGet(key);
+  };
+  const billingUnavailable = await validate();
+  assert.equal(billingUnavailable.status, 200);
+  assert.equal(billingUnavailable.body.valid, false, "legacy billing denial mirror outages must never grant access");
+  call.env.API_KEYS_KV.get = goodBillingGet;
+  assert.equal((await validate()).body.valid, true, "normal PRO JWT remains valid after recovery");
+
+  const knownBilling = call.env.API_KEYS_KV;
+  call.env.API_KEYS_KV = undefined;
+  assert.equal((await validate()).body.valid, false, "missing legacy denial binding must fail closed");
+  call.env.API_KEYS_KV = knownBilling;
+  assert.equal((await validate()).body.valid, true, "customer restored with both authorities present");
 });
