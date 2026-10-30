@@ -4206,6 +4206,13 @@ jobs:
           MONETIZATION_PAGE_ROOT: dist
         run: python3 scripts/validate_monetization.py
 
+      # P0 #817: fail before Pages deploy when the authoritative catalog's
+      # selected report paths disagree with the local immutable Pages manifest.
+      # Offline only: zero Cloudflare/R2 calls. This is a precheck, NOT proof
+      # of R2 publication or paid customer delivery. Preserve fail-closed.
+      - name: "P0 predeploy Pages/report catalog parity (offline HARD FAIL)"
+        run: python3 scripts/p0_pages_report_parity_preflight.py
+
       - name: "STAGE 5 - Deploy to GitHub Pages"
         # v184.0: deploy only after 5.4.7 verified dist/ integrity — never deploy
         # a broken or incomplete artifact. This gate ensures convergence validator
