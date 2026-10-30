@@ -777,10 +777,20 @@ async function resolveAuth(request, env) {
         const denied = await env.SECURITY_HUB_KV.get(`jwt_deny:${payload.sub}`);
         if (denied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
       }
-    } catch (_) {}
+    } catch (_) {
+      // A valid signature does not establish that a session is still active.
+      // If revocation KV cannot be read, granting paid JWT privileges would
+      // silently bypass self-service logout and legacy subscription denial.
+      return { tier: TIERS.FREE, key: null, sub: null, error: "auth_service_unavailable" };
+    }
     try {
       if (!strongJwt.customerState) {
-        const billingDenied = await env.API_KEYS_KV?.get(`jwt_deny:${payload.sub}`);
+        // Legacy customers lack a strong customer-state record. In this case,
+        // the billing denial mirror is mandatory, never an optional lookup.
+        if (typeof env.API_KEYS_KV?.get !== "function") {
+          return { tier: TIERS.FREE, key: null, sub: null, error: "auth_service_unavailable" };
+        }
+        const billingDenied = await env.API_KEYS_KV.get(`jwt_deny:${payload.sub}`);
         if (billingDenied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
       }
     } catch (_) {
@@ -6986,6 +6996,15 @@ async function handleRequest(request, env, ctx) {
     return await handleLogout(request, env, ctx, auth);
   }
   if (path === "/api/auth/validate") {
+    // Invalid credentials are a 200 + valid:false verdict, but a temporarily
+    // unreadable authorization backend is NOT evidence the customer is
+    // invalid. Surface a retryable 503 without issuing a premium grant.
+    if (auth.error === "auth_service_unavailable") {
+      return jsonResp(
+        { valid: false, tier: "free", code: "auth_service_unavailable" },
+        503, { "Retry-After": "10", "Cache-Control": "no-store" }
+      );
+    }
     if (!auth.key) return jsonResp({ valid: false, tier: "free" }, 200);
     return jsonResp({ valid: true, tier: auth.tier, sub: auth.sub, jwt: auth.jwt || false }, 200);
   }
