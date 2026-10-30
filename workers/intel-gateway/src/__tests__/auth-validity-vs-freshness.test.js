@@ -188,9 +188,10 @@ test("JWT revocation and its authority outages fail closed without breaking vali
   const goodSecurityGet = call.env.SECURITY_HUB_KV.get;
   call.env.SECURITY_HUB_KV.get = async () => { throw Error("private KV outage"); };
   const revocationUnavailable = await validate();
-  assert.equal(revocationUnavailable.status, 200);
+  assert.equal(revocationUnavailable.status, 503);
   assert.equal(revocationUnavailable.body.valid, false, "unknown JWT revocation state must never grant paid access");
   assert.equal(revocationUnavailable.body.tier, "free");
+  assert.equal(revocationUnavailable.body.code, "auth_service_unavailable");
   assert.equal(JSON.stringify(revocationUnavailable.body).includes("private KV outage"), false);
   call.env.SECURITY_HUB_KV.get = goodSecurityGet;
   assert.equal((await validate()).body.valid, true, "access recovers when authority recovers");
@@ -201,14 +202,36 @@ test("JWT revocation and its authority outages fail closed without breaking vali
     return goodBillingGet(key);
   };
   const billingUnavailable = await validate();
-  assert.equal(billingUnavailable.status, 200);
+  assert.equal(billingUnavailable.status, 503);
   assert.equal(billingUnavailable.body.valid, false, "legacy billing denial mirror outages must never grant access");
   call.env.API_KEYS_KV.get = goodBillingGet;
   assert.equal((await validate()).body.valid, true, "normal PRO JWT remains valid after recovery");
 
   const knownBilling = call.env.API_KEYS_KV;
   call.env.API_KEYS_KV = undefined;
-  assert.equal((await validate()).body.valid, false, "missing legacy denial binding must fail closed");
+  const missingMirror = await validate();
+  assert.equal(missingMirror.status, 503);
+  assert.equal(missingMirror.body.valid, false, "missing legacy denial binding must fail closed");
   call.env.API_KEYS_KV = knownBilling;
   assert.equal((await validate()).body.valid, true, "customer restored with both authorities present");
+});
+
+test("auth-validation distinguishes an API key authority outage from invalid credentials", async () => {
+  const call = harness("fresh");
+  const normal = await call("/api/auth/validate", VALID_KEY);
+  assert.equal(normal.status, 200);
+  assert.equal(normal.body.valid, true);
+  const goodGet = call.env.API_KEYS_KV.get;
+  call.env.API_KEYS_KV.get = async () => { throw Error("private credentials unavailable"); };
+  const unavailable = await call("/api/auth/validate", VALID_KEY);
+  assert.equal(unavailable.status, 503);
+  assert.equal(unavailable.body.valid, false);
+  assert.equal(unavailable.body.tier, "free");
+  assert.equal(unavailable.body.code, "auth_service_unavailable");
+  assert.ok(!JSON.stringify(unavailable.body).includes("private credentials"));
+  call.env.API_KEYS_KV.get = goodGet;
+  assert.equal((await call("/api/auth/validate", VALID_KEY)).body.valid, true);
+  const wrong = await call("/api/auth/validate", INVALID_KEY);
+  assert.equal(wrong.status, 200);
+  assert.equal(wrong.body.valid, false);
 });
