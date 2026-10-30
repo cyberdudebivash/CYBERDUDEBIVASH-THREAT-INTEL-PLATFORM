@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
-from strict_report_probe_selection import select_report_probes
+from strict_report_probe_selection import ReportSelectionBlocked, select_report_probes
 from deployment_convergence_validator import _chronology_block_reason
 
 MAX_INPUT_BYTES = 20_000_000
@@ -46,6 +47,24 @@ def preflight(catalog_path: Path, manifest_path: Path) -> dict[str, Any]:
         )
     except (OSError, ValueError, TypeError, UnicodeError) as exc:
         result["reason_code"] = _chronology_block_reason(exc)
+        # Preserve the existing fail-closed verdict. Emit bounded, non-sensitive
+        # counts to distinguish one missing Pages artifact from a broad drift.
+        # Never expose report IDs, paths, URLs, or untrusted exception text.
+        if (
+            isinstance(exc, ReportSelectionBlocked)
+            and result["reason_code"] == "PAGES_MANIFEST_REPORT_MISMATCH"
+        ):
+            match = re.fullmatch(
+                r"([1-9][0-9]*) selected canonical reports missing from Pages manifest",
+                str(exc),
+            )
+            if match is not None:
+                result["missing_selected_report_count"] = int(match.group(1))
+                result["catalog_report_count"] = len(catalog["reports"])
+                result["pages_report_count"] = sum(
+                    isinstance(key, str) and key.startswith("reports/")
+                    and key.endswith(".html") for key in files
+                )
         return result
     result.update({
         "verdict": "PARITY_PRECHECK_ONLY",
