@@ -50,7 +50,7 @@ const FEEDS = {
   stale: feed(iso(-7 * 24 * 3600)),  // 7 days old (contract max is 6h)
 };
 
-function harness(feedState) {
+function harness(feedState, keyTier = "PRO") {
   const edge = new Map();
   globalThis.caches = {
     default: {
@@ -64,7 +64,7 @@ function harness(feedState) {
     },
     RATE_LIMIT_KV: fakeKV(), SECURITY_HUB_KV: fakeKV(), ANALYTICS_KV: fakeKV(), REVENUE_CRM_KV: fakeKV(),
     API_KEYS_KV: fakeKV({
-      [VALID_KEY]: JSON.stringify({ tier: "PRO", customer_id: "cust_test_1", status: "active" }),
+      [VALID_KEY]: JSON.stringify({ tier: keyTier, customer_id: "cust_test_1", status: "active" }),
     }),
     CDB_JWT_SECRET: "jwt-test", ADMIN_SECRET: "admin-test",
   };
@@ -118,3 +118,13 @@ test("onboarding key-verification step uses /api/auth/validate, not the nonexist
   assert.match(src, /intel\.cyberdudebivash\.com\/api\/auth\/validate/);
   assert.doesNotMatch(src, /intel\.cyberdudebivash\.com\/api\/v1\/health\b/);
 });
+
+for (const malformedTier of [null, "pro", "UNKNOWN", "constructor", "__proto__"]) {
+  test("invalid tier " + String(malformedTier) + " must never grant a gateway entitlement", async () => {
+    const call = harness("fresh", malformedTier);
+    const result = await call("/api/auth/validate", VALID_KEY);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.valid, false, JSON.stringify(result.body));
+    assert.equal(result.body.tier, "free");
+  });
+}

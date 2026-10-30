@@ -119,7 +119,7 @@ import { routeExports } from './routes/exports.js';
 import { routeInvestigationWorkbench } from './investigation-workbench.js';
 import { trackApiUsage, calculateCostPerCall, slugifyEndpoint } from './usage-meter.js';
 import { deductCredits } from './credit-system.js';
-import { evaluateKeyRecordAccess, SUBSCRIPTION_STATUS_DENY_STATES, SUBSCRIPTION_STATUS_VALID_STATES } from './subscription-lifecycle.js';
+import { evaluateKeyRecordAccess, resolveCanonicalTier, SUBSCRIPTION_STATUS_DENY_STATES, SUBSCRIPTION_STATUS_VALID_STATES } from './subscription-lifecycle.js';
 import { inferGumroadTier, inferGumroadBillingCycle, isGumroadCancellationEvent, isGumroadAccessRevokingEvent, classifyGumroadPing, renewedExpiry, renewalMayReactivate, BILLING_CYCLE_DAYS } from './gumroad-lifecycle.js';
 import { handleIntelStaticProxy, INTEL_STATIC_PROXY, publicTlpJsonVerified } from './intel-static-proxy.js';
 import { stripPublicLatestPremiumFields, hasPublicLatestPremiumFields } from './public-latest-premium-boundary.js';
@@ -786,8 +786,10 @@ async function resolveAuth(request, env) {
     } catch (_) {
       return { tier: TIERS.FREE, key: null, sub: null, error: "auth_service_unavailable" };
     }
+    const verifiedJwtTier = resolveCanonicalTier(payload.tier, TIERS);
+    if (!verifiedJwtTier) return { tier: TIERS.FREE, key: null, sub: null, error: "invalid_tier" };
     const jwtAuth = {
-      tier: TIERS[payload.tier] || TIERS.PRO,
+      tier: verifiedJwtTier,
       key: raw,
       sub: payload.sub,
       jwt: true,
@@ -877,10 +879,14 @@ async function resolveAuth(request, env) {
         if (!access.allowed) {
           return { tier: TIERS.FREE, key: null, sub: null, error: access.error };
         }
+        const verifiedRecordTier = resolveCanonicalTier(record.tier, TIERS);
+        if (!verifiedRecordTier) {
+          return { tier: TIERS.FREE, key: null, sub: null, error: "invalid_tier" };
+        }
         // Skip the extra KV write on the common case (no prior failures to clear)
         if (bf.count) await clearAuthFailures(env, ip);
         return {
-          tier: TIERS[record.tier] || TIERS.PRO,
+          tier: verifiedRecordTier,
           key: raw,
           sub: record.customer_id || raw.slice(0, 8),
           kv: true,
@@ -2627,12 +2633,18 @@ async function handleLogin(request, env, ctx, ip) {
     return jsonResp({ error: "API key is not active", code: loginAccess.error }, 401);
   }
 
+  const loginTier = resolveCanonicalTier(record.tier, TIERS);
+  if (!loginTier) {
+    auditLog(ctx, env, { action: "login_failed", ip, reason: "invalid_tier" });
+    return jsonResp({ error: "API key has an invalid subscription tier", code: "invalid_tier" }, 401);
+  }
+
   await clearAuthFailures(env, ip);
 
   const now_sec = Math.floor(Date.now() / 1000);
   const payload = {
     sub: record.customer_id || rawKey.slice(0, 8),
-    tier: record.tier || TIERS.PRO,
+    tier: loginTier,
     iat: now_sec,
     exp: now_sec + JWT_EXPIRY_SEC,
     iss: "SENTINEL-APEX",
@@ -2991,7 +3003,7 @@ async function handleSsoCallback(request, env, ctx, provider, ip) {
   // Every other error path in this file's auth resolution defaults to
   // TIERS.FREE / an explicit rejection, never an upgrade -- this matches
   // that convention instead of inventing a new, more permissive one.
-  const resolvedTier = TIERS[domainRec.tier];
+  const resolvedTier = resolveCanonicalTier(domainRec.tier, TIERS);
   if (!resolvedTier) {
     auditLog(ctx, env, { action: "sso_login_misconfigured_tier", provider, domain, raw_tier: domainRec.tier, ip });
     return ssoErrorRedirect(`Your organization's Single Sign-On setup is incomplete. Contact contact@cyberdudebivash.in.`);
@@ -3276,7 +3288,7 @@ export async function handleAdmin(request, env, ctx, path, method) {
     try { body = await request.json(); } catch (_) {}
     const { tier = "PRO", customer_id, label, expires_in_days, managed_tenants } = body;
     if (!customer_id) return jsonResp({ error: "customer_id is required" }, 400);
-    if (!TIERS[tier])  return jsonResp({ error: `Invalid tier: ${tier}. Valid: ${Object.keys(TIERS).join(", ")}` }, 400);
+    if (!resolveCanonicalTier(tier, TIERS))  return jsonResp({ error: `Invalid tier: ${tier}. Valid: ${Object.keys(TIERS).join(", ")}` }, 400);
     // v185.5 (Mission Phase 6): optional, MSSP-oriented. Only meaningful
     // when provided as an array -- omit entirely to get today's unrestricted
     // MSSP tenant-feed behavior (see resolveAuth()'s managed_tenants
