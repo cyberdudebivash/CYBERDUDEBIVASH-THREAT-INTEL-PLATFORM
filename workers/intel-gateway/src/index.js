@@ -6996,6 +6996,15 @@ async function handleRequest(request, env, ctx) {
     return await handleLogout(request, env, ctx, auth);
   }
   if (path === "/api/auth/validate") {
+    // Invalid credentials are a 200 + valid:false verdict, but a temporarily
+    // unreadable authorization backend is NOT evidence the customer is
+    // invalid. Surface a retryable 503 without issuing a premium grant.
+    if (auth.error === "auth_service_unavailable") {
+      return jsonResp(
+        { valid: false, tier: "free", code: "auth_service_unavailable" },
+        503, { "Retry-After": "10", "Cache-Control": "no-store" }
+      );
+    }
     if (!auth.key) return jsonResp({ valid: false, tier: "free" }, 200);
     return jsonResp({ valid: true, tier: auth.tier, sub: auth.sub, jwt: auth.jwt || false }, 200);
   }
