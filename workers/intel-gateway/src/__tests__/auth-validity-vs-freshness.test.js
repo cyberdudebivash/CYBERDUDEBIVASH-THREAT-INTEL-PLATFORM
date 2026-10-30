@@ -70,10 +70,12 @@ function harness(feedState, keyTier = "PRO") {
   };
   const waits = [];
   const ctx = { waitUntil: (p) => waits.push(p) };
-  return async (path, key) => {
-    const headers = { "cf-connecting-ip": "198.51.100.9" };
+  return async (path, key, options = {}) => {
+    const headers = { "cf-connecting-ip": "198.51.100.9", ...(options.headers || {}) };
     if (key) headers["X-API-Key"] = key;
-    const res = await worker.fetch(new Request(`https://intel.cyberdudebivash.com${path}`, { headers }), env, ctx);
+    const res = await worker.fetch(new Request(`https://intel.cyberdudebivash.com${path}`, {
+      method: options.method || "GET", headers, ...(options.body !== undefined ? { body: options.body } : {}),
+    }), env, ctx);
     await Promise.allSettled(waits);
     return { status: res.status, body: await res.json() };
   };
@@ -128,3 +130,30 @@ for (const malformedTier of [null, "pro", "UNKNOWN", "constructor", "__proto__"]
     assert.equal(result.body.tier, "free");
   });
 }
+
+for (const invalidTier of [null, "pro", "UNKNOWN", "constructor", "__proto__"]) {
+  test("login does not mint a JWT from a malformed subscription tier " + String(invalidTier), async () => {
+    const call = harness("fresh", invalidTier);
+    const result = await call("/api/auth/login", null, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: VALID_KEY }),
+    });
+    assert.equal(result.status, 401, JSON.stringify(result.body));
+    assert.equal(result.body.code, "invalid_tier");
+    assert.equal(result.body.token, undefined, "No bearer credential may be issued");
+  });
+}
+
+test("an explicitly provisioned PRO key can still obtain a scoped JWT", async () => {
+  const call = harness("fresh", "PRO");
+  const result = await call("/api/auth/login", null, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: VALID_KEY }),
+  });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.equal(result.body.tier, "PRO");
+  assert.equal(typeof result.body.token, "string");
+  assert.equal(result.body.token.split(".").length, 3);
+});
