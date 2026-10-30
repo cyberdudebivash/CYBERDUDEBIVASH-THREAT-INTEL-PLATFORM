@@ -28,7 +28,13 @@ test('wrong weekly date, old generation, or malformed JSON fail closed',()=>{
   assert.throws(()=>validateWorkerWeeklyCandidate(encode(d),NOW),/STALE_OR_INVALID/);
   d.week='Week 42 2026';d.generated_at='2026-08-25T00:00:00Z';
   assert.throws(()=>validateWorkerWeeklyCandidate(encode(d),NOW),/STALE_OR_INVALID/);
-  assert.throws(()=>validateWorkerWeeklyCandidate(Buffer.from('{'),NOW),/INVALID_JSON/);
+  // The production validator checks the minimum 2-byte body size BEFORE
+  // parsing. Use malformed input that passes the size gate to exercise JSON.
+  assert.throws(()=>validateWorkerWeeklyCandidate(Buffer.from('{x'),NOW),/INVALID_JSON/);
+});
+test('undersized bodies fail closed at the body-size gate before JSON parsing',()=>{
+  assert.throws(()=>validateWorkerWeeklyCandidate(Buffer.alloc(0),NOW),/BODY_SIZE/);
+  assert.throws(()=>validateWorkerWeeklyCandidate(Buffer.from('{'),NOW),/BODY_SIZE/);
 });
 test('oversize object is blocked independently of source classifications',()=>{
   const d=doc();d.description='x'.repeat(1024*1024);
