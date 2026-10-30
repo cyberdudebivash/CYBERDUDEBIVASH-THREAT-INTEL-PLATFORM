@@ -31,6 +31,9 @@ test("gateway authorization paths never default a malformed tier to PRO", () => 
   assert.doesNotMatch(src, /TIERS\[(?:record|payload)\.tier\]\s*\|\|\s*TIERS\.PRO/);
   assert.match(src, /if \(!verifiedJwtTier\) return \{ tier: TIERS\.FREE/);
   assert.match(src, /if \(!verifiedRecordTier\) \{/);
+  assert.match(src, /const loginTier = resolveCanonicalTier\(record\.tier, TIERS\)/);
+  assert.match(src, /tier: loginTier,/);
+  assert.doesNotMatch(src, /tier: record\.tier \|\| TIERS\.PRO/);
   assert.match(src, /const resolvedTier = resolveCanonicalTier\(domainRec\.tier, TIERS\)/);
   assert.match(src, /if \(!resolveCanonicalTier\(tier, TIERS\)\)/);
 });
