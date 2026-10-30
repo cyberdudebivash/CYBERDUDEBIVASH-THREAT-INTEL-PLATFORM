@@ -44,6 +44,28 @@ class PreflightTests(unittest.TestCase):
                                   {"files": {first["path"].lstrip("/"): {}}})
         self.assertEqual(code, 2)
         self.assertEqual(result["reason_code"], "PAGES_MANIFEST_REPORT_MISMATCH")
+        self.assertEqual(result["missing_selected_report_count"], 1)
+        self.assertEqual(result["catalog_report_count"], 2)
+        self.assertEqual(result["pages_report_count"], 1)
+        self.assertNotIn("intel--", json.dumps(result))
+
+    def test_multiple_missing_pages_reports_have_only_sanitized_counts(self):
+        items = [report("a", "2025-10-02T00:00:00Z"),
+                 report("b", "2025-10-03T00:00:00Z"),
+                 report("c", "2025-10-04T00:00:00Z")]
+        items[2]["title"] = "PRIVATE_REPORT_TITLE_DO_NOT_LOG"
+        result, code = self.check(
+            {"reports": items},
+            {"files": {items[0]["path"].lstrip("/"): {}}},
+        )
+        self.assertEqual(code, 2)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertFalse(result["delivery_certified"])
+        self.assertEqual(result["reason_code"], "PAGES_MANIFEST_REPORT_MISMATCH")
+        self.assertEqual(result["missing_selected_report_count"], 2)
+        self.assertEqual(result["catalog_report_count"], 3)
+        self.assertEqual(result["pages_report_count"], 1)
+        self.assertNotIn("PRIVATE_REPORT_TITLE_DO_NOT_LOG", json.dumps(result))
         self.assertNotIn("intel--", json.dumps(result))
 
     def test_naive_timestamp_blocks(self):
