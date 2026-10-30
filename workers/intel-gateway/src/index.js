@@ -777,10 +777,20 @@ async function resolveAuth(request, env) {
         const denied = await env.SECURITY_HUB_KV.get(`jwt_deny:${payload.sub}`);
         if (denied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
       }
-    } catch (_) {}
+    } catch (_) {
+      // A valid signature does not establish that a session is still active.
+      // If revocation KV cannot be read, granting paid JWT privileges would
+      // silently bypass self-service logout and legacy subscription denial.
+      return { tier: TIERS.FREE, key: null, sub: null, error: "auth_service_unavailable" };
+    }
     try {
       if (!strongJwt.customerState) {
-        const billingDenied = await env.API_KEYS_KV?.get(`jwt_deny:${payload.sub}`);
+        // Legacy customers lack a strong customer-state record. In this case,
+        // the billing denial mirror is mandatory, never an optional lookup.
+        if (typeof env.API_KEYS_KV?.get !== "function") {
+          return { tier: TIERS.FREE, key: null, sub: null, error: "auth_service_unavailable" };
+        }
+        const billingDenied = await env.API_KEYS_KV.get(`jwt_deny:${payload.sub}`);
         if (billingDenied) return { tier: TIERS.FREE, key: null, sub: null, error: "subscription_status_denied" };
       }
     } catch (_) {
