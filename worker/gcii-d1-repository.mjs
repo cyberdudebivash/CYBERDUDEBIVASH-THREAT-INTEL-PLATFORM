@@ -1,7 +1,7 @@
 /**
  * GCII D1 repository for Cloudflare Workers.
  * Caller must validate the incident against the shared GCII v1 contract.
- * A single D1 batch commits current state and immutable revision together.
+ * Mutation is disabled pending a verified atomic concurrency design.
  * No automatic publication or network access.
  */
 export class GCIIRevisionConflict extends Error {
@@ -32,7 +32,9 @@ export async function saveIncident(db, event, expectedRevision = 0) {
   }
   statements.push(db.prepare('INSERT INTO gcii_revisions (incident_id,revision,saved_at_utc,payload_json) VALUES (?,?,?,?)')
     .bind(id, revision, savedAt, payload));
-  // D1 batch alone does not provide an application-level compare-and-swap guarantee.\n  // Keep writes disabled until a transactional, verified CAS path is implemented.\n  throw new GCIIRevisionConflict();
+  // D1 batch alone does not provide an application-level compare-and-swap guarantee. 
+  // Keep writes disabled until a transactional, verified CAS path is implemented. 
+  throw new GCIIRevisionConflict();
 }
 export async function listIncidents(db, limit = 100) {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) throw new RangeError('invalid limit');
