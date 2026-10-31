@@ -1,7 +1,9 @@
 """Bounded, allowlisted HTTPS advisory collector.
 
 This collector retrieves source metadata ONLY. It never creates or confirms incidents.
-No automatic publication. Network fetches require an injected, audited transport\nthat pins the resolved public IP to prevent DNS rebinding, verifies TLS hostname,\nand refuses redirects and proxy bypasses. The default path fails closed.
+No automatic publication. Network fetches require an injected, audited transport 
+that pins the resolved public IP to prevent DNS rebinding, verifies TLS hostname, 
+and refuses redirects and proxy bypasses. The default path fails closed.
 """
 from __future__ import annotations
 import hashlib
@@ -55,7 +57,9 @@ def collect(url, allowed_hosts, *, opener=None):
         "User-Agent": USER_AGENT,
         "Accept": "application/json, application/xml, text/xml, text/plain, application/rss+xml"
     })
-    if opener is None:\n        raise CollectionError("network adapter not configured: pinned-DNS transport required")\n    client = opener
+    if opener is None: 
+        raise CollectionError("network adapter not configured: pinned-DNS transport required") 
+    client = opener
     try:
         with client.open(request, timeout=TIMEOUT_SECONDS) as response:
             if getattr(response, "status", 200) != 200:
