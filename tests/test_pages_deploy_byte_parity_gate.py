@@ -2,6 +2,7 @@
 import importlib.util
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 MODULE = Path(__file__).resolve().parents[1] / 'scripts' / 'pages_deploy_byte_parity_gate.py'
@@ -71,6 +72,120 @@ class TestByteParity(unittest.TestCase):
     def test_duplicate_script_tags_denied(self):
         with self.assertRaises(gate.ReleaseParityError):
             gate.script_version(self.html + self.html)
+
+
+    def test_cross_origin_probe_rejected_before_transport(self):
+        origin = "intel.cyberdudebivash.com"
+        forbidden = (
+            "http://" + origin + "/",
+            "https://127.0.0.1/private",
+            "https://other.example/reports",
+            "https://user@" + origin + "/",
+            "https://" + origin + ":8443/reports",
+            "https://" + origin + "/reports#fragment",
+        )
+        with patch.object(gate, "build_opener") as opener:
+            for url in forbidden:
+                with self.subTest(url=url), self.assertRaises(gate.ReleaseParityError):
+                    gate.public_get(url, 64, origin)
+            opener.assert_not_called()
+
+    def test_redirect_target_checked_before_following(self):
+        origin = "intel.cyberdudebivash.com"
+        handler = gate._OriginLockedRedirectHandler(origin)
+        request = gate.Request("https://" + origin + "/")
+        for target in (
+            "http://" + origin + "/",
+            "https://127.0.0.1/metadata",
+            "https://evil.example/",
+            "https://" + origin + ":8443/",
+            "https://user@" + origin + "/",
+        ):
+            with self.subTest(target=target), self.assertRaises(gate.ReleaseParityError):
+                handler.redirect_request(request, None, 302, "Found", {}, target)
+        permitted = handler.redirect_request(
+            request, None, 302, "Found", {}, "https://" + origin + "/reports/"
+        )
+        self.assertEqual(permitted.full_url, "https://" + origin + "/reports/")
+
+    def test_final_response_origin_checked_before_body_read(self):
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def geturl(self):
+                return "https://127.0.0.1/private"
+
+            def read(self, _limit):
+                raise AssertionError("Unsafe response body was read")
+
+        class Opener:
+            def open(self, _req, timeout):
+                self_timeout = timeout
+                if self_timeout != 12:
+                    raise AssertionError("Timeout contract changed")
+                return Response()
+
+        with patch.object(gate, "build_opener", return_value=Opener()):
+            with self.assertRaises(gate.ReleaseParityError):
+                gate.public_get("https://intel.cyberdudebivash.com/", 64,
+                                "intel.cyberdudebivash.com")
+
+    def test_same_origin_fetch_remains_bounded_and_read_only(self):
+        class Response:
+            status = 200
+
+            def __init__(self, body):
+                self.body = body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def geturl(self):
+                return "https://intel.cyberdudebivash.com/"
+
+            def read(self, limit):
+                return self.body[:limit]
+
+        class Opener:
+            def __init__(self, body):
+                self.body = body
+
+            def open(self, req, timeout):
+                assert req.get_method() == "GET"
+                assert timeout == 12
+                return Response(self.body)
+
+        for body, allowed in ((b"ok", True), (b"", False), (b"oversized", False)):
+            with self.subTest(body=body), patch.object(
+                gate, "build_opener", return_value=Opener(body)
+            ):
+                if allowed:
+                    self.assertEqual(gate.public_get(
+                        "https://intel.cyberdudebivash.com/", 2,
+                        "intel.cyberdudebivash.com"), body)
+                else:
+                    with self.assertRaises(gate.ReleaseParityError):
+                        gate.public_get("https://intel.cyberdudebivash.com/", 2,
+                                        "intel.cyberdudebivash.com")
+
+    def test_noncanonical_production_origin_rejected(self):
+        for origin in (
+            "https://intel.cyberdudebivash.com:443",
+            "https://user@intel.cyberdudebivash.com",
+            "https://intel.cyberdudebivash.com/?x=1",
+            "https://intel.cyberdudebivash.com/#x",
+        ):
+            with self.subTest(origin=origin), self.assertRaises(gate.ReleaseParityError):
+                gate.check_once(self.root, origin, self.fetcher)
 
 
 if __name__ == '__main__':
