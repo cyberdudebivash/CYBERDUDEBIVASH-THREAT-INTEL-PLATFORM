@@ -8,7 +8,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from agent.global_incidents import validate_incident, IncidentValidationError
+from agent.global_incidents import validate_incident, IncidentValidationError, _time
 
 SCHEMA = """
 PRAGMA foreign_keys=ON;
@@ -56,7 +56,7 @@ class IncidentStore:
                 revision, previous, previous_updated = current
                 if expected_revision != revision:
                     raise RevisionConflict("revision mismatch")
-                if event["updated_utc"] < previous_updated:
+                if _time(event["updated_utc"]) < _time(previous_updated):
                     raise RevisionConflict("stale incident update")
                 if previous == data:
                     self.db.execute("COMMIT")
