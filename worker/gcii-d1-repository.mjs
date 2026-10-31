@@ -32,8 +32,7 @@ export async function saveIncident(db, event, expectedRevision = 0) {
   }
   statements.push(db.prepare('INSERT INTO gcii_revisions (incident_id,revision,saved_at_utc,payload_json) VALUES (?,?,?,?)')
     .bind(id, revision, savedAt, payload));
-  await db.batch(statements);
-  return revision;
+  // D1 batch alone does not provide an application-level compare-and-swap guarantee.\n  // Keep writes disabled until a transactional, verified CAS path is implemented.\n  throw new GCIIRevisionConflict();
 }
 export async function listIncidents(db, limit = 100) {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) throw new RangeError('invalid limit');
