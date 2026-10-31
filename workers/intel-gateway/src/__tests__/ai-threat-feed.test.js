@@ -348,6 +348,51 @@ test("router: ingest needs X-Admin-Key, rejects a missing source_url with 400, p
   assert.equal(pro.body.item.source_url, HUB.source_url);
 });
 
+// VDP TI-03 (Avinash): runtime router acceptance using synthetic KV credentials.
+// Exercises the actual Worker fetch() route, not just handler-source ordering.
+// Deterministic mode and unconfigured LLM provider bindings guarantee zero paid
+// provider execution and zero production requests. An authorized PRO response
+// is a positive control; denial paths must never reveal a paid result.
+test("VDP TI-03: Copilot router denies anonymous, spoofed, invalid, FREE; admits synthetic PRO without LLM calls", async () => {
+  const { env, req } = gateway(600);
+  const route = "/api/v1/copilot/query";
+  const body = {
+    question: "Summarize synthetic security observables",
+    mode: "ioc_summary",
+    tier: "PRO",
+  };
+  const denied = async (headers, expected, label) => {
+    const r = await req(route, { method: "POST", headers, body });
+    assert.equal(r.status, expected, label + ": " + JSON.stringify(r.body).slice(0, 250));
+    assert.notEqual(r.body.status, "success", label + " must not generate an analysis");
+    assert.equal("ai_analysis" in r.body, false, label + " must not return model content");
+  };
+
+  await denied({}, 401, "anonymous");
+  await denied({ "X-Plan": "ENTERPRISE", "X-Tier": "MSSP", "X-User-Role": "admin" }, 401, "spoofed client tier");
+  await denied({ Authorization: "Bearer invalid.synthetic.token" }, 401, "invalid bearer");
+
+  const freeKey = "cdb_free_test_vdp_copilot_0123456789abcdef";
+  env.API_KEYS_KV._m.set(freeKey, JSON.stringify({
+    tier: "FREE", customer_id: "vdp_synthetic_free", status: "active",
+  }));
+  await denied({ "X-API-Key": freeKey, "X-Plan": "PRO" }, 403, "FREE key plus spoofed tier");
+
+  const pro = await req(route, {
+    method: "POST", headers: { "X-API-Key": PRO_KEY }, body,
+  });
+  assert.equal(pro.status, 200, "valid synthetic PRO key must retain its paid entitlement");
+  assert.equal(pro.body.status, "success");
+  assert.equal(pro.body.mode, "ioc_summary");
+  assert.equal(pro.body.llm_enhanced, false);
+  assert.equal("ai_analysis" in pro.body, false);
+  assert.equal("llm_model" in pro.body, false);
+
+  const modes = await req("/api/v1/copilot/modes");
+  assert.equal(modes.status, 200, "documented public mode listing stays available");
+  assert.equal(modes.body.llm_enabled, false, "public callers cannot infer provider availability");
+});
+
 test("router: unknown API routes return a minimal 404 without privileged endpoint inventory", async () => {
   const { req } = gateway(600);
   const r = await req("/api/no-such-route");
