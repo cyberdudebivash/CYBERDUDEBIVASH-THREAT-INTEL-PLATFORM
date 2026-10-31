@@ -99,7 +99,7 @@ def build_feed(incidents, generated_at=None):
         if identifier in by_id:
             raise IncidentValidationError("duplicate incident id")
         by_id[identifier] = event
-    ordered = sorted(by_id.values(), key=lambda x: (x["updated_utc"], x["id"]), reverse=True)
+    ordered = sorted(by_id.values(), key=lambda x: (_time(x["updated_utc"]), x["id"]), reverse=True)
     payload = {"schema": "cdb.global-incidents.v1", "generated_at_utc": generated_at or datetime.now(timezone.utc).isoformat(), "incidents": ordered}
     _time(payload["generated_at_utc"])
     payload["sha256"] = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
