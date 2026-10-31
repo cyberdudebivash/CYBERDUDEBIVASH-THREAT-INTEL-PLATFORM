@@ -82,8 +82,9 @@ class IncidentStore:
     def list_current(self, limit=500):
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
             raise IncidentValidationError("invalid limit")
-        rows = self.db.execute("SELECT payload FROM incidents ORDER BY updated_utc DESC,id LIMIT ?", (limit,)).fetchall()
-        return [json.loads(row[0]) for row in rows]
+        rows = self.db.execute("SELECT payload FROM incidents").fetchall()
+        ordered = sorted((json.loads(row[0]) for row in rows), key=lambda item: (_time(item["updated_utc"]), item["id"]), reverse=True)
+        return ordered[:limit]
 
     def history(self, identifier, limit=100):
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
