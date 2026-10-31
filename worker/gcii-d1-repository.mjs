@@ -8,7 +8,7 @@ export async function saveIncident(_db, _event, _expectedRevision = 0) {
 export async function listIncidents(db, limit = 100) {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) throw new RangeError('invalid limit');
   if (!db || typeof db.prepare !== 'function') throw new TypeError('invalid D1 binding');
-  const result = await db.prepare('SELECT payload_json FROM gcii_incidents ORDER BY updated_utc DESC,id LIMIT ?')
+  const result = await db.prepare('SELECT payload_json FROM gcii_incidents ORDER BY julianday(updated_utc) DESC,id DESC LIMIT ?')
     .bind(limit).all();
   if (!result || !Array.isArray(result.results) || result.results.length > limit) {
     throw new TypeError('invalid D1 query result');
