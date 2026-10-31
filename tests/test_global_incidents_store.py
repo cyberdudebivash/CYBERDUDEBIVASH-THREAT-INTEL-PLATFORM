@@ -27,6 +27,25 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.store.upsert(item,expected_revision=1),2)
         self.assertEqual(len(self.store.history(item["id"])),2)
         self.assertEqual(self.store.history(item["id"])[1]["event"]["status"],"confirmed")
+    def test_cross_timezone_stale_update(self):
+        item = event()
+        self.store.upsert(item)
+        item["updated_utc"] = "2026-10-31T13:30:00+02:00"
+        with self.assertRaises(RevisionConflict):
+            self.store.upsert(item, expected_revision=1)
+        self.assertEqual(len(self.store.history(item["id"])), 1)
+
+    def test_cross_timezone_listing(self):
+        older = event()
+        older["id"] = "older"
+        older["first_seen_utc"] = "2026-10-31T10:00:00Z"
+        older["updated_utc"] = "2026-10-31T13:00:00+02:00"
+        newer = event()
+        newer["id"] = "newer"
+        self.store.upsert(older)
+        self.store.upsert(newer)
+        self.assertEqual([x["id"] for x in self.store.list_current()], ["newer", "older"])
+
     def test_conflict_fails_closed(self):
         item=event()
         self.store.upsert(item)
