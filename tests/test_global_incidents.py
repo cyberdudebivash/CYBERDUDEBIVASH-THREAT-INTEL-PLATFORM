@@ -36,6 +36,14 @@ class GlobalIncidentTests(unittest.TestCase):
         item = sample()
         item["updated_utc"] = "2026-10-31T12:00:00"
         with self.assertRaises(IncidentValidationError): build_feed([item], NOW)
+    def test_mixed_timezone_ordering(self):
+        early = sample()
+        early["id"] = "early"
+        early["updated_utc"] = "2026-10-31T13:00:00+02:00"
+        late = sample()
+        late["id"] = "late"
+        late["updated_utc"] = "2026-10-31T12:00:00Z"
+        self.assertEqual([i["id"] for i in build_feed([early, late], NOW)["incidents"]], ["late", "early"])
     def test_bad_status_rejected(self):
         item = sample()
         item["status"] = "definitely-hacked"
