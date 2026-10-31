@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 import hashlib
+import ipaddress
 import json
 
 STATUSES = {"investigating", "confirmed", "disputed", "resolved"}
@@ -40,6 +41,15 @@ def _https(value):
             parts.hostname in ("localhost",) or
             parts.hostname.endswith((".local", ".internal"))):
         raise IncidentValidationError("source must be public HTTPS URL")
+    host = parts.hostname.rstrip(".").lower()
+    if not host or "." not in host or any(ord(ch) < 33 for ch in value):
+        raise IncidentValidationError("invalid public source host")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise IncidentValidationError("literal IP source forbidden")
     return value
 
 def _string(value, name, limit=500):
