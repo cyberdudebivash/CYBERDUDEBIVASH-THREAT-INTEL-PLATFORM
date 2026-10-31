@@ -39,6 +39,7 @@ class GlobalIncidentTests(unittest.TestCase):
     def test_mixed_timezone_ordering(self):
         early = sample()
         early["id"] = "early"
+        early["first_seen_utc"] = "2026-10-31T10:00:00Z"
         early["updated_utc"] = "2026-10-31T13:00:00+02:00"
         late = sample()
         late["id"] = "late"
