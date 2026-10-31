@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS incidents (
  updated_utc TEXT NOT NULL,
  payload TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_incidents_updated_instant ON incidents(julianday(updated_utc) DESC, id DESC);
 CREATE TABLE IF NOT EXISTS revisions (
  id TEXT NOT NULL,
  revision INTEGER NOT NULL,
@@ -82,9 +83,8 @@ class IncidentStore:
     def list_current(self, limit=500):
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 500:
             raise IncidentValidationError("invalid limit")
-        rows = self.db.execute("SELECT payload FROM incidents").fetchall()
-        ordered = sorted((json.loads(row[0]) for row in rows), key=lambda item: (_time(item["updated_utc"]), item["id"]), reverse=True)
-        return ordered[:limit]
+        rows = self.db.execute("SELECT payload FROM incidents ORDER BY julianday(updated_utc) DESC, id DESC LIMIT ?", (limit,)).fetchall()
+        return [json.loads(row[0]) for row in rows]
 
     def history(self, identifier, limit=100):
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
