@@ -55,7 +55,9 @@ def collect(url, allowed_hosts, *, opener=None):
         "User-Agent": USER_AGENT,
         "Accept": "application/json, application/xml, text/xml, text/plain, application/rss+xml"
     })
-    if opener is None:\n        raise CollectionError("network adapter not configured: pinned-DNS transport required")\n    client = opener
+    if opener is None:
+        raise CollectionError("network adapter not configured: pinned-DNS transport required")
+    client = opener
     try:
         with client.open(request, timeout=TIMEOUT_SECONDS) as response:
             if getattr(response, "status", 200) != 200:
