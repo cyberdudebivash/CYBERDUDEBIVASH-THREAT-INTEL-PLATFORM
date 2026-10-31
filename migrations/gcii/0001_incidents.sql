@@ -15,4 +15,4 @@ CREATE TABLE IF NOT EXISTS gcii_revisions (
   PRIMARY KEY (incident_id, revision),
   FOREIGN KEY (incident_id) REFERENCES gcii_incidents(id)
 );
-CREATE INDEX IF NOT EXISTS idx_gcii_incidents_updated ON gcii_incidents(updated_utc DESC);
+CREATE INDEX IF NOT EXISTS idx_gcii_incidents_updated ON gcii_incidents(julianday(updated_utc) DESC, id DESC);
