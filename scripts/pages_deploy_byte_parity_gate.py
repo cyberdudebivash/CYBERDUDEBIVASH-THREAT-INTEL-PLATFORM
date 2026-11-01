@@ -17,7 +17,7 @@ import re
 import sys
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 REPO = Path(__file__).resolve().parents[1]
 ASSET = "js/homepage-dashboard-engine.js"
@@ -50,17 +50,50 @@ def expected_source(root: Path = REPO) -> tuple[str, str]:
     return digest[:12], digest
 
 
+def _assert_https_origin(url: str, expected_host: str) -> None:
+    """Reject cross-origin, non-HTTPS, credentialed, and noncanonical probes."""
+    parsed = urlparse(url)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ReleaseParityError("Invalid release probe port") from exc
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.hostname.lower() != expected_host.lower()
+        or parsed.username is not None
+        or parsed.password is not None
+        or port not in (None, 443)
+        or parsed.fragment
+    ):
+        raise ReleaseParityError("Release probe URL violates HTTPS origin policy")
+
+
+class _OriginLockedRedirectHandler(HTTPRedirectHandler):
+    """Validate redirect targets *before* urllib can connect to them."""
+
+    def __init__(self, expected_host: str):
+        super().__init__()
+        self.expected_host = expected_host
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _assert_https_origin(newurl, self.expected_host)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def public_get(url: str, max_bytes: int, expected_host: str) -> bytes:
+    _assert_https_origin(url, expected_host)
     req = Request(url, headers={
         "User-Agent": "SENTINEL-APEX-RELEASE-BYTE-PARITY/1.0",
         "Cache-Control": "no-cache",
         "Pragma": "no-cache",
         "Accept": "text/html,application/javascript,*/*",
     })
-    with urlopen(req, timeout=12) as resp:
-        actual = urlparse(resp.geturl())
-        if actual.scheme != "https" or actual.netloc.lower() != expected_host.lower():
-            raise ReleaseParityError("Unexpected cross-origin redirect")
+    # urllib's default redirect handler follows a redirect before the old
+    # post-response origin check could reject it. Lock redirects at the boundary.
+    opener = build_opener(_OriginLockedRedirectHandler(expected_host))
+    with opener.open(req, timeout=12) as resp:
+        _assert_https_origin(resp.geturl(), expected_host)
         if resp.status != 200:
             raise ReleaseParityError("Unexpected HTTP status: " + str(resp.status))
         blob = resp.read(max_bytes + 1)
@@ -68,10 +101,16 @@ def public_get(url: str, max_bytes: int, expected_host: str) -> bytes:
             raise ReleaseParityError("Missing or oversized release asset")
         return blob
 
-
 def check_once(source: Path = REPO, platform_url: str = "https://intel.cyberdudebivash.com", getter=public_get) -> dict:
     origin = urlparse(platform_url)
-    if origin.scheme != "https" or not origin.netloc or origin.path not in ("", "/"):
+    if (
+        origin.scheme != "https"
+        or not origin.hostname
+        or origin.netloc.lower() != origin.hostname.lower()
+        or origin.path not in ("", "/")
+        or origin.query
+        or origin.fragment
+    ):
         raise ReleaseParityError("Invalid canonical HTTPS production origin")
     expected_short, expected_full = expected_source(source)
     # Unique query each run avoids an old cached homepage. The versioned JS
