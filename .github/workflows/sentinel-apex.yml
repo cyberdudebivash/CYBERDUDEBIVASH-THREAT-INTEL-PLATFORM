@@ -4211,13 +4211,17 @@ jobs:
       # Offline only: zero Cloudflare/R2 calls. This is a precheck, NOT proof
       # of R2 publication or paid customer delivery. Preserve fail-closed.
       - name: "P0 predeploy Pages/report catalog parity (offline HARD FAIL)"
+        id: p0-pages-parity-preflight
         run: python3 scripts/p0_pages_report_parity_preflight.py
 
       - name: "STAGE 5 - Deploy to GitHub Pages"
+        id: p0-pages-deploy
+        # P0: an explicit if: expression suppresses GitHub's implicit success()
+        # dependency. Never push gh-pages when the offline parity preflight fails.
         # v184.0: deploy only after 5.4.7 verified dist/ integrity — never deploy
         # a broken or incomplete artifact. This gate ensures convergence validator
         # will see a fully-populated gh-pages with all report files.
-        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' && steps.monetization-gate.conclusion == 'success' }}
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' && steps.monetization-gate.conclusion == 'success' && steps['p0-pages-parity-preflight'].outcome == 'success' }}
         timeout-minutes: 15
         # v184.8 FIX: was on the floating @v4.8.0 tag -- this job holds
         # pages:write and pushes to gh-pages, so a re-pointed tag would deploy
@@ -4243,7 +4247,8 @@ jobs:
       # actually live" is itself the actionable signal this step exists to surface.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.4.9.1 - GitHub Pages Deployment Freshness Gate (v184.1)"
-        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' }}
+        # Never probe a deployment that the Pages parity preflight blocked.
+        if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.verify-dist.conclusion == 'success' && steps['p0-publisher-verdict'].conclusion == 'success' && steps.dashboard-main.conclusion == 'success' && steps['p0-pages-parity-preflight'].outcome == 'success' && steps['p0-pages-deploy'].outcome == 'success' }}
         timeout-minutes: 14
         env:
           PLATFORM_URL: https://intel.cyberdudebivash.com
