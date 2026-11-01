@@ -99,6 +99,19 @@ class TestBuildReportsIndexArtifactFallback(unittest.TestCase):
         return path
 
     def _write_feed(self, items):
+        # Fixtures are authored before their feed timestamps. Place each
+        # artifact in the same canonical UTC month as its feed evidence so
+        # fallback tests do not inadvertently exercise chronology rejection.
+        for item in items:
+            raw = item.get("timestamp")
+            if not raw:
+                continue
+            ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            for path in (self.tmp / "reports").rglob(item["id"] + ".html"):
+                target = self.tmp / "reports" / ts.strftime("%Y") / ts.strftime("%m") / path.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if path != target:
+                    path.replace(target)
         (self.tmp / "api" / "feed.json").write_text(json.dumps(items), encoding="utf-8")
 
     def _run(self):

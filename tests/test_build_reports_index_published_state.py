@@ -36,27 +36,31 @@ class PublishedStateIndexTest(unittest.TestCase):
         bri.API_FEED.parent.mkdir(parents=True)
         bri.PUBLISH_STATE.parent.mkdir(parents=True)
         self.now = datetime.now(timezone.utc)
+        self._feed_times = {}
 
     def tearDown(self):
         bri.REPORTS_ROOT, bri.API_FEED, bri.API_REPORTS, bri.PUBLISH_STATE = self._orig
         self._tmp.cleanup()
 
     def _feed(self, ids_hours):
+        self._feed_times = {i: self.now - timedelta(hours=h) for i, h in ids_hours}
         bri.API_FEED.write_text(json.dumps([
-            {"id": i, "title": f"t {i}", "severity": "HIGH", "timestamp": _iso(self.now - timedelta(hours=h))}
-            for i, h in ids_hours]))
+            {"id": i, "title": f"t {i}", "severity": "HIGH", "timestamp": _iso(self._feed_times[i])}
+            for i, _h in ids_hours]))
 
     def _state(self, entries):
         bri.PUBLISH_STATE.write_text(json.dumps({"schema_version": "1.0", "items": entries}))
 
     def _entry(self, rid, sha=True):
-        e = {"html_key": f"reports/2026/09/{rid}.html", "canonical_ts": _iso(self.now)}
+        ts = self._feed_times.get(rid, self.now)
+        e = {"html_key": f"reports/{ts:%Y/%m}/{rid}.html", "canonical_ts": _iso(ts)}
         if sha:
             e["html_sha256"] = "ab" * 32
         return e
 
     def _disk(self, rid):
-        d = bri.REPORTS_ROOT / "2026" / "09"
+        ts = self._feed_times.get(rid, self.now)
+        d = bri.REPORTS_ROOT / ts.strftime("%Y") / ts.strftime("%m")
         d.mkdir(parents=True, exist_ok=True)
         (d / f"{rid}.html").write_text("<html>" + "x" * 600 + "</html>")
 

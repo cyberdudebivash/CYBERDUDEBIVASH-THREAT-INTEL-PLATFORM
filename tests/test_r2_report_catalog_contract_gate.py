@@ -20,7 +20,8 @@ def catalog(tmp_path, monkeypatch):
     folder = tmp_path / "api" / "reports"
     folder.mkdir(parents=True)
     timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    path = "/reports/2026/10/intel--aaaaaaaaaaaaaaaa.html"
+    month = datetime.fromisoformat(timestamp.replace("Z", "+00:00")).strftime("%Y/%m")
+    path = f"/reports/{month}/intel--aaaaaaaaaaaaaaaa.html"
     row = {"id": "intel--aaaaaaaaaaaaaaaa", "path": path,
            "url": "https://intel.cyberdudebivash.com" + path,
            "timestamp": timestamp, "severity": "HIGH"}

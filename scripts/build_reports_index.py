@@ -191,6 +191,26 @@ def _published_report_paths() -> List[Path]:
     return paths
 
 
+def _path_matches_canonical_month(path: Path, published: datetime) -> bool:
+    """Keep only reports whose immutable path month matches proven UTC time.
+
+    Never relabel, relocate, or infer a report timestamp to make a catalog
+    pass. A mismatch is withheld from all three catalog artifacts; the
+    underlying R2/Pages object remains untouched for provenance review.
+    """
+    try:
+        parts = path.relative_to(REPORTS_ROOT).parts
+    except ValueError:
+        return False
+    return (
+        len(parts) == 3
+        and parts[0] == published.strftime("%Y")
+        and parts[1] == published.strftime("%m")
+        and path.name.startswith("intel--")
+        and path.suffix == ".html"
+    )
+
+
 def _fmt_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -338,6 +358,7 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     _dated: List[tuple] = []
     _excluded_stale_or_unproven = 0
+    _excluded_month_mismatch = 0
     _on_disk = [p for p in REPORTS_ROOT.rglob("intel--*.html")
                 if p.is_file() and p.stat().st_size > 512] if REPORTS_ROOT.exists() else []
     _seen_ids = {_extract_id_from_path(p) for p in _on_disk}
@@ -354,7 +375,20 @@ def main() -> int:
         if not (0 <= age_hours <= REPORT_WINDOW_HOURS):
             _excluded_stale_or_unproven += 1
             continue
+        # The strict release chronology gate requires report path YYYY/MM
+        # to match the canonical UTC timestamp. Enforce at the sole catalog
+        # writer so a cross-month artifact cannot poison the entire trio.
+        # Exclusion is fail-closed; never change report paths or timestamps.
+        if not _path_matches_canonical_month(p, ts):
+            _excluded_month_mismatch += 1
+            continue
         _dated.append((ts, p))
+    if _excluded_month_mismatch:
+        log.warning(
+            "Withheld %d report(s) with path month / canonical UTC mismatch; "
+            "no report objects modified or relabelled.",
+            _excluded_month_mismatch,
+        )
     _dated.sort(key=lambda t: t[0], reverse=True)  # newest first
     all_report_paths = [p for _ts, p in _dated]
     # Reuse the same trusted UTC timestamp that passed the hot-window gate.

@@ -122,6 +122,48 @@ class TestEndToEndIndexBuild(_IsolatedRepoTestCase):
         ids = {r["id"] for r in index["reports"]}
         self.assertEqual(ids, {fresh_id})
 
+    def test_cross_month_report_is_withheld_from_all_catalog_artifacts(self):
+        """A fresh feed timestamp cannot authorize an older-month report path."""
+        now = datetime.now(timezone.utc)
+        ts = now - timedelta(minutes=2)
+        wrong_month = (ts.replace(day=1) - timedelta(days=1))
+        report_id = "intel--aabbccddeeff0011"
+        self._write_report(report_id, wrong_month.strftime("%Y"),
+                           wrong_month.strftime("%m"))
+        self._write_feed([{"id": report_id, "timestamp": _iso(ts),
+                           "title": "Cross-month record"}])
+        self.assertEqual(bri.main(), 0)
+        for name in ("index.json", "latest.json"):
+            payload = json.loads((bri.API_REPORTS / name).read_text())
+            self.assertEqual(payload["reports"], [])
+            self.assertEqual(payload["total_reports"], 0)
+        stats = json.loads((bri.API_REPORTS / "stats.json").read_text())
+        self.assertEqual(stats["total_reports"], 0)
+
+    def test_valid_and_mismatched_months_preserve_valid_catalog(self):
+        """Never silently relabel the invalid report or drop valid siblings."""
+        now = datetime.now(timezone.utc)
+        ts = now - timedelta(minutes=2)
+        wrong_month = ts.replace(day=1) - timedelta(days=1)
+        good = "intel--1122334455667788"
+        bad = "intel--8899aabbccddeeff"
+        self._write_report(good, ts.strftime("%Y"), ts.strftime("%m"))
+        self._write_report(bad, wrong_month.strftime("%Y"),
+                           wrong_month.strftime("%m"))
+        self._write_feed([
+            {"id": good, "timestamp": _iso(ts), "severity": "HIGH"},
+            {"id": bad, "timestamp": _iso(ts), "severity": "HIGH"},
+        ])
+        self.assertEqual(bri.main(), 0)
+        index = json.loads((bri.API_REPORTS / "index.json").read_text())
+        latest = json.loads((bri.API_REPORTS / "latest.json").read_text())
+        stats = json.loads((bri.API_REPORTS / "stats.json").read_text())
+        self.assertEqual([r["id"] for r in index["reports"]], [good])
+        self.assertEqual(latest["reports"], index["reports"])
+        self.assertEqual(index["total_reports"], 1)
+        self.assertEqual(stats["total_reports"], 1)
+        self.assertEqual(stats["by_severity"]["HIGH"], 1)
+
     def test_empty_window_writes_valid_json_all_three_files_with_message(self):
         """No reports at all -- must still write valid, non-omitted
         index.json / latest.json / stats.json, each carrying the exact
