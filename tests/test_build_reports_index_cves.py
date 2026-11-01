@@ -46,9 +46,10 @@ class CatalogCarriesCvesTest(unittest.TestCase):
         bri.API_REPORTS = root / "api" / "reports"
         bri.PUBLISH_STATE = root / "data" / "cache" / "r2_report_publish_state.json"
         bri.API_FEED.parent.mkdir(parents=True)
-        d = bri.REPORTS_ROOT / "2026" / "09"
+        recent = datetime.now(timezone.utc) - timedelta(hours=1)
+        d = bri.REPORTS_ROOT / recent.strftime("%Y") / recent.strftime("%m")
         d.mkdir(parents=True)
-        ts = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = recent.strftime("%Y-%m-%dT%H:%M:%SZ")
         # Shape of a live feed item: cve_id + cve_ids, no "cve" key.
         items = [
             {"id": "intel--kev00001", "title": "CISA adds WordPress flaw to KEV", "severity": "CRITICAL",
