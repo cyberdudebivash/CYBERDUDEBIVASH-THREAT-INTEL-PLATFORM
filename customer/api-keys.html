@@ -68,6 +68,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
 #toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transform:translateY(20px);transition:all 0.3s;}
 #toast.show{opacity:1;transform:translateY(0);}
 </style>
+<meta name="referrer" content="no-referrer">
 </head>
 <body>
 <nav>
@@ -177,10 +178,11 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
 <script>
 const API = 'https://revenue.intel.cyberdudebivash.com';
 let currentKey = '';
-// Set from the URL's ?token= param (see bottom of this script) -- the portal
-// API requires this on every request (HMAC of the email, checked server-side)
-// and refuses email-only lookups by design, so there is no email-only path.
+// New customer portal grants arrive in a URL fragment, never a query string;
+// we remove the fragment immediately and retain the grant in memory only.
+// Existing query-token links remain supported pending a bounded migration.
 let portalToken = '';
+let portalTokenV2 = false;
 
 async function lookupAccount() {
   const email = document.getElementById('lookupEmail').value.trim();
@@ -198,7 +200,15 @@ async function lookupAccount() {
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled = true;
   try {
-    const res = await fetch(`${API}/api/customer/portal?email=${encodeURIComponent(email)}&token=${encodeURIComponent(portalToken)}`);
+    const res = portalTokenV2
+      ? await fetch(`${API}/api/customer/portal`, {
+          method: 'POST', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${portalToken}` },
+          body: JSON.stringify({ email: email.toLowerCase() }),
+        })
+      : await fetch(`${API}/api/customer/portal?email=${encodeURIComponent(email)}&token=${encodeURIComponent(portalToken)}`, {
+          cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
+        });
     const data = await res.json();
     if (!res.ok || data.error) {
       errEl.textContent = data.message || 'No account found. Check your email or subscribe at /PAYMENT-GATEWAY.html';
@@ -306,12 +316,27 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// Auto-lookup from the portal link's URL params (?email=...&token=...)
-const params = new URLSearchParams(location.search);
+// Read v2 signed link from the fragment and erase it from history BEFORE any
+// requests. Read and erase legacy query-token links as well. Leave #redeem
+// untouched so the existing one-time API key redemption still works.
+const pageUrl = new URL(location.href);
+const params = pageUrl.searchParams;
 const emailParam = params.get('email');
 const tokenParam = params.get('token');
-if (tokenParam) portalToken = tokenParam;
-if (emailParam) { document.getElementById('lookupEmail').value = emailParam; if (portalToken) lookupAccount(); }
+const portalFragment = /^#portal=(v2\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)$/.exec(pageUrl.hash);
+if (portalFragment) {
+  portalToken = portalFragment[1];
+  portalTokenV2 = true;
+  history.replaceState(null, '', pageUrl.pathname + pageUrl.search);
+} else if (tokenParam) {
+  portalToken = tokenParam;
+  params.delete('token');
+  history.replaceState(null, '', pageUrl.pathname + '?' + params.toString() + pageUrl.hash);
+}
+if (emailParam) {
+  document.getElementById('lookupEmail').value = emailParam;
+  if (portalToken) lookupAccount();
+}
 
 // One-time redemption (F22). The token stays in memory only: it is removed
 // from the address bar at once and sent only in a POST body.
