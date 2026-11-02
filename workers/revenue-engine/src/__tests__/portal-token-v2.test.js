@@ -157,6 +157,23 @@ test('malformed customer identity types fail with 400 and perform zero KV reads'
   }
 });
 
+test('backend exceptions never disclose internal errors, credentials or customer data', async () => {
+  const { env } = fakeEnv();
+  const sentinel = 'TEST_ONLY_PRIVATE_PROVIDER_CREDENTIAL_AND_CUSTOMER_DATA';
+  env.REVENUE_CRM_KV.get = async () => {
+    throw new Error(sentinel);
+  };
+  const token = await issuePortalTokenV2(env, EMAIL);
+  const result = await worker.fetch(post(EMAIL, token), env, ctx);
+  assert.equal(result.status, 500);
+  const body = await result.json();
+  assert.equal(body.error, 'internal_error');
+  assert.equal(body.message, 'An internal error occurred.');
+  assert.ok(typeof body.rid === 'string' && body.rid.length > 0);
+  assert.equal(JSON.stringify(body).includes(sentinel), false);
+  assert.equal(JSON.stringify(body).includes(EMAIL), false);
+});
+
 test('full route: legacy GET remains available until reviewed migration, then fails closed', async () => {
   const old = legacyToken();
   const initial = fakeEnv({REVENUE_PORTAL_V2_ENABLED: undefined, REVENUE_PORTAL_HMAC_KEY: undefined});
