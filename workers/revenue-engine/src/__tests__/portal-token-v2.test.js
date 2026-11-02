@@ -34,9 +34,9 @@ function fakeEnv(add = {}) {
   return { env, reads };
 }
 
-const URL = 'https://revenue.intel.cyberdudebivash.com/api/customer/portal';
+const PORTAL_URL = 'https://revenue.intel.cyberdudebivash.com/api/customer/portal';
 const ctx = { waitUntil() {} };
-function post(email, bearer, path = URL, extra = {}) {
+function post(email, bearer, path = PORTAL_URL, extra = {}) {
   return new Request(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
@@ -111,8 +111,8 @@ test('full route: missing/wrong/other customer token denies without KV reads', a
   }
   const {env, reads} = fakeEnv();
   const token = await issuePortalTokenV2(env, EMAIL);
-  assert.equal((await worker.fetch(post(EMAIL, token, URL+'?token='+encodeURIComponent(token)), env, ctx)).status, 401);
-  assert.equal((await worker.fetch(new Request(URL, {
+  assert.equal((await worker.fetch(post(EMAIL, token, PORTAL_URL+'?token='+encodeURIComponent(token)), env, ctx)).status, 401);
+  assert.equal((await worker.fetch(new Request(PORTAL_URL, {
     method:'POST', headers:{ 'content-type':'application/json', 'X-Admin-Secret':ADMIN },
     body:JSON.stringify({email:EMAIL}),
   }),env,ctx)).status,401);
@@ -122,14 +122,14 @@ test('full route: missing/wrong/other customer token denies without KV reads', a
 test('full route: legacy GET remains available until reviewed migration, then fails closed', async () => {
   const old = legacyToken();
   const initial = fakeEnv({REVENUE_PORTAL_V2_ENABLED: undefined, REVENUE_PORTAL_HMAC_KEY: undefined});
-  assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token='+old),initial.env,ctx)).status,200);
+  assert.equal((await worker.fetch(new Request(PORTAL_PORTAL_URL+'?email='+EMAIL+'&token='+old),initial.env,ctx)).status,200);
   const migrated = fakeEnv();
-  assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token='+old),migrated.env,ctx)).status,401);
+  assert.equal((await worker.fetch(new Request(PORTAL_PORTAL_URL+'?email='+EMAIL+'&token='+old),migrated.env,ctx)).status,401);
   const future = new Date(Math.floor((Date.now()+3600_000)/1000)*1000).toISOString().replace('.000Z','Z');
   const grace = fakeEnv({REVENUE_PORTAL_LEGACY_ACCEPT_UNTIL:future});
-  assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token='+old),grace.env,ctx)).status,200);
-  assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token=bad'),grace.env,ctx)).status,401);
-  assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token=v2.invalid.invalid'),grace.env,ctx)).status,401);
+  assert.equal((await worker.fetch(new Request(PORTAL_PORTAL_URL+'?email='+EMAIL+'&token='+old),grace.env,ctx)).status,200);
+  assert.equal((await worker.fetch(new Request(PORTAL_PORTAL_URL+'?email='+EMAIL+'&token=bad'),grace.env,ctx)).status,401);
+  assert.equal((await worker.fetch(new Request(PORTAL_PORTAL_URL+'?email='+EMAIL+'&token=v2.invalid.invalid'),grace.env,ctx)).status,401);
 });
 
 test('customer HTML uses fragment-only v2 link and bearer POST while preserving #redeem', () => {
