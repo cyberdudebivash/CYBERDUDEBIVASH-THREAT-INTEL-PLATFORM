@@ -278,6 +278,33 @@ def test_malformed_reports_catalog_cannot_create_synthetic_history(monkeypatch, 
         dcv._extract_report_urls([], {"files": {}})
 
 
+def test_phase5_small_catalog_diagnosed_without_network_or_gate_bypass(monkeypatch, tmp_path):
+    catalog = tmp_path / "index.json"
+    catalog.write_text(json.dumps({"reports": [{"id": i} for i in range(13)]}), encoding="utf-8")
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
+    monkeypatch.setattr(dcv, "MAX_REPORT_PROBES", 15)
+    monkeypatch.setattr(dcv, "_extract_report_urls", lambda *a: (OK_REPORTS[:2], []))
+    monkeypatch.setattr(dcv, "_probe_batch", lambda *a: pytest.fail("no network probes allowed"))
+    result = dcv.phase5_historical_report_audit([], {})
+    assert not result.success
+    assert result.probes == []
+    assert "catalog_count=13 <= latest_probe_limit=15" in result.message
+    assert "continuity unverified" in result.message
+
+
+def test_phase5_invalid_catalog_preserves_generic_fail_closed_reason(monkeypatch, tmp_path):
+    catalog = tmp_path / "index.json"
+    catalog.write_text("{invalid json", encoding="utf-8")
+    monkeypatch.setattr(dcv, "REPORTS_CATALOG_PATH", catalog)
+    monkeypatch.setattr(dcv, "_extract_report_urls", lambda *a: (OK_REPORTS[:2], []))
+    monkeypatch.setattr(dcv, "_probe_batch", lambda *a: pytest.fail("no network probes allowed"))
+    result = dcv.phase5_historical_report_audit([], {})
+    assert not result.success
+    assert result.probes == []
+    assert "HISTORICAL EVIDENCE MISSING" in result.message
+    assert "catalog_count=" not in result.message
+
+
 def test_missing_historical_evidence_fails_without_requests(monkeypatch):
     monkeypatch.setattr(dcv, "_extract_report_urls", lambda *a: ([OK_REPORTS[0]], []))
     monkeypatch.setattr(dcv, "_probe_batch", lambda *a: pytest.fail("no history must not probe"))
