@@ -156,7 +156,7 @@ def test_incomplete_historical_sample_is_explicit_and_fail_closed(
     assert "2 excluded as expected publication-gate rejections" in phase.message
 
 
-def test_full_healthy_protocol_completes_phase5_within_existing_cap(
+def test_all_gate_rejected_reports_do_not_certify_historical_delivery(
     monkeypatch, clean_budget, tmp_path
 ):
     paths = [
@@ -199,10 +199,42 @@ def test_full_healthy_protocol_completes_phase5_within_existing_cap(
     phase4 = dcv.phase4_convergence_confirmation([], manifest)
     phase5 = dcv.phase5_historical_report_audit([], manifest)
 
-    assert all(phase.success for phase in (phase1, phase2, phase3, phase4, phase5))
+    # Every historical report in this fixture returns 404 and its
+    # publication-status is REJECTED. Such denials are expected enforcement,
+    # NOT positive evidence that a historical report was delivered. The
+    # convergence control was deliberately tightened to fail closed.
+    assert all(phase.success for phase in (phase1, phase2, phase3, phase4))
+    assert not phase5.success
+    assert "HISTORICAL POSITIVE EVIDENCE MISSING" in phase5.message
     assert len(phase5.probes) == dcv.HIST_PROBE_COUNT
     assert dcv._REQUESTS_USED <= dcv.MAX_TOTAL_REQUESTS
     assert len(publication_reads) == 20
+
+
+
+def test_historical_verified_200_plus_expected_gate_rejection_can_pass(
+    monkeypatch, clean_budget
+):
+    urls = [
+        f"{dcv.PAGES_BASE_URL}/reports/2026/10/intel--{i:024x}.html"
+        for i in range(2)
+    ]
+    samples = [
+        dcv.ProbeResult(
+            url=urls[0], status_code=200, latency_ms=1, success=True,
+        ),
+        dcv.ProbeResult(
+            url=urls[1], status_code=404, latency_ms=1, success=True,
+            gate_rejected=True,
+        ),
+    ]
+    monkeypatch.setattr(dcv, "_extract_report_urls", lambda *args: ([], urls))
+    monkeypatch.setattr(dcv, "_probe_batch", lambda *args: (samples, 2, 0))
+
+    phase = dcv.phase5_historical_report_audit([], {})
+    assert phase.success is True
+    assert "1/1 historical reports accessible" in phase.message
+    assert "1 excluded as expected publication-gate rejections" in phase.message
 
 
 def test_not_probed_is_distinct_from_permanent_404(monkeypatch, clean_budget):
