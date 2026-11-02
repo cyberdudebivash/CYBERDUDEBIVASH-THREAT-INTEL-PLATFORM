@@ -921,13 +921,21 @@ def phase5_historical_report_audit(feed: List[dict], manifest: dict) -> PhaseRes
     unprobed = len(historical_urls) - len(results)
     effective_total = len(results) - gate_rejected
     effective_ok = ok - gate_rejected
-    success_rate = (effective_ok / effective_total) if effective_total else 1.0
+    # Gate-rejected 404s are expected denials, not proof that any historical
+    # report was actually delivered. A zero-denominator cohort must not earn
+    # a 100% continuity verdict or the Phase 5 release-confidence points.
+    success_rate = (effective_ok / effective_total) if effective_total else 0.0
     phase_success = (
-        unprobed == 0 and effective_ok == effective_total
-    )  # No sampled historical loss or unverified sample is accepted.
+        unprobed == 0 and effective_total > 0 and effective_ok == effective_total
+    )  # Require at least one independently delivered historical sample.
 
     duration = time.monotonic() - t0
-    if not phase_success:
+    if effective_total == 0:
+        log.error(
+            "Phase 5: HISTORICAL POSITIVE EVIDENCE MISSING - %d publication-gate "
+            "rejections cannot establish historical report delivery", gate_rejected,
+        )
+    elif not phase_success:
         log.error(
             "Phase 5: HISTORICAL VERIFICATION INCOMPLETE  -  "
             "%d/%d completed non-gate probes accessible; %d failed, "
@@ -947,7 +955,7 @@ def phase5_historical_report_audit(feed: List[dict], manifest: dict) -> PhaseRes
         message=f"{effective_ok}/{effective_total} historical reports accessible "
                 f"({success_rate:.0%}) across completed non-gate probes, {unprobed} unprobed, "
                 f"{gate_rejected} excluded as expected publication-gate rejections. "
-                f"{'PASS' if phase_success else 'HISTORICAL VERIFICATION INCOMPLETE'}",
+                f"{'PASS' if phase_success else ('HISTORICAL POSITIVE EVIDENCE MISSING' if effective_total == 0 else 'HISTORICAL VERIFICATION INCOMPLETE')}",
     )
 
 
