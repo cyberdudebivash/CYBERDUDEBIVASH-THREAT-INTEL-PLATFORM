@@ -9,6 +9,41 @@ const TTL_SECONDS = 24 * 60 * 60;
 const MAX_LEGACY_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
 const B64URL = /^[A-Za-z0-9_-]+$/;
 
+/**
+ * Stream-limited JSON reader: does not allocate arbitrary attacker-controlled
+ * bodies before applying the 2 KiB portal request budget.
+ */
+export async function readBoundedPortalJson(request) {
+  const reader = request?.body?.getReader();
+  if (!reader) return { ok: false, status: 400 };
+  let used = 0;
+  const chunks = [];
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array)) return { ok: false, status: 400 };
+      used += value.byteLength;
+      if (used > 2048) {
+        await reader.cancel().catch(() => {});
+        return { ok: false, status: 413 };
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(used);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    const payload = JSON.parse(decoder.decode(bytes));
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+      return { ok: false, status: 400 };
+    return { ok: true, payload };
+  } catch {
+    return { ok: false, status: 400 };
+  } finally {
+    try { reader.releaseLock(); } catch {}
+  }
+}
+
 export function portalV2Enabled(env) {
   return env?.REVENUE_PORTAL_V2_ENABLED === 'true';
 }
