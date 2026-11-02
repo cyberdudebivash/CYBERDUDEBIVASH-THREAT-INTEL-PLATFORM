@@ -883,6 +883,35 @@ def _is_expected_publication_rejection(url: str) -> bool:
     return data.get("customer_ready") is False
 
 
+def _historical_evidence_missing_reason() -> str:
+    """Explain a missing historical sample without weakening the release gate.
+
+    A canonical catalog with <= MAX_REPORT_PROBES records has no disjoint
+    historical cohort under strict UTC probe selection. Only bounded local
+    metadata is read; never synthesize historical URLs or probe the network.
+    """
+    generic = (
+        "HISTORICAL EVIDENCE MISSING - no historical report URLs available; "
+        "continuity unverified."
+    )
+    try:
+        if not REPORTS_CATALOG_PATH.is_file():
+            return generic
+        if REPORTS_CATALOG_PATH.stat().st_size > 20_000_000:
+            return generic
+        catalog = json.loads(REPORTS_CATALOG_PATH.read_text(encoding="utf-8"))
+        rows = catalog.get("reports") if isinstance(catalog, dict) else None
+        if isinstance(rows, list) and 0 < len(rows) <= MAX_REPORT_PROBES:
+            return (
+                "HISTORICAL EVIDENCE MISSING - "
+                f"catalog_count={len(rows)} <= latest_probe_limit={MAX_REPORT_PROBES}; "
+                "no disjoint historical sample; continuity unverified."
+            )
+    except (OSError, ValueError, UnicodeError, TypeError):
+        return generic
+    return generic
+
+
 def phase5_historical_report_audit(feed: List[dict], manifest: dict) -> PhaseResult:
     """
     Phase 5: Historical report continuity verification.
@@ -902,13 +931,14 @@ def phase5_historical_report_audit(feed: List[dict], manifest: dict) -> PhaseRes
     if not historical_urls:
         # Missing audit evidence cannot establish historical continuity. Do not
         # spend extra shared-plan requests or award a synthetic successful phase.
-        log.error("Phase 5: HISTORICAL EVIDENCE MISSING - no historical report URLs available to audit.")
+        reason = _historical_evidence_missing_reason()
+        log.error("Phase 5: %s", reason)
         duration = time.monotonic() - t0
         return PhaseResult(
             phase=5, name="Historical Report Audit",
             success=False,
             probes=[], duration_s=round(duration, 1),
-            message="HISTORICAL EVIDENCE MISSING - no historical report URLs available; continuity unverified.",
+            message=reason,
         )
 
     log.info("Phase 5: Probing %d historical report URLs...", len(historical_urls))
