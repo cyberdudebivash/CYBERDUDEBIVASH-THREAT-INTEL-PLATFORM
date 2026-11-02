@@ -194,6 +194,11 @@ test('customer HTML uses fragment-only v2 link and bearer POST while preserving 
   assert.match(frontend, /portalTokenV2 = true/);
   assert.match(frontend, /method: 'POST', cache: 'no-store'/);
   assert.match(frontend, /history\.replaceState/);
+  const referrerPosition = frontend.indexOf('<meta name="referrer" content="no-referrer">');
+  const firstScriptPosition = frontend.indexOf('<script');
+  assert.ok(referrerPosition >= 0 && referrerPosition < firstScriptPosition,
+    'portal tokens must not be sent in Referer before initial script loading');
+
   assert.match(frontend, /#redeem=/);
   assert.match(backend, /portalV2Enabled\(env\)/);
   assert.match(backend, /verifyPortalTokenV2\(env, cleanEmail/);
