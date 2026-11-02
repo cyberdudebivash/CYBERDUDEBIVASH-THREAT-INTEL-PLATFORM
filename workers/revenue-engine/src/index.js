@@ -2427,6 +2427,11 @@ async function handleCustomerPortal(request, env, rid) {
   } else {
     email = url.searchParams.get("email");
   }
+  // Untrusted JSON is not guaranteed to contain a string. Reject malformed
+  // subjects before calling the legacy sanitizer (which expects .trim()).
+  if (isV2 && typeof email !== "string") {
+    return json({ error: "invalid_email" }, 400);
+  }
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return json({ error:"invalid_email" }, 400);
   if (isV2) {
