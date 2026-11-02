@@ -1,7 +1,7 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX -- Revenue Engine Auto-Deploy
+# CYBERDUDEBIVASH(R) SENTINEL APEX -- Revenue Engine Manual-Only Guarded Release
 # =============================================================================
-# Deploys workers/revenue-engine whenever its source or wrangler.toml changes.
+# Deploys workers/revenue-engine only after explicit manual release approval.
 # Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID (same Cloudflare account/token
 # already used by deploy-worker.yml for workers/intel-gateway -- no new
 # secrets needed).
@@ -27,12 +27,12 @@
 name: deploy-revenue-engine v201.0
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'workers/revenue-engine/src/**'
-      - 'workers/revenue-engine/wrangler.toml'
   workflow_dispatch:
+    inputs:
+      approved_commit_sha:
+        description: 'Exact reviewed 40-character main commit SHA authorized for production'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -51,8 +51,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.actor != 'github-actions[bot]')
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.approved_commit_sha == github.sha
 
     steps:
       - name: "Checkout repository"
@@ -96,7 +97,7 @@ jobs:
         # subscription-lifecycle.test.js trust-boundary gate.
         run: |
           cd ${WORKER_DIR}
-          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js src/__tests__/billing-go-live.test.js src/__tests__/billing-center.test.js src/__tests__/cross-worker-revocation.test.js src/__tests__/commercial-readiness.test.js src/__tests__/pricing-fail-closed.test.js src/__tests__/subscription-webhook-hardening.test.js src/__tests__/renewal-and-key-email.test.js src/__tests__/activation-link.test.js
+          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js src/__tests__/billing-go-live.test.js src/__tests__/billing-center.test.js src/__tests__/cross-worker-revocation.test.js src/__tests__/commercial-readiness.test.js src/__tests__/pricing-fail-closed.test.js src/__tests__/subscription-webhook-hardening.test.js src/__tests__/renewal-and-key-email.test.js src/__tests__/activation-link.test.js src/__tests__/portal-token-v2.test.js
 
       - name: "esbuild bundle pre-flight (HARD GATE)"
         # This is the exact check that would have caught the duplicate

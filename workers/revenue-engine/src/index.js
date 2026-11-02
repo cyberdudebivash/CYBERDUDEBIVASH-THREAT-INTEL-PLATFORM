@@ -12,6 +12,7 @@ import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handl
 import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue, handleBillingAccount } from "./billing-routes.js";
 import { handleCommercialReadiness, buildCommercialReadiness } from "./commercial-readiness.js";
 import { handleQuoteCreate, handleQuoteList, handleQuoteView, handleQuoteAccept, handleQuoteCancel, handleQuoteInvoice, handleQuoteReconcile, handleQuoteProvision } from "./enterprise-po.js";
+import { portalV2Enabled, portalV2Configured, legacyPortalAllowed, issuePortalTokenV2, verifyPortalTokenV2, readBoundedPortalJson } from "./portal-token-v2.js";
 
 const ENGINE = {
   VERSION:  "183.0",
@@ -175,7 +176,7 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
         return await handleApiKeySelfRotate(request, env, rid);
       if (path === "/api/payments/submit" && method === "POST")
         return await handlePaymentSubmit(request, env, rid);
-      if (path === "/api/customer/portal" && method === "GET")
+      if (path === "/api/customer/portal" && (method === "GET" || method === "POST"))
         return await handleCustomerPortal(request, env, rid);
 
       // ── Public: observability endpoint ─────────────────────────────────────
@@ -1493,13 +1494,9 @@ async function isAdmin(request, env) {
   return Boolean(secret && env?.REVENUE_ADMIN_SECRET && timingSafeEqual(secret, env.REVENUE_ADMIN_SECRET));
 }
 
-// Customer portal token: HMAC-SHA256(REVENUE_ADMIN_SECRET, "portal:"+email),
-// hex-encoded. Reuses the Worker's existing admin secret as the HMAC key
-// (a one-way derivation - never exposes the secret itself) rather than
-// requiring a new dedicated secret to be provisioned before this fix takes
-// effect. Domain-separated with a "portal:" prefix so it can't be replayed
-// against any other HMAC use of the same secret.
-async function computePortalToken(env, email) {
+// Legacy deterministic customer token. Accepted only before explicitly
+// approved cutover or during a bounded migration grace window.
+async function computeLegacyPortalToken(env, email) {
   if (!env?.REVENUE_ADMIN_SECRET) return null;
   const key = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(env.REVENUE_ADMIN_SECRET),
@@ -1508,6 +1505,12 @@ async function computePortalToken(env, email) {
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode("portal:" + email.toLowerCase()));
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
+
+async function computePortalToken(env, email) {
+  if (portalV2Enabled(env)) return issuePortalTokenV2(env, email);
+  return computeLegacyPortalToken(env, email);
+}
+
 
 /**
  * GET /api/health -- public observability endpoint. Mirrors the shape/intent
@@ -2189,7 +2192,9 @@ async function provisionCustomer(env, { email, tier, billing_cycle, payment_id, 
     dashboard_url:"https://intel.cyberdudebivash.com", api_docs_url:"https://intel.cyberdudebivash.com/api-docs.html",
     customer_id:custRecord.id, sub_id:subId,
     portal_url: portalToken
-      ? `https://intel.cyberdudebivash.com/customer/api-keys.html?email=${encodeURIComponent(email)}&token=${portalToken}`
+      ? (portalV2Enabled(env)
+          ? `https://intel.cyberdudebivash.com/customer/api-keys.html?email=${encodeURIComponent(email)}#portal=${encodeURIComponent(portalToken)}`
+          : `https://intel.cyberdudebivash.com/customer/api-keys.html?email=${encodeURIComponent(email)}&token=${portalToken}`)
       : "https://intel.cyberdudebivash.com/PAYMENT-GATEWAY.html",
   };
   // Unset: queued with no send_at, never sent (as before). "true": due now,
@@ -2401,14 +2406,45 @@ async function handleCustomerProvision(request, env, rid) {
 
 async function handleCustomerPortal(request, env, rid) {
   const url = new URL(request.url);
-  const token = url.searchParams.get("token"); // token = HMAC of email (for simple auth)
-  const email = url.searchParams.get("email");
+  const isV2 = request.method === "POST";
+  let email;
+  if (isV2) {
+    // Grants are never transmitted as URL parameters on the v2 path.
+    if (!portalV2Configured(env)) return json({ error: "portal_v2_not_configured" }, 503);
+    if (url.searchParams.has("token")) return json({ error: "unauthorized" }, 401);
+    if (!/^application\/json(?:;|$)/i.test(request.headers.get("content-type") || ""))
+      return json({ error: "unsupported_media_type" }, 415);
+    const declared = Number(request.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > 2048)
+      return json({ error: "request_too_large" }, 413);
+    const parsed = await readBoundedPortalJson(request);
+    if (!parsed.ok) {
+      return parsed.status === 413
+        ? json({ error: "request_too_large" }, 413)
+        : json({ error: "invalid_json" }, 400);
+    }
+    email = parsed.payload.email;
+  } else {
+    email = url.searchParams.get("email");
+  }
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return json({ error:"invalid_email" }, 400);
-  const expectedToken = await computePortalToken(env, cleanEmail);
-  if (!expectedToken) return json({ error:"portal_not_configured" }, 500);
-  if (!token || !timingSafeEqual(token, expectedToken)) {
-    return json({ error:"unauthorized", message:"Invalid or missing portal token. Use the link from your welcome email." }, 401);
+  if (isV2) {
+    const header = request.headers.get("authorization") || "";
+    if (!header.startsWith("Bearer ") ||
+        !await verifyPortalTokenV2(env, cleanEmail, header.slice(7))) {
+      return json({ error:"unauthorized" }, 401);
+    }
+  } else {
+    // The old token is accepted only until an explicitly approved deadline
+    // once the dedicated-key flow is enabled. No v2-in-URL fallback.
+    if (!legacyPortalAllowed(env)) return json({ error: "legacy_portal_link_expired" }, 401);
+    const token = url.searchParams.get("token");
+    const expectedToken = await computeLegacyPortalToken(env, cleanEmail);
+    if (!expectedToken) return json({ error:"portal_not_configured" }, 503);
+    if (!token || token.length !== 64 || !timingSafeEqual(token, expectedToken)) {
+      return json({ error:"unauthorized" }, 401);
+    }
   }
   const cust = await env.REVENUE_CRM_KV.get(`customer:${cleanEmail}`, "json");
   if (!cust) return json({ error:"not_found", message:"No account found. Check your email or subscribe at /PAYMENT-GATEWAY.html" }, 404);
