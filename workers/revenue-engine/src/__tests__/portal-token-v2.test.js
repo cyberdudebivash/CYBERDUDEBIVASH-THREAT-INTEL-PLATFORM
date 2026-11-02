@@ -204,3 +204,20 @@ test('customer HTML uses fragment-only v2 link and bearer POST while preserving 
   assert.match(backend, /verifyPortalTokenV2\(env, cleanEmail/);
   assert.match(backend, /#portal=\$\{encodeURIComponent\(portalToken\)\}/);
 });
+
+
+test('Revenue Engine deployment workflow remains manual-only and exact-commit authorized', () => {
+  const workflow = readFileSync(
+    new URL('../../../../.github/workflows/deploy-revenue-engine.yml', import.meta.url), 'utf8'
+  );
+  assert.match(workflow, /^on:\s*\n\s{2}workflow_dispatch:/m);
+  assert.doesNotMatch(workflow, /^\s{2}push:/m);
+  assert.match(workflow, /inputs\.approved_commit_sha == github\.sha/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
+
+  const gate = readFileSync(
+    new URL('../../../../.github/workflows/revenue-manual-payment-authority-gate.yml', import.meta.url), 'utf8'
+  );
+  assert.match(gate, /^\s{2}pull_request:/m);
+  assert.match(gate, /node --test src\/__tests__\/portal-token-v2\.test\.js/);
+});
