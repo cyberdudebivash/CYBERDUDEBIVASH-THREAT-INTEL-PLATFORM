@@ -137,6 +137,26 @@ test('streaming oversized or malformed JSON is rejected before any customer KV r
   assert.deepEqual(reads, []);
 });
 
+test('malformed customer identity types fail with 400 and perform zero KV reads', async () => {
+  const { env, reads } = fakeEnv();
+  const signed = await issuePortalTokenV2(env, EMAIL);
+  for (const value of [null, 5, true, {}, ['customer@example.com']]) {
+    const request = new Request(PORTAL_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${signed}`,
+      },
+      body: JSON.stringify({ email: value }),
+    });
+    const response = await worker.fetch(request, env, ctx);
+    assert.equal(response.status, 400, `unexpected status for email type ${typeof value}`);
+    const body = await response.json();
+    assert.equal(body.error, 'invalid_email');
+    assert.deepEqual(reads, [], 'malformed identity must not touch customer KV');
+  }
+});
+
 test('full route: legacy GET remains available until reviewed migration, then fails closed', async () => {
   const old = legacyToken();
   const initial = fakeEnv({REVENUE_PORTAL_V2_ENABLED: undefined, REVENUE_PORTAL_HMAC_KEY: undefined});
