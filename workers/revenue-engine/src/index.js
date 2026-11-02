@@ -12,7 +12,7 @@ import { handleBillingSubscriptionCreate, handleBillingSubscriptionStatus, handl
 import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefundReject, handleInvoiceList, handleInvoiceView, handleInvoiceHolds, handleInvoiceIssue, handleSubscriptionCancel, handleCreditNoteList, handleCreditNoteView, handleCreditNotesPending, handleCreditNoteIssue, handleBillingAccount } from "./billing-routes.js";
 import { handleCommercialReadiness, buildCommercialReadiness } from "./commercial-readiness.js";
 import { handleQuoteCreate, handleQuoteList, handleQuoteView, handleQuoteAccept, handleQuoteCancel, handleQuoteInvoice, handleQuoteReconcile, handleQuoteProvision } from "./enterprise-po.js";
-import { portalV2Enabled, portalV2Configured, legacyPortalAllowed, issuePortalTokenV2, verifyPortalTokenV2 } from "./portal-token-v2.js";
+import { portalV2Enabled, portalV2Configured, legacyPortalAllowed, issuePortalTokenV2, verifyPortalTokenV2, readBoundedPortalJson } from "./portal-token-v2.js";
 
 const ENGINE = {
   VERSION:  "183.0",
@@ -2417,11 +2417,13 @@ async function handleCustomerPortal(request, env, rid) {
     const declared = Number(request.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > 2048)
       return json({ error: "request_too_large" }, 413);
-    const raw = await request.text();
-    if (raw.length > 2048) return json({ error: "request_too_large" }, 413);
-    let body;
-    try { body = JSON.parse(raw); } catch { return json({ error: "invalid_json" }, 400); }
-    email = body && typeof body === "object" && !Array.isArray(body) ? body.email : null;
+    const parsed = await readBoundedPortalJson(request);
+    if (!parsed.ok) {
+      return parsed.status === 413
+        ? json({ error: "request_too_large" }, 413)
+        : json({ error: "invalid_json" }, 400);
+    }
+    email = parsed.payload.email;
   } else {
     email = url.searchParams.get("email");
   }
