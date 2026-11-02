@@ -125,7 +125,7 @@ test('full route: legacy GET remains available until reviewed migration, then fa
   assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token='+old),initial.env,ctx)).status,200);
   const migrated = fakeEnv();
   assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token='+old),migrated.env,ctx)).status,401);
-  const future = new Date(Date.now()+3600_000).toISOString().replace('.000Z','Z');
+  const future = new Date(Math.floor((Date.now()+3600_000)/1000)*1000).toISOString().replace('.000Z','Z');
   const grace = fakeEnv({REVENUE_PORTAL_LEGACY_ACCEPT_UNTIL:future});
   assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token='+old),grace.env,ctx)).status,200);
   assert.equal((await worker.fetch(new Request(URL+'?email='+EMAIL+'&token=bad'),grace.env,ctx)).status,401);
