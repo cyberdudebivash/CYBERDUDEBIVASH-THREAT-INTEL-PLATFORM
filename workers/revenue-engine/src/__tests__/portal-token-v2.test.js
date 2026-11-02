@@ -119,6 +119,24 @@ test('full route: missing/wrong/other customer token denies without KV reads', a
   assert.deepEqual(reads, []);
 });
 
+test('streaming oversized or malformed JSON is rejected before any customer KV reads', async () => {
+  const { env, reads } = fakeEnv();
+  const data = new TextEncoder().encode(JSON.stringify({ email: EMAIL, notes: 'A'.repeat(4000) }));
+  const stream = new ReadableStream({ start(controller) { controller.enqueue(data); controller.close(); } });
+  const oversized = await worker.fetch(new Request(PORTAL_URL, {
+    method: 'POST', duplex: 'half',
+    headers: { 'content-type': 'application/json' },
+    body: stream,
+  }), env, ctx);
+  assert.equal(oversized.status, 413);
+
+  const malformed = await worker.fetch(new Request(PORTAL_URL, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{invalid',
+  }), env, ctx);
+  assert.equal(malformed.status, 400);
+  assert.deepEqual(reads, []);
+});
+
 test('full route: legacy GET remains available until reviewed migration, then fails closed', async () => {
   const old = legacyToken();
   const initial = fakeEnv({REVENUE_PORTAL_V2_ENABLED: undefined, REVENUE_PORTAL_HMAC_KEY: undefined});
