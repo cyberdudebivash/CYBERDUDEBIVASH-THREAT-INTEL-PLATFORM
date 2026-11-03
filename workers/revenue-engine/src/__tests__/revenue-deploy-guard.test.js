@@ -1,0 +1,73 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { test } from 'node:test';
+
+import { healthMatches } from '../../scripts/verify-public-health.mjs';
+
+const script = fileURLToPath(new URL('../../scripts/verify-public-health.mjs', import.meta.url));
+const workflow = readFileSync(
+  new URL('../../../../.github/workflows/deploy-revenue-engine.yml', import.meta.url), 'utf8'
+);
+const good = { status: 'ok', engine: 'SENTINEL-REVENUE-ENGINE', version: '183.0' };
+
+test('release health predicate strictly matches expected service, version and liveness', () => {
+  assert.equal(healthMatches(good, '183.0'), true);
+  for (const payload of [
+    null, [], '', 42, {},
+    { ...good, status: 'degraded' },
+    { ...good, engine: 'SENTINEL-INTEL-GATEWAY' },
+    { ...good, version: '182.0' },
+    { ...good, version: 183 },
+    { ...good, status: true },
+  ]) assert.equal(healthMatches(payload, '183.0'), false);
+  assert.equal(healthMatches(good, '183.0+untrusted'), false);
+  assert.equal(healthMatches(good, ''), false);
+});
+
+test('release health CLI fails closed for non-JSON, wrong version and oversized replies', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cdb-revenue-health-'));
+  try {
+    const file = join(dir, 'health.json');
+    for (const [body, expectedStatus] of [
+      [JSON.stringify(good), 0],
+      [JSON.stringify({ ...good, version: '182.0' }), 1],
+      [JSON.stringify({ ...good, status: 'error' }), 1],
+      ['not JSON', 1],
+      [JSON.stringify({ ...good, padding: 'x'.repeat(10000) }), 1],
+    ]) {
+      writeFileSync(file, body, { mode: 0o600 });
+      const result = spawnSync(process.execPath, [script, file, '183.0'], { encoding: 'utf8' });
+      assert.equal(result.status, expectedStatus, result.stderr);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('production deployment workflow prohibits unnamed fallback and requires explicit SHA', () => {
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /inputs\.approved_commit_sha == github\.sha/);
+  const deploy = workflow.slice(
+    workflow.indexOf('      - name: "Deploy Worker to approved production environment'),
+    workflow.indexOf('      - name: "Post-deploy public health acceptance gate')
+  );
+  assert.ok(deploy.length > 300, 'production deploy step must be present');
+  assert.match(deploy, /wrangler deploy --env production/);
+  assert.doesNotMatch(deploy, /wrangler deploy\s*>/);
+  assert.doesNotMatch(deploy, /wrangler deploy --env (?:staging|development)/);
+  assert.doesNotMatch(deploy, /handle_routes_gap\s*&&\s*exit 0/);
+  assert.match(deploy, /exit 1/, 'a failed production deploy must fail closed');
+  const health = workflow.slice(
+    workflow.indexOf('      - name: "Post-deploy public health acceptance gate'),
+    workflow.indexOf('      # S13/S22: commercial go-live verdict')
+  );
+  assert.ok(health.length > 300, 'required health step must be present');
+  assert.doesNotMatch(health, /continue-on-error:\s*true/);
+  assert.match(health, /node scripts\/verify-public-health\.mjs/);
+  assert.match(health, /exit 1/, 'failure to verify live service must block release');
+});
