@@ -138,6 +138,9 @@ test('production gateway invokes helper only after admin secret and recipient ch
   assert.ok(fn.indexOf('await env.RATE_LIMIT_KV.get(dedupeKey)') <
     fn.indexOf('await env.API_KEYS_KV?.get(auth.key, "json")'),
     'already-alerted requests must not consume a customer-record KV lookup');
-  assert.match(fn, /"X-Admin-Secret": env\.REVENUE_ADMIN_SECRET/);
+  assert.match(fn, /const headers = revenueQuotaAlertHeaders\(env\);/);
+  assert.ok(fn.indexOf('if (!headers) return;') < fn.indexOf('await env.RATE_LIMIT_KV.get(dedupeKey)'),
+    'broken machine identity must fail before any quota marker or recipient lookup');
+  assert.match(fn, /headers,/);
   assert.doesNotMatch(fn, /expirationTtl: 90000/);
 });
