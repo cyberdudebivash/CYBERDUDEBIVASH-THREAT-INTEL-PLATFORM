@@ -589,6 +589,11 @@ async function maybeDispatchQuotaAlert(env, identifier, tier, auth, dateStr) {
       key: dedupeKey,
       deliver: () => fetch("https://revenue.intel.cyberdudebivash.com/api/automation/trigger", {
         method: "POST",
+        // Cloudflare Workers fetch() follows redirects by default and forwards
+        // ALL headers, even to another host. Never forward X-Admin-Secret or
+        // Access service-token credentials on 3xx. The existing quota-alert
+        // ack gate treats the manual redirect response as unqueued/retryable.
+        redirect: "manual",
         headers,
         body: JSON.stringify({ trigger: "usage_80pct", email: record.email, context: `daily_quota:${tier}` }),
       }),
