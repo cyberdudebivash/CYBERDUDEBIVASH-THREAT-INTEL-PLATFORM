@@ -61,6 +61,8 @@ test('operator JWT denial does not poison 25-hour dedupe; later request can retr
 test('non-200, malformed/misleading success and network failures never become sent', async () => {
   const failureCases = [
     () => Response.json({ error: 'unavailable' }, { status: 503 }),
+    // Workers manual redirect response must never count as queueing success.
+    () => Response.redirect('https://untrusted.example.test/capture', 302),
     () => Response.json({ status: 'triggered', trigger: 'other' }),
     () => Response.json({ status: 'unknown', trigger: 'usage_80pct' }),
     () => new Response('not json', { status: 200 }),
