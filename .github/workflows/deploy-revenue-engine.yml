@@ -42,9 +42,10 @@ env:
 
 concurrency:
   group: revenue-engine-deploy
-  # Deploys are idempotent; if a newer one queues while one is running,
-  # cancel the stale one so the latest commit is always what ships.
-  cancel-in-progress: true
+  # Never interrupt an in-flight production upload before post-deploy health
+  # acceptance. New dispatches wait; each must still prove it targets the
+  # current main HEAD immediately before it is allowed to write.
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -149,6 +150,20 @@ jobs:
           node scripts/stamp-release-sha.mjs "${GITHUB_SHA}" wrangler.toml
           test "$(python3 -c 'import tomllib; print(tomllib.load(open("wrangler.toml","rb"))["env"]["production"]["vars"]["ENGINE_RELEASE_SHA"])')" = "${GITHUB_SHA}"
           wrangler deploy --env production --dry-run
+
+      # A manually approved SHA can become stale while a workflow is queued
+      # or performing dry-runs. Refuse the write when main has advanced; do
+      # not deploy an older checkout after a newer P0 fix was merged.
+      - name: "Verify approved SHA is still main immediately before production write"
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          CURRENT_MAIN="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ -z "$CURRENT_MAIN" ] || [ "$CURRENT_MAIN" != "${GITHUB_SHA}" ]; then
+            echo "::error title=Release superseded::Approved SHA is no longer main HEAD, or main cannot be verified. Start a newly reviewed workflow for the current main commit."
+            exit 1
+          fi
+          echo "Approved source SHA is still main HEAD; deploy may proceed."
 
       # Only the explicitly authorized production target may be updated. A
       # failed --env production deploy is NOT permission to retry the unnamed

@@ -105,3 +105,27 @@ test('approved exact checkout SHA is stamped and dry-run before named production
   assert.match(preDeploy, /ENGINE_RELEASE_SHA/);
   assert.match(preDeploy, /wrangler deploy --env production --dry-run/);
 });
+
+test('live release cannot be interrupted and must still be current main just before write', () => {
+  const group = workflow.slice(
+    workflow.indexOf('concurrency:'),
+    workflow.indexOf('jobs:')
+  );
+  assert.ok(group.includes('group: revenue-engine-deploy'));
+  assert.ok(group.includes('cancel-in-progress: false'),
+    'canceling a partially deployed production release can leave an unverified Worker');
+  assert.ok(!group.includes('cancel-in-progress: true'));
+
+  const guard = workflow.indexOf('      - name: "Verify approved SHA is still main immediately before production write"');
+  const write = workflow.indexOf('      - name: "Deploy Worker to approved production environment');
+  const stamp = workflow.indexOf('      - name: "Stamp and dry-run exact approved production source SHA"');
+  assert.ok(stamp > 0 && guard > stamp && write > guard,
+    'latest-main proof must run after build/dry-run but before cloud deployment');
+  const check = workflow.slice(guard, write);
+  assert.ok(check.includes('git ls-remote --exit-code origin refs/heads/main'));
+  assert.ok(check.includes('git rev-parse HEAD'));
+  assert.ok(check.includes('CURRENT_MAIN'));
+  assert.ok(check.includes('GITHUB_SHA'));
+  assert.ok(check.includes('exit 1'), 'failed remote HEAD verification must abort');
+  assert.ok(!check.includes('|| true'), 'a failed lookup cannot bypass release authority');
+});
