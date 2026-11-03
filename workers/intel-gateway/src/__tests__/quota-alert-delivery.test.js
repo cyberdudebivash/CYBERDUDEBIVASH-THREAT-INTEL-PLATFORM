@@ -49,10 +49,10 @@ test('operator JWT denial does not poison 25-hour dedupe; later request can retr
   assert.equal((await dispatchQuotaAlertOnce({ kv: h.kv, key: KEY, deliver })).outcome,
     'retry_after_reservation');
   assert.equal(h.writes.length, 1);
-  assert.equal(h.writes[0].ttl, 60);
+  assert.equal(h.writes[0].ttl, QUOTA_ALERT_PENDING_SECONDS);
   assert.equal((await dispatchQuotaAlertOnce({ kv: h.kv, key: KEY, deliver })).outcome,
     'suppressed', 'the short reservation reduces concurrent retry bursts');
-  h.advance(61000);
+  h.advance((QUOTA_ALERT_PENDING_SECONDS + 1) * 1000);
   assert.equal((await dispatchQuotaAlertOnce({ kv: h.kv, key: KEY, deliver })).outcome, 'queued');
   assert.equal(sends, 2);
   assert.equal(h.writes.at(-1).ttl, 90000);
@@ -72,7 +72,7 @@ test('non-200, malformed/misleading success and network failures never become se
     assert.equal((await dispatchQuotaAlertOnce({ kv: h.kv, key: KEY, deliver })).outcome,
       'retry_after_reservation');
     assert.deepEqual(h.writes.map(x => x.ttl), [QUOTA_ALERT_PENDING_SECONDS]);
-    h.advance(61000);
+    h.advance((QUOTA_ALERT_PENDING_SECONDS + 1) * 1000);
     assert.equal((await h.kv.get(KEY)), null);
   }
 });
