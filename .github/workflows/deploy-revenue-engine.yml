@@ -172,7 +172,7 @@ jobs:
           for attempt in 1 2 3 4 5 6; do
             echo "Public health acceptance attempt ${attempt}/6"
             if curl -fsS --max-time 15 "https://revenue.intel.cyberdudebivash.com/api/health" -o "$HEALTH_FILE" &&
-               python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get("status")=="ok" and d.get("engine")=="SENTINEL-REVENUE-ENGINE" and d.get("version")==sys.argv[2] else 1)' "$HEALTH_FILE" "$EXPECTED_VERSION"; then
+               node scripts/verify-public-health.mjs "$HEALTH_FILE" "$EXPECTED_VERSION"; then
               echo "Public health accepted: HTTP 200, exact engine and declared version."
               exit 0
             fi
