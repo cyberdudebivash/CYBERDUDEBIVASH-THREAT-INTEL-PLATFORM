@@ -21,7 +21,8 @@ const CLIENT_ID = 'abcdef0123456789abcdef0123456789.access';
 const CLIENT_SECRET = 'cfast_0123456789abcdef0123456789abcdef0123456789';
 const ISSUER = 'https://synthetic-team.cloudflareaccess.com';
 const AUDIENCE = 'synthetic-revenue-audience-1234';
-const NOW = 1800000000;
+// Full Worker fetch uses the actual clock; keep the synthetic JWT freshly valid.
+const NOW = Math.floor(Date.now() / 1000);
 
 let signingKey;
 let publicJwk;
