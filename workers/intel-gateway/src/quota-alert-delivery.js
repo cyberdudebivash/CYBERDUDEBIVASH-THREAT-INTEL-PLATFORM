@@ -2,7 +2,7 @@
  * P0: customer quota warnings must not be marked "sent" before the Revenue
  * Engine confirms that it actually queued the message.
  *
- * A short KV reservation minimizes duplicate dispatches in a single region;
+ * A one-hour KV reservation bounds retry traffic to <=24 attempts/day per key;
  * failed/denied/malformed upstream requests become retryable after its TTL.
  * A 25-hour marker is written ONLY after a strict 200 + matching acknowledgment.
  *
@@ -10,7 +10,7 @@
  * suppression, NOT globally linearizable exactly-once delivery. The gateway
  * must not fail a customer's successful API request because email is down.
  */
-export const QUOTA_ALERT_PENDING_SECONDS = 60;
+export const QUOTA_ALERT_PENDING_SECONDS = 3600;
 export const QUOTA_ALERT_SENT_SECONDS = 90000;
 
 export async function dispatchQuotaAlertOnce({ kv, key, deliver }) {
