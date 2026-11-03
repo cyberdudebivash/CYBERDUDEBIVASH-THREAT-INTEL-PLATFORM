@@ -67,5 +67,8 @@ test('intended source sends Access machine identity only via existing Revenue qu
     fn.indexOf('await env.API_KEYS_KV?.get(auth.key, "json")'));
   assert.match(fn, /fetch\("https:\/\/revenue\.intel\.cyberdudebivash\.com\/api\/automation\/trigger"/);
   assert.match(fn, /headers,/);
+  assert.match(fn, /redirect:\s*"manual"/,
+    'Workers must NOT follow redirects with X-Admin-Secret and Access credentials');
+  assert.doesNotMatch(fn, /redirect:\s*"follow"/);
   assert.doesNotMatch(fn, /Cf-Access-Jwt-Assertion/);
 });
