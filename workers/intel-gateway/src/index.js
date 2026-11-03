@@ -575,11 +575,15 @@ async function maybeDispatchQuotaAlert(env, identifier, tier, auth, dateStr) {
     // and a real, customer-owned recipient: otherwise quota notices disappear
     // for 25 hours when operator JWT enforcement or credentials are missing.
     if (!env.REVENUE_ADMIN_SECRET) return;
+    const dedupeKey = quotaAlertDedupeKey(identifier, dateStr);
+    // Preserve the original low-cost hot path: most calls after the 80%
+    // threshold already have a daily marker, so don't fetch customer email.
+    if (await env.RATE_LIMIT_KV.get(dedupeKey)) return;
     const record = await env.API_KEYS_KV?.get(auth.key, "json");
     if (!record?.email) return;
     await dispatchQuotaAlertOnce({
       kv: env.RATE_LIMIT_KV,
-      key: quotaAlertDedupeKey(identifier, dateStr),
+      key: dedupeKey,
       deliver: () => fetch("https://revenue.intel.cyberdudebivash.com/api/automation/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Admin-Secret": env.REVENUE_ADMIN_SECRET },
