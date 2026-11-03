@@ -71,3 +71,22 @@ test('production deployment workflow prohibits unnamed fallback and requires exp
   assert.match(health, /node scripts\/verify-public-health\.mjs/);
   assert.match(health, /exit 1/, 'failure to verify live service must block release');
 });
+
+test('release executable, mandatory dry-run and bundler are pinned to identical versions', () => {
+  const authority = readFileSync(
+    new URL('../../../../.github/workflows/revenue-manual-payment-authority-gate.yml', import.meta.url), 'utf8'
+  );
+  assert.match(workflow, /npm install -g wrangler@3\.114\.17(?:\s|$)/m);
+  assert.match(authority, /npx --yes wrangler@3\.114\.17 deploy --env production --dry-run/);
+  assert.match(authority, /npx --yes wrangler@4\.127\.0 deploy --env production --dry-run/);
+  assert.doesNotMatch(workflow, /npm install -g wrangler@3\s/);
+  assert.doesNotMatch(workflow, /npm install -g wrangler@4/);
+  assert.match(workflow, /npm install -g esbuild@0\.25\.9(?:\s|$)/m);
+  assert.match(authority, /npx --yes esbuild@0\.25\.9 src\/production-entry\.js/);
+  const runStep = workflow.slice(
+    workflow.indexOf('      - name: "Install pinned production Wrangler'),
+    workflow.indexOf('      - name: "Deploy Worker to approved production environment')
+  );
+  assert.match(runStep, /wrangler --version/);
+  assert.doesNotMatch(runStep, /wrangler@latest|wrangler@3\s/);
+});

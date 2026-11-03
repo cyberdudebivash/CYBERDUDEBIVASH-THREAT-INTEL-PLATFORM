@@ -49,6 +49,8 @@ jobs:
           node --check src/quote-token-v2.js
           node --check src/__tests__/quote-token-v2.test.js
           node --check src/__tests__/quote-v2-route-acceptance.test.js
+          node --check scripts/verify-public-health.mjs
+          node --check src/__tests__/revenue-deploy-guard.test.js
 
       - name: P0 manual-payment authority regression
         run: node --test src/__tests__/manual-payment-retirement.test.js
@@ -64,6 +66,9 @@ jobs:
 
       - name: P0 enterprise quotation full-route v2 customer acceptance and migration
         run: node --test src/__tests__/quote-v2-route-acceptance.test.js
+
+      - name: P0 exact release CLI and public health integrity regressions
+        run: node --test src/__tests__/revenue-deploy-guard.test.js
 
       - name: Existing Revenue Engine commercial regressions
         run: |
@@ -95,5 +100,11 @@ jobs:
             --log-level=warning
           test -s /tmp/revenue-production-entry.js
 
-      - name: Wrangler production dry-run
+      # Release deploy uses legacy Wrangler v3.114.17. A dry-run under v4
+      # alone does not certify the actual release executable. Both checks
+      # inspect the identical named-production config with no live writes.
+      - name: Exact production Wrangler v3.114.17 dry-run (mandatory)
+        run: npx --yes wrangler@3.114.17 deploy --env production --dry-run
+
+      - name: Wrangler v4.127.0 forward-compatibility dry-run
         run: npx --yes wrangler@4.127.0 deploy --env production --dry-run
