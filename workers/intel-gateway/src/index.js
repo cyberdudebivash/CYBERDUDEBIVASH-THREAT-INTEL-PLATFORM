@@ -100,6 +100,7 @@ import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
 import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance, TRIAL_DISCONTINUED_BODY, FREE_KEYS_DISCONTINUED_BODY } from './revenue-enforcement.js';
 import { evaluateDailyQuota, dailyQuotaConfig, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
 import { dispatchQuotaAlertOnce } from './quota-alert-delivery.js';
+import { revenueQuotaAlertHeaders } from './revenue-quota-access-client.js';
 import { buildDetectionRegistry, queryDetectionRegistry, toPublicArtifact, DETECTION_REGISTRY_VERSION } from './detection-registry.js';
 import { handleSLAStatus, handleSLAReport, handleSLAIncidents, handleSLAPing, handleSLACertificate } from './sla-monitor.js';
 import { handleAlertSubscribe, handleAlertSubscriptions, handleAlertTest, handleAlertDispatch, handleAlertHistory, handleAlertUnsubscribe } from './alert-engine.js';
@@ -575,6 +576,8 @@ async function maybeDispatchQuotaAlert(env, identifier, tier, auth, dateStr) {
     // and a real, customer-owned recipient: otherwise quota notices disappear
     // for 25 hours when operator JWT enforcement or credentials are missing.
     if (!env.REVENUE_ADMIN_SECRET) return;
+    const headers = revenueQuotaAlertHeaders(env);
+    if (!headers) return; // no partial/broken service-token requests
     const dedupeKey = quotaAlertDedupeKey(identifier, dateStr);
     // Preserve the original low-cost hot path: most calls after the 80%
     // threshold already have a daily marker, so don't fetch customer email.
@@ -586,7 +589,7 @@ async function maybeDispatchQuotaAlert(env, identifier, tier, auth, dateStr) {
       key: dedupeKey,
       deliver: () => fetch("https://revenue.intel.cyberdudebivash.com/api/automation/trigger", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Secret": env.REVENUE_ADMIN_SECRET },
+        headers,
         body: JSON.stringify({ trigger: "usage_80pct", email: record.email, context: `daily_quota:${tier}` }),
       }),
     });
