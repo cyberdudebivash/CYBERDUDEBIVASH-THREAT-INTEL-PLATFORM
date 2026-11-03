@@ -95,5 +95,11 @@ jobs:
             --log-level=warning
           test -s /tmp/revenue-production-entry.js
 
-      - name: Wrangler production dry-run
+      # Release deploy uses legacy Wrangler v3.114.17. A dry-run under v4
+      # alone does not certify the actual release executable. Both checks
+      # inspect the identical named-production config with no live writes.
+      - name: Exact production Wrangler v3.114.17 dry-run (mandatory)
+        run: npx --yes wrangler@3.114.17 deploy --env production --dry-run
+
+      - name: Wrangler v4.127.0 forward-compatibility dry-run
         run: npx --yes wrangler@4.127.0 deploy --env production --dry-run
