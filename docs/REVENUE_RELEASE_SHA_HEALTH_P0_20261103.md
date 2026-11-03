@@ -26,3 +26,10 @@ The release approval flow remains human-gated. No automatic production deploymen
 Adding a public `release_sha` field is an additive API change, but it reveals a public repository revision identifier. Do not use for private repository secrets. The mandatory SHA requirement intentionally **blocks deployment** until the new Worker code is served by the expected production route. A missing route, stale cache, or propagation delay beyond six bounded health attempts yields NO-GO, never false success. The stamp exists only in an ephemeral GitHub Actions checkout.
 
 Rollback for this source-only change: revert the PR (no production state to restore). If a future production deployment is approved and fails the SHA health gate, review its Cloudflare deployment/version logs and route configuration before deciding whether to roll back to the last proven-good script. Do not bypass the exact-target or authenticated operator controls.
+
+## Canary compatibility and observed CI regression
+
+The first exact-head Intel Gateway gate failed in `deploy/billing-canary/canary.test.mjs` because the prior public health canary allowed exactly four fields, while the new Revenue Engine correctly adds the fifth `release_sha` key. The actual failing step was `revenue_health_anonymous_is_minimal`, not a billing transaction failure. The gate stayed red; no production deployment occurred.
+
+The repair retains the original public-health information-disclosure control: the billing canary accepts **only** the original four-field response (for older deployments) or the five-field response with `release_sha` absent/null or a complete lowercase 40-hex value, and rejects extra keys, invalid values and leaked internal binding/secret fields. This permits a read-only pre-cutover canary against an older Worker without weakening the **strict post-deploy exact-SHA gate**, which rejects older Worker responses. All positive/negative compatibility checks run in-process against synthetic commercial fixtures and never create real charges.
+
