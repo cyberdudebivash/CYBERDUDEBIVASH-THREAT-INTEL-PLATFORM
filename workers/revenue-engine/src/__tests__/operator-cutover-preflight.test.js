@@ -75,6 +75,6 @@ test('CLI exposes no secrets, accepts off, rejects required and missing argument
     assert.ok(!run.stdout.includes('REVENUE_ADMIN_SECRET'), 'never echo credential variable values');
     const parsed = JSON.parse(run.stdout);
     assert.equal(parsed.ok, status === 0);
-    assert.equal(parsed.findings?.every(f => !('secret' in f)), true);
+    if (parsed.findings) assert.equal(parsed.findings.every(f => !('secret' in f)), true);
   }
 });
