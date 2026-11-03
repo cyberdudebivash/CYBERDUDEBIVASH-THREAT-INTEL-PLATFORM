@@ -1624,7 +1624,10 @@ async function sha256prefix(text, len = 12) {
 // like payment_notes that legitimately need to allow punctuation). Bounded length matches the
 // column this feeds (email TEXT, no declared limit elsewhere, so cap here) and RFC 5321's 254.
 function sanitizeEmail(email) {
-  const e = (email || "").trim().toLowerCase();
+  // JSON types are untrusted across CRM, payment, and customer routes. Never
+  // invoke string methods on arrays, objects, booleans, or numbers.
+  if (typeof email !== "string") return null;
+  const e = email.trim().toLowerCase();
   if (e.length > 254) return null;
   return /^[a-z0-9][a-z0-9._%+-]*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(e)
     ? e : null;
