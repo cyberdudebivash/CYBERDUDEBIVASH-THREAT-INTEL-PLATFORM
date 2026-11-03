@@ -158,9 +158,11 @@ export async function handleQuoteCreate(request, env, ctx, rid) {
   // Never produce a customer quote with an unusable acceptance capability.
   if (!quoteSigningReady(env)) return json({ error: "quote_signing_unavailable" }, 503);
 
+  const id = "qt_" + crypto.randomUUID().replace(/-/g, "").slice(0, 20);
+  const token = await quoteToken(env, id);
+  if (!token) return json({ error: "quote_signing_unavailable" }, 503);
   const database = db(env);
   await ensureBillingSchema(database);
-  const id = "qt_" + crypto.randomUUID().replace(/-/g, "").slice(0, 20);
   const now = new Date();
   const validUntil = new Date(now.getTime() + validDays * 86400000).toISOString();
   await database.prepare(
@@ -170,7 +172,6 @@ export async function handleQuoteCreate(request, env, ctx, rid) {
   ).bind(id, email, company.value, address, billingState, country.value, taxId.kind === "gstin" ? taxId.value : "",
     tier, term, amountPaise, basis, reason, validUntil, "sent", now.toISOString(), now.toISOString()).run();
   await trackEvent(env, "quote_created", { quote_id: id, email, tier, amount_paise: amountPaise, price_basis: basis, rid });
-  const token = await quoteToken(env, id);
   return json({
     status: "sent", quote: publicQuote(await getQuote(database, id)),
     // Send this link to the customer; it is their capability for this quote only.
