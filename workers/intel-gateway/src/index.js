@@ -99,6 +99,7 @@ import { handleSearch, handleActors, handleCVEs, handleIOCLookup, handleMISPExpo
 import { RAZORPAY_TIER_PRICES, getPricingSnapshot } from './pricing.js';
 import { applyTierGateV2, enforceTierGate, buildUpgradeTrigger, handleLeadCapture, handleTrialIssuance, TRIAL_DISCONTINUED_BODY, FREE_KEYS_DISCONTINUED_BODY } from './revenue-enforcement.js';
 import { evaluateDailyQuota, dailyQuotaConfig, utcDateString, dailyQuotaKey, quotaAlertDedupeKey, secondsUntilNextUtcMidnight } from './daily-quota.js';
+import { dispatchQuotaAlertOnce } from './quota-alert-delivery.js';
 import { buildDetectionRegistry, queryDetectionRegistry, toPublicArtifact, DETECTION_REGISTRY_VERSION } from './detection-registry.js';
 import { handleSLAStatus, handleSLAReport, handleSLAIncidents, handleSLAPing, handleSLACertificate } from './sla-monitor.js';
 import { handleAlertSubscribe, handleAlertSubscriptions, handleAlertTest, handleAlertDispatch, handleAlertHistory, handleAlertUnsubscribe } from './alert-engine.js';
@@ -564,25 +565,34 @@ async function handleSwarmPreflight(env, auth) {
 // queue the "approaching your daily limit" email, deduplicated to once per
 // UTC day via a KV flag -- crossedAlertThreshold uses >= (see
 // daily-quota.js), so this can be reached more than once per day for the
-// same key under a racy counter; the dedup flag, not the threshold check
-// itself, is what actually guarantees one email per day.
+// same key under a racy counter. The gateway uses a short KV reservation,
+// then a 25-hour marker only after Revenue Engine acknowledges queueing.
+// Workers KV eventual consistency means best-effort dedupe, not exactly once.
 async function maybeDispatchQuotaAlert(env, identifier, tier, auth, dateStr) {
   if (!auth?.key) return; // anonymous/IP-only traffic has no account to email
   try {
+    // Never reserve the daily alert without a configured authentication key
+    // and a real, customer-owned recipient: otherwise quota notices disappear
+    // for 25 hours when operator JWT enforcement or credentials are missing.
+    if (!env.REVENUE_ADMIN_SECRET) return;
     const dedupeKey = quotaAlertDedupeKey(identifier, dateStr);
+    // Preserve the original low-cost hot path: most calls after the 80%
+    // threshold already have a daily marker, so don't fetch customer email.
     if (await env.RATE_LIMIT_KV.get(dedupeKey)) return;
     const record = await env.API_KEYS_KV?.get(auth.key, "json");
     if (!record?.email) return;
-    await env.RATE_LIMIT_KV.put(dedupeKey, "1", { expirationTtl: 90000 }); // 25h, safely spans the UTC day
-    if (!env.REVENUE_ADMIN_SECRET) return; // not yet provisioned on this Worker -- skip, don't crash
-    await fetch("https://revenue.intel.cyberdudebivash.com/api/automation/trigger", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Admin-Secret": env.REVENUE_ADMIN_SECRET },
-      body: JSON.stringify({ trigger: "usage_80pct", email: record.email, context: `daily_quota:${tier}` }),
+    await dispatchQuotaAlertOnce({
+      kv: env.RATE_LIMIT_KV,
+      key: dedupeKey,
+      deliver: () => fetch("https://revenue.intel.cyberdudebivash.com/api/automation/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Secret": env.REVENUE_ADMIN_SECRET },
+        body: JSON.stringify({ trigger: "usage_80pct", email: record.email, context: `daily_quota:${tier}` }),
+      }),
     });
   } catch (_) {
-    // Best-effort notification -- never let a failure here surface to the
-    // customer whose actual API request already succeeded.
+    // Best-effort notification -- never fail a legitimate customer API request
+    // if KV, Revenue Engine, or Cloudflare Access is temporarily unavailable.
   }
 }
 
