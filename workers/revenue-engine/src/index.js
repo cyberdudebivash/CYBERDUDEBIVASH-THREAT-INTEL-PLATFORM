@@ -229,7 +229,14 @@ async function routeRevenueRequest(request, env, ctx, rid, url, path, method) {
 
       return json({ error: "not_found", path }, 404);
     } catch (e) {
-      return json({ error: "internal_error", message: e.message, rid }, 500);
+      // Never expose provider exceptions, internal paths, stack details or
+      // customer/secret-bearing error strings to public API consumers.
+      // Keep a stable error contract without reflecting e.message.
+      return json({
+        error: "internal_error",
+        message: "An internal error occurred.",
+        rid,
+      }, 500);
     }
 }
 
