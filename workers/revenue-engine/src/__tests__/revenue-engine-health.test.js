@@ -75,7 +75,7 @@ test("handleRevenueEngineHealth: an unauthenticated caller gets only status/engi
   const res = await handleRevenueEngineHealth(new Request("https://x.test/api/health"), env, "rid_test");
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.deepEqual(Object.keys(body).sort(), ["engine", "generated_at", "status", "version"]);
+  assert.deepEqual(Object.keys(body).sort(), ["engine", "generated_at", "release_sha", "status", "version"]);
   assert.equal(body.status, "ok");
   assert.ok(!("checks" in body));
 });
@@ -86,4 +86,27 @@ test("handleRevenueEngineHealth: a wrong X-Admin-Secret is treated as unauthenti
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.ok(!("checks" in body));
+});
+
+test("handleRevenueEngineHealth: public SHA is validated, non-secret, and never reveals binding state", async () => {
+  const sha = "a".repeat(40);
+  const env = { REVENUE_ADMIN_SECRET: ADMIN_SECRET,
+    ENGINE_RELEASE_SHA: sha,
+    RAZORPAY_KEY_SECRET: "test_only_must_never_leak"
+  };
+  const publicResponse = await handleRevenueEngineHealth(new Request("https://x.test/api/health"), env, "rid_test");
+  assert.equal(publicResponse.status, 200);
+  const body = await publicResponse.json();
+  assert.equal(body.release_sha, sha);
+  assert.ok(!("checks" in body));
+  assert.ok(!JSON.stringify(body).includes("test_only_must_never_leak"));
+
+  const adminResponse = await handleRevenueEngineHealth(adminHealthRequest(), env, "rid_test");
+  assert.equal((await adminResponse.json()).release_sha, sha);
+
+  for (const value of [undefined, null, "", "abc", "A".repeat(40), "b".repeat(39), "z".repeat(40), 33]) {
+    const badEnv = { ...env, ENGINE_RELEASE_SHA: value };
+    const res = await handleRevenueEngineHealth(new Request("https://x.test/api/health"), badEnv, "rid_test");
+    assert.equal((await res.json()).release_sha, null, "bad SHA must not be represented as valid");
+  }
 });
