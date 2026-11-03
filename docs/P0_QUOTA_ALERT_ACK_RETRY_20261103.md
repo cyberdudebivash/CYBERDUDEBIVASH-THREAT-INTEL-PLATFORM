@@ -10,7 +10,7 @@ This is especially relevant to the pending operator-JWT rollout: the current int
 
 ## Narrow remediation
 
-- Check configured admin secret and the customer's email **before** reserving the alert; missing prerequisites make no dedupe marker and do not disrupt legitimate API requests.
+- Check configured admin secret before any KV work, then perform the original **cheap daily-marker lookup** before fetching the customer's email. This preserves the existing already-alerted hot-path cost (one KV marker read) rather than looking up the customer on every high-quota API request. Missing prerequisites make no dedupe marker and do not disrupt legitimate API requests.
 - Keep the same existing `RATE_LIMIT_KV` key and existing 90,000-second success marker to avoid invalidating historical records. The previous `"1"` value is still honored.
 - Reserve the key with `"pending"` and a **3,600-second** TTL before outbound dispatch. This tempers concurrent dispatch and limits retry traffic under persistent 403/5xx incidents.
 - Promote `"pending"` to `"sent"` with a 90,000-second TTL **only** after an HTTP 200 response containing `{ "status": "triggered", "trigger": "usage_80pct" }`. That response means the Revenue Engine reports the email **queued**, not that the email provider has delivered it to the recipient.
