@@ -41,11 +41,17 @@ export function quoteLegacyAllowed(env, atMs = Date.now()) {
   if (state === 'legacy') return true;
   if (state !== 'v2' || !v2Key(env) || !Number.isFinite(atMs)) return false;
   const grace = env?.REVENUE_QUOTE_LEGACY_ACCEPT_UNTIL;
-  if (typeof grace !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(grace)) return false;
+  const cutover = env?.REVENUE_QUOTE_LEGACY_CUTOVER_AT;
+  const format = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  if (typeof grace !== 'string' || typeof cutover !== 'string' ||
+      !format.test(grace) || !format.test(cutover)) return false;
   const endMs = Date.parse(grace);
-  return Number.isFinite(endMs) && endMs > atMs &&
-    endMs - atMs <= MAX_GRACE_MS && new Date(endMs).toISOString().replace('.000Z', 'Z') === grace;
+  const startMs = Date.parse(cutover);
+  return Number.isFinite(endMs) && Number.isFinite(startMs) &&
+    new Date(endMs).toISOString().replace('.000Z', 'Z') === grace &&
+    new Date(startMs).toISOString().replace('.000Z', 'Z') === cutover &&
+    startMs <= atMs && endMs > atMs && endMs > startMs &&
+    endMs - startMs <= MAX_GRACE_MS;
 }
 
 async function hmacHex(secret, scope, id) {
