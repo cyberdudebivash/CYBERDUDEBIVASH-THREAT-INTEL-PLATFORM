@@ -53,12 +53,20 @@ jobs:
           node --check src/__tests__/revenue-deploy-guard.test.js
           node --check scripts/stamp-release-sha.mjs
           node --check src/__tests__/revenue-release-attestation.test.js
+          node --check scripts/operator-cutover-preflight.mjs
+          node --check src/__tests__/operator-cutover-preflight.test.js
 
       - name: P0 manual-payment authority regression
         run: node --test src/__tests__/manual-payment-retirement.test.js
 
       - name: P0 customer-portal trust-boundary and compatibility controls
         run: node --test src/__tests__/portal-token-v2.test.js
+
+      - name: P0 operator required-mode cutover client compatibility inventory (OFF only)
+        run: |
+          node --test src/__tests__/operator-cutover-preflight.test.js
+          node scripts/operator-cutover-preflight.mjs off > /tmp/revenue-operator-source-inventory.json
+          test -s /tmp/revenue-operator-source-inventory.json
 
       - name: P0 signed operator-identity boundary negative and positive regressions
         run: node --test src/__tests__/revenue-operator-identity.test.js
