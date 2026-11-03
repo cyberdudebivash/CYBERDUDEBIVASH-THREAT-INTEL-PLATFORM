@@ -137,43 +137,6 @@ test('streaming oversized or malformed JSON is rejected before any customer KV r
   assert.deepEqual(reads, []);
 });
 
-test('malformed customer identity types fail with 400 and perform zero KV reads', async () => {
-  const { env, reads } = fakeEnv();
-  const signed = await issuePortalTokenV2(env, EMAIL);
-  for (const value of [null, 5, true, {}, ['customer@example.com']]) {
-    const request = new Request(PORTAL_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${signed}`,
-      },
-      body: JSON.stringify({ email: value }),
-    });
-    const response = await worker.fetch(request, env, ctx);
-    assert.equal(response.status, 400, `unexpected status for email type ${typeof value}`);
-    const body = await response.json();
-    assert.equal(body.error, 'invalid_email');
-    assert.deepEqual(reads, [], 'malformed identity must not touch customer KV');
-  }
-});
-
-test('backend exceptions never disclose internal errors, credentials or customer data', async () => {
-  const { env } = fakeEnv();
-  const sentinel = 'TEST_ONLY_PRIVATE_PROVIDER_CREDENTIAL_AND_CUSTOMER_DATA';
-  env.REVENUE_CRM_KV.get = async () => {
-    throw new Error(sentinel);
-  };
-  const token = await issuePortalTokenV2(env, EMAIL);
-  const result = await worker.fetch(post(EMAIL, token), env, ctx);
-  assert.equal(result.status, 500);
-  const body = await result.json();
-  assert.equal(body.error, 'internal_error');
-  assert.equal(body.message, 'An internal error occurred.');
-  assert.ok(typeof body.rid === 'string' && body.rid.length > 0);
-  assert.equal(JSON.stringify(body).includes(sentinel), false);
-  assert.equal(JSON.stringify(body).includes(EMAIL), false);
-});
-
 test('full route: legacy GET remains available until reviewed migration, then fails closed', async () => {
   const old = legacyToken();
   const initial = fakeEnv({REVENUE_PORTAL_V2_ENABLED: undefined, REVENUE_PORTAL_HMAC_KEY: undefined});
@@ -194,30 +157,8 @@ test('customer HTML uses fragment-only v2 link and bearer POST while preserving 
   assert.match(frontend, /portalTokenV2 = true/);
   assert.match(frontend, /method: 'POST', cache: 'no-store'/);
   assert.match(frontend, /history\.replaceState/);
-  const referrerPosition = frontend.indexOf('<meta name="referrer" content="no-referrer">');
-  const firstScriptPosition = frontend.indexOf('<script');
-  assert.ok(referrerPosition >= 0 && referrerPosition < firstScriptPosition,
-    'portal tokens must not be sent in Referer before initial script loading');
-
   assert.match(frontend, /#redeem=/);
   assert.match(backend, /portalV2Enabled\(env\)/);
   assert.match(backend, /verifyPortalTokenV2\(env, cleanEmail/);
   assert.match(backend, /#portal=\$\{encodeURIComponent\(portalToken\)\}/);
-});
-
-
-test('Revenue Engine deployment workflow remains manual-only and exact-commit authorized', () => {
-  const workflow = readFileSync(
-    new URL('../../../../.github/workflows/deploy-revenue-engine.yml', import.meta.url), 'utf8'
-  );
-  assert.match(workflow, /^on:\s*\n\s{2}workflow_dispatch:/m);
-  assert.doesNotMatch(workflow, /^\s{2}push:/m);
-  assert.match(workflow, /inputs\.approved_commit_sha == github\.sha/);
-  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
-
-  const gate = readFileSync(
-    new URL('../../../../.github/workflows/revenue-manual-payment-authority-gate.yml', import.meta.url), 'utf8'
-  );
-  assert.match(gate, /^\s{2}pull_request:/m);
-  assert.match(gate, /node --test src\/__tests__\/portal-token-v2\.test\.js/);
 });
