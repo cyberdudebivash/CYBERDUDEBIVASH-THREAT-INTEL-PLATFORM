@@ -144,6 +144,15 @@ jobs:
           node --check workers/intel-gateway/src/intel-static-proxy.js
           node --check workers/intel-gateway/src/index.js
 
+      # P0 customer quota warnings must remain retryable when Revenue Engine
+      # rejects a secret-only caller during an operator-JWT cutover. Run this
+      # standalone business safeguard before the expensive gateway suite.
+      - name: "P0 quota warning acknowledged dispatch and bounded retry (offline)"
+        run: |
+          node --check workers/intel-gateway/src/quota-alert-delivery.js
+          node --check workers/intel-gateway/src/__tests__/quota-alert-delivery.test.js
+          node --test workers/intel-gateway/src/__tests__/quota-alert-delivery.test.js
+
       # Guard the storefront's stale-SW recovery path before its Pages browser
       # smoke test. Promise rejection tests are offline and make no HTTP calls.
       - name: "P0 stale Service Worker update-rejection negative controls (offline)"
