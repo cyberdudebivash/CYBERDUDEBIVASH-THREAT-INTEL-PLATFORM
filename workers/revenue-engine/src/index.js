@@ -854,6 +854,13 @@ async function enterpriseContractTrigger(request, env, rid) {
 async function automationTrigger(request, env, rid) {
   if (!(await isAdmin(request, env))) return json({ error: "unauthorized" }, 401);
 
+  // P0: a missing EMAIL_QUEUE_KV binding must not yield "triggered". The
+  // caller uses that exact 200 acknowledgment to mark a customer notification
+  // handled for 25 hours. Queue absence is retryable, not successful delivery.
+  if (!env.EMAIL_QUEUE_KV || typeof env.EMAIL_QUEUE_KV.put !== "function") {
+    return json({ error: "email_queue_unavailable" }, 503);
+  }
+
   let body;
   try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
 

@@ -56,6 +56,54 @@ test("automationTrigger: the correct X-Admin-Secret is accepted and queues the e
   assert.equal(env.EMAIL_QUEUE_KV.store.size, 1, "the email must actually be queued once authorized");
 });
 
+test("automationTrigger: authenticated request with unbound email queue returns 503, not triggered", async () => {
+  const env = fakeEnv();
+  delete env.EMAIL_QUEUE_KV;
+  const res = await automationTrigger(
+    triggerRequest({ trigger: "usage_80pct", email: "customer@example.test" },
+      { adminSecret: "test_admin_secret" }),
+    env, "rid_test"
+  );
+  assert.equal(res.status, 503);
+  assert.deepEqual(await res.json(), { error: "email_queue_unavailable" });
+  assert.equal(env.REVENUE_CRM_KV.store.size, 0, "no misleading queue or event mutation");
+});
+
+test("automationTrigger: malformed email queue binding returns 503 without pretending delivery", async () => {
+  const env = fakeEnv();
+  env.EMAIL_QUEUE_KV = { get: async () => null }; // no put capability
+  const res = await automationTrigger(
+    triggerRequest({ trigger: "usage_80pct", email: "customer@example.test" },
+      { adminSecret: "test_admin_secret" }),
+    env, "rid_test"
+  );
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).error, "email_queue_unavailable");
+});
+
+test("automationTrigger: authentication still fails first even if email queue is unbound", async () => {
+  const env = fakeEnv();
+  delete env.EMAIL_QUEUE_KV;
+  const res = await automationTrigger(
+    triggerRequest({ trigger: "usage_80pct", email: "victim@example.test" }),
+    env, "rid_test"
+  );
+  assert.equal(res.status, 401);
+});
+
+test("automationTrigger: failed queue put must never return a success receipt", async () => {
+  const env = fakeEnv();
+  env.EMAIL_QUEUE_KV.put = async () => { throw new Error("synthetic KV write failed"); };
+  await assert.rejects(
+    () => automationTrigger(
+      triggerRequest({ trigger: "usage_80pct", email: "customer@example.test" },
+        { adminSecret: "test_admin_secret" }),
+      env, "rid_test"
+    ),
+    /synthetic KV write failed/
+  );
+});
+
 function fakeKV(initial = {}) {
   const store = new Map(Object.entries(initial).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
   return {
