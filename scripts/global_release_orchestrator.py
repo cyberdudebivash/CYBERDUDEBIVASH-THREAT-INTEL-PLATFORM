@@ -29,6 +29,7 @@ Version: v1.0
 from __future__ import annotations
 
 import hashlib
+import math
 import json
 import os
 import re
@@ -355,23 +356,66 @@ def check_deployment_convergence(ssot: Dict) -> None:
                "WARN", f"Parse error: {e}")
         return
 
-    score     = score_data.get("confidence_score", score_data.get("score", 0))
-    state     = score_data.get("state", score_data.get("deployment_state", "UNKNOWN"))
+    score = score_data.get("confidence_score", score_data.get("score", 0))
+    classification = score_data.get("classification")
+    exit_code = score_data.get("exit_code")
+    converged = score_data.get("convergence_achieved")
+    phases = score_data.get("phases")
     generated = score_data.get("generated_at", score_data.get("timestamp", ""))
 
-    record("CONVERGENCE", "score_value",
-           "PASS" if score >= 80 else "WARN",
-           f"confidence_score={score} state={state} generated={generated}")
+    # A numeric score is only a weighted diagnostic. A failed mandatory
+    # historical-delivery phase can still leave a score of 90/100 and CDN
+    # convergence_achieved=True. Never certify release from either alone.
+    if (isinstance(score, bool) or not isinstance(score, (int, float))
+            or not math.isfinite(score)):
+        record("CONVERGENCE", "release_authorization", "FAIL",
+               "Missing or non-finite numeric convergence score", hard=True)
+        return
+
+    required = {2, 3, 4, 5}
+    phase_results = {}
+    duplicate_phases = set()
+    if isinstance(phases, list):
+        for phase in phases:
+            if not isinstance(phase, dict):
+                continue
+            number = phase.get("phase")
+            if type(number) is int and number in required:
+                if number in phase_results:
+                    duplicate_phases.add(number)
+                phase_results[number] = phase.get("success") is True
+
+    reasons = []
+    if classification != "DEPLOYMENT_STABLE":
+        reasons.append(f"classification={classification!r}")
+    if type(exit_code) is not int or exit_code != 0:
+        reasons.append(f"exit_code={exit_code!r}")
+    if converged is not True:
+        reasons.append(f"convergence_achieved={converged!r}")
+    if duplicate_phases:
+        reasons.append(f"duplicate_phases={sorted(duplicate_phases)}")
+    for number in sorted(required):
+        if phase_results.get(number) is not True:
+            reasons.append(f"phase_{number}={'FAILED' if number in phase_results else 'MISSING'}")
+    if score < 80:
+        reasons.append(f"confidence_score={score} below minimum stable threshold")
+
+    if reasons:
+        record("CONVERGENCE", "release_authorization", "FAIL",
+               "; ".join(reasons) + f"; generated={generated}", hard=True)
+        return
+
+    record("CONVERGENCE", "release_authorization", "PASS",
+           "Stable classification, exit 0, CDN convergence and phases 2-5 independently verified")
+    record("CONVERGENCE", "score_value", "PASS",
+           f"confidence_score={score} classification={classification} generated={generated}")
 
     if score >= 90:
         record("CONVERGENCE", "deployment_stable", "PASS",
-               f"Score {score} >= 90 — DEPLOYMENT_STABLE")
-    elif score >= 70:
-        record("CONVERGENCE", "deployment_stable", "WARN",
-               f"Score {score} 70–89 — DEPLOYMENT_DEGRADED — investigate")
+               f"Score {score} >= 90 with mandatory release evidence")
     else:
-        record("CONVERGENCE", "deployment_stable", "FAIL",
-               f"Score {score} < 70 — DEPLOYMENT_UNSTABLE — immediate action needed")
+        record("CONVERGENCE", "deployment_stable", "WARN",
+               f"Score {score} 80-89: valid stable classification but below governance target")
 
 
 # ===========================================================================
