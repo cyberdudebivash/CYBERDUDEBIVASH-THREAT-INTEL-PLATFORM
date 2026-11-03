@@ -135,146 +135,51 @@ jobs:
           npm install -g wrangler@3
           wrangler --version
 
-      - name: "Deploy Worker to Cloudflare (with retry)"
+      # Only the explicitly authorized production target may be updated. A
+      # failed --env production deploy is NOT permission to retry the unnamed
+      # default environment, even if the two currently share a Worker name.
+      - name: "Deploy Worker to approved production environment (no fallback)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
-          echo "=== Deploying sentinel-revenue-engine ==="
+          set -euo pipefail
           cd ${WORKER_DIR}
           LOG=/tmp/wrangler_deploy.log
-
-          # Same tolerance as deploy-worker.yml: on this account, the
-          # CLOUDFLARE_API_TOKEN has previously lacked "Zone -> Workers
-          # Routes: Edit", causing wrangler to upload the script successfully
-          # but fail while re-asserting static route/custom-domain bindings.
-          # Verify the script is actually live via /api/health (source of
-          # truth) rather than trust wrangler's exit code alone in that one
-          # specific, already-documented failure mode. Any OTHER failure
-          # still hard-fails.
-          is_routes_only_failure() {
-            grep -q "Uploaded sentinel-revenue-engine" "$LOG" && \
-            (grep -q "workers/routes" "$LOG" || grep -q "custom_domain" "$LOG" || grep -qi "custom domain" "$LOG")
-          }
-
-          verify_live() {
-            echo "--- Verifying worker is live via /api/health ---"
-            for attempt in 1 2 3 4 5 6; do
-              sleep 10
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
-                "https://revenue.intel.cyberdudebivash.com/api/health" 2>/dev/null || echo "000")
-              echo "  health probe ${attempt}/6 -> HTTP ${STATUS}"
-              if [ "$STATUS" = "200" ]; then
-                echo "OK: worker is live and serving (HTTP 200)."
-                return 0
-              fi
-            done
-            return 1
-          }
-
-          # Zone/permission failures documented here are on the Cloudflare
-          # account side (token scope), not in this repo's code -- they must
-          # read as clearly distinct from a real deploy/code regression in
-          # both the Actions annotations (::error::/::warning::, shown
-          # inline on the commit/PR checks UI) and the job summary (shown on
-          # the run's summary page, no log-digging required).
-          summary_permission_gap() {
-            {
-              echo "## :rotating_light: Action Required -- Cloudflare Zone Permission Missing"
-              echo ""
-              echo "This is **not a code regression**. The Worker script (\`sentinel-revenue-engine\`)"
-              echo "deployed successfully with all bindings intact ($1). Only the route/custom-domain"
-              echo "binding step failed, because \`CLOUDFLARE_API_TOKEN\` does not have permission"
-              echo "on the Cloudflare zone that owns \`intel.cyberdudebivash.com\`."
-              echo ""
-              echo "**Fix (one-time, dashboard only -- no code push will resolve this):**"
-              echo "1. Go to <https://dash.cloudflare.com/profile/api-tokens>"
-              echo "2. Edit the token used as the \`CF_API_TOKEN\` GitHub secret"
-              echo "3. Add **Zone -> Workers Routes: Edit** and **Zone -> DNS: Edit**"
-              echo "4. Scope it to the zone containing \`intel.cyberdudebivash.com\`"
-              echo "5. Re-run this workflow (Actions tab -> Re-run jobs) -- no code push needed"
-              echo ""
-              echo "Until this is granted, \`revenue.intel.cyberdudebivash.com\` and"
-              echo "\`intel.cyberdudebivash.com/api/v2/billing/*\` will not receive live traffic,"
-              echo "even though the Worker code behind them is already deployed and correct."
-            } >> "$GITHUB_STEP_SUMMARY"
-          }
-
-          handle_routes_gap() {
-            echo ""
-            echo "NOTICE: wrangler exited non-zero, but the worker SCRIPT uploaded"
-            echo "        successfully. The only error is route/custom-domain"
-            echo "        reconciliation -- verifying live deploy independently..."
-            if verify_live; then
-              echo "DEPLOY SUCCESS (verified live): route/custom-domain reconciliation"
-              echo "was skipped due to token scope -- this does NOT affect the deployed"
-              echo "code. ACTION (optional): add 'Workers Routes: Edit' (zone:"
-              echo "cyberdudebivash.com) to CLOUDFLARE_API_TOKEN to silence this."
-              echo "::warning title=Cloudflare token scope (non-blocking)::Worker script deployed and is live; route/custom-domain reconciliation was skipped because CLOUDFLARE_API_TOKEN lacks Zone -> Workers Routes/DNS Edit on the zone owning intel.cyberdudebivash.com. Existing routes still serve traffic. Grant that permission at https://dash.cloudflare.com/profile/api-tokens to silence this."
-              summary_permission_gap "existing routes keep serving traffic through this"
-              return 0
-            fi
-            echo ""
-            echo "ACTION REQUIRED (not a code failure): the Worker script deployed"
-            echo "successfully, but its route(s)/custom domain could not be created"
-            echo "because CLOUDFLARE_API_TOKEN lacks permission on the zone that"
-            echo "owns intel.cyberdudebivash.com. This requires a one-time manual"
-            echo "grant in the Cloudflare dashboard -- no code change will fix it:"
-            echo "  1. https://dash.cloudflare.com/profile/api-tokens"
-            echo "  2. Edit the token used by this workflow (CLOUDFLARE_API_TOKEN secret)"
-            echo "  3. Add: Zone -> Workers Routes: Edit, and Zone -> DNS: Edit"
-            echo "  4. Scope it to the zone containing intel.cyberdudebivash.com"
-            echo "  5. Re-run this workflow (or push again) -- no code changes needed"
-            echo "::error title=ACTION REQUIRED: Cloudflare token missing Zone permission::Worker script deployed successfully, but its route(s)/custom domain could not be bound -- CLOUDFLARE_API_TOKEN lacks Zone -> Workers Routes/DNS Edit permission on the zone owning intel.cyberdudebivash.com. This is NOT a code regression. Fix: grant that permission at https://dash.cloudflare.com/profile/api-tokens, then re-run this workflow. See job summary for details."
-            summary_permission_gap "these routes are new and have never gone live"
-            return 1
-          }
-
-          echo "Deploy attempt 1/2 (--env production)..."
+          echo "Deploying sentinel-revenue-engine with --env production only"
           if wrangler deploy --env production > "$LOG" 2>&1; then
             cat "$LOG"
-            echo "Deploy successful (production env)"
-            exit 0
-          fi
-          cat "$LOG"
-          if is_routes_only_failure; then
-            handle_routes_gap && exit 0 || exit 1
-          fi
-
-          echo "Production env deploy failed -- retrying without env flag..."
-          sleep 5
-          if wrangler deploy > "$LOG" 2>&1; then
+            echo "Production deploy command returned success; verifying public health next."
+          else
             cat "$LOG"
-            echo "Deploy successful (default env)"
-            exit 0
-          fi
-          cat "$LOG"
-          if is_routes_only_failure; then
-            handle_routes_gap && exit 0 || exit 1
+            if grep -Eqi 'workers/routes|custom_domain|custom domain' "$LOG"; then
+              echo "::error title=Cloudflare route authorization needs review::Named production deployment did not complete successfully. Review least-privilege route permissions; do not assume an existing HTTP 200 proves new code is deployed."
+            fi
+            echo "::error title=Fail-closed production deploy::Named production deploy returned a nonzero status. No unnamed/default environment fallback is permitted."
+            exit 1
           fi
 
-          echo "FATAL: both deploy attempts failed"
-          echo "::error title=Revenue Engine deploy failed (code/config issue)::Both deploy attempts failed for a reason other than the known Cloudflare zone-permission gap (that case is annotated separately, above). This needs investigation: check the wrangler output above in the logs for the actual error (bad binding, invalid wrangler.toml, secret issue, etc.)."
-          exit 1
-
-      - name: "Post-deploy smoke test"
-        continue-on-error: true
+      # Public health checks availability, identity and declared API version,
+      # not the exact code SHA. Deployed-SHA attestation is still a separate
+      # release-control requirement before claiming production certification.
+      - name: "Post-deploy public health acceptance gate (HARD FAIL)"
         run: |
-          echo "=== Revenue Engine Post-Deploy Smoke Test ==="
-          echo "Waiting 15s for global Cloudflare propagation..."
-          sleep 15
-          HEALTH=$(curl -sf --max-time 15 "https://revenue.intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
-          echo "Health response: ${HEALTH}"
-          echo "$HEALTH" | python3 -c "
-          import json, sys
-          try:
-              d = json.load(sys.stdin)
-          except Exception:
-              print('NOTE: could not parse health response -- worker may still be propagating')
-              sys.exit(0)
-          print('status:', d.get('status'), '| version:', d.get('version'))
-          print('checks:', json.dumps(d.get('checks', {}), indent=2))
-          " || echo "Smoke test skipped -- worker still propagating"
+          set -euo pipefail
+          cd ${WORKER_DIR}
+          EXPECTED_VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("wrangler.toml","rb"))["env"]["production"]["vars"]["ENGINE_VERSION"])')
+          test -n "$EXPECTED_VERSION"
+          HEALTH_FILE=/tmp/revenue_health_public.json
+          for attempt in 1 2 3 4 5 6; do
+            echo "Public health acceptance attempt ${attempt}/6"
+            if curl -fsS --max-time 15 "https://revenue.intel.cyberdudebivash.com/api/health" -o "$HEALTH_FILE" &&
+               node scripts/verify-public-health.mjs "$HEALTH_FILE" "$EXPECTED_VERSION"; then
+              echo "Public health accepted: HTTP 200, exact engine and declared version."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error title=Production health gate failed::Live public health could not confirm expected engine and version. Do not mark deployment successful."
+          exit 1
 
       # S13/S22: commercial go-live verdict after each deploy (READY/BLOCKED,
       # blocker and warning ids, operator queue size -- never secret values).
