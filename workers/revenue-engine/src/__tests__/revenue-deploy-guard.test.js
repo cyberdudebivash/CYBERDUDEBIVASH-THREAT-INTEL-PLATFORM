@@ -12,10 +12,11 @@ const script = fileURLToPath(new URL('../../scripts/verify-public-health.mjs', i
 const workflow = readFileSync(
   new URL('../../../../.github/workflows/deploy-revenue-engine.yml', import.meta.url), 'utf8'
 );
-const good = { status: 'ok', engine: 'SENTINEL-REVENUE-ENGINE', version: '183.0' };
+const APPROVED_SHA = 'a'.repeat(40);
+const good = { status: 'ok', engine: 'SENTINEL-REVENUE-ENGINE', version: '183.0', release_sha: APPROVED_SHA };
 
 test('release health predicate strictly matches expected service, version and liveness', () => {
-  assert.equal(healthMatches(good, '183.0'), true);
+  assert.equal(healthMatches(good, '183.0', APPROVED_SHA), true);
   for (const payload of [
     null, [], '', 42, {},
     { ...good, status: 'degraded' },
@@ -23,9 +24,9 @@ test('release health predicate strictly matches expected service, version and li
     { ...good, version: '182.0' },
     { ...good, version: 183 },
     { ...good, status: true },
-  ]) assert.equal(healthMatches(payload, '183.0'), false);
-  assert.equal(healthMatches(good, '183.0+untrusted'), false);
-  assert.equal(healthMatches(good, ''), false);
+  ]) assert.equal(healthMatches(payload, '183.0', APPROVED_SHA), false);
+  assert.equal(healthMatches(good, '183.0+untrusted', APPROVED_SHA), false);
+  assert.equal(healthMatches(good, '', APPROVED_SHA), false);
 });
 
 test('release health CLI fails closed for non-JSON, wrong version and oversized replies', () => {
@@ -36,11 +37,13 @@ test('release health CLI fails closed for non-JSON, wrong version and oversized 
       [JSON.stringify(good), 0],
       [JSON.stringify({ ...good, version: '182.0' }), 1],
       [JSON.stringify({ ...good, status: 'error' }), 1],
+      [JSON.stringify({ ...good, release_sha: 'b'.repeat(40) }), 1],
+      [JSON.stringify({ ...good, release_sha: undefined }), 1],
       ['not JSON', 1],
       [JSON.stringify({ ...good, padding: 'x'.repeat(10000) }), 1],
     ]) {
       writeFileSync(file, body, { mode: 0o600 });
-      const result = spawnSync(process.execPath, [script, file, '183.0'], { encoding: 'utf8' });
+      const result = spawnSync(process.execPath, [script, file, '183.0', APPROVED_SHA], { encoding: 'utf8' });
       assert.equal(result.status, expectedStatus, result.stderr);
     }
   } finally {
@@ -69,6 +72,7 @@ test('production deployment workflow prohibits unnamed fallback and requires exp
   assert.ok(health.length > 300, 'required health step must be present');
   assert.doesNotMatch(health, /continue-on-error:\s*true/);
   assert.match(health, /node scripts\/verify-public-health\.mjs/);
+  assert.match(health, /"\$HEALTH_FILE" "\$EXPECTED_VERSION" "\$GITHUB_SHA"/);
   assert.match(health, /exit 1/, 'failure to verify live service must block release');
 });
 
@@ -89,4 +93,15 @@ test('release executable, mandatory dry-run and bundler are pinned to identical 
   );
   assert.match(runStep, /wrangler --version/);
   assert.doesNotMatch(runStep, /wrangler@latest|wrangler@3\s/);
+});
+
+test('approved exact checkout SHA is stamped and dry-run before named production deploy', () => {
+  const stamp = workflow.indexOf('      - name: "Stamp and dry-run exact approved production source SHA"');
+  const deploy = workflow.indexOf('      - name: "Deploy Worker to approved production environment');
+  assert.ok(stamp > 0 && deploy > stamp);
+  const preDeploy = workflow.slice(stamp, deploy);
+  assert.match(preDeploy, /stamp-release-sha\.mjs/);
+  assert.match(preDeploy, /git rev-parse HEAD/);
+  assert.match(preDeploy, /ENGINE_RELEASE_SHA/);
+  assert.match(preDeploy, /wrangler deploy --env production --dry-run/);
 });

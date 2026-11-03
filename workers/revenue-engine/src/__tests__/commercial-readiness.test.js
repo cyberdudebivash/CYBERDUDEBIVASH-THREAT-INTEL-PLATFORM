@@ -170,7 +170,8 @@ test("route: admin only; health gives admins the summary and anonymous callers n
   assert.deepEqual(admin.commercial, { verdict: "BLOCKED", blockers: ["razorpay_webhook_secret"], warnings: [], queue_attention: 0 });
   const anon = await (await handleRevenueEngineHealth(h({}), env, "rid")).json();
   assert.equal(anon.commercial, undefined);
-  assert.deepEqual(Object.keys(anon).sort(), ["engine", "generated_at", "status", "version"]);
+  assert.deepEqual(Object.keys(anon).sort(), ["engine", "generated_at", "release_sha", "status", "version"]);
+  assert.equal(anon.release_sha, null, "missing approved release stamp is never presented as a live SHA");
 });
 
 test("a configured Plan charging the wrong amount blocks go-live and names the fix (S19)", async () => {

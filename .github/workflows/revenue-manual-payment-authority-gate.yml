@@ -51,6 +51,8 @@ jobs:
           node --check src/__tests__/quote-v2-route-acceptance.test.js
           node --check scripts/verify-public-health.mjs
           node --check src/__tests__/revenue-deploy-guard.test.js
+          node --check scripts/stamp-release-sha.mjs
+          node --check src/__tests__/revenue-release-attestation.test.js
 
       - name: P0 manual-payment authority regression
         run: node --test src/__tests__/manual-payment-retirement.test.js
@@ -69,6 +71,12 @@ jobs:
 
       - name: P0 exact release CLI and public health integrity regressions
         run: node --test src/__tests__/revenue-deploy-guard.test.js
+
+      - name: P0 approved SHA release-identity stamping and stale-route rejection
+        run: node --test src/__tests__/revenue-release-attestation.test.js
+
+      - name: P0 public billing canary and commercial readiness contract parity
+        run: node --test ../../deploy/billing-canary/canary.test.mjs src/__tests__/commercial-readiness.test.js
 
       - name: Existing Revenue Engine commercial regressions
         run: |

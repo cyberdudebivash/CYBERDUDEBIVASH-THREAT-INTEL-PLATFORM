@@ -1552,9 +1552,15 @@ export async function handleRevenueEngineHealth(request, env, rid) {
   // binding's presence, and which Razorpay integrations are configured -- a free
   // infrastructure map, gated behind nothing. Reuses the existing isAdmin() (X-Admin-Secret,
   // timingSafeEqual) rather than a new mechanism: an authenticated admin gets the identical,
-  // unchanged full response; anonymous callers get {status, engine, version, generated_at}.
+  // unchanged full response; anonymous callers get {status, engine, version, release_sha, generated_at}.
+  // Non-secret release identity: only expose a complete lowercase Git SHA.
+  // Missing/malformed stamp reports null so a post-deploy verifier will fail.
+  // This is a deployed configuration claim, NOT a cryptographic code hash.
+  const releaseSha = typeof env?.ENGINE_RELEASE_SHA === "string" &&
+    /^[0-9a-f]{40}$/.test(env.ENGINE_RELEASE_SHA) ? env.ENGINE_RELEASE_SHA : null;
   if (!(await isAdmin(request, env))) {
-    return json({ status: "ok", engine: ENGINE.NAME, version: ENGINE.VERSION, generated_at: new Date().toISOString() });
+    return json({ status: "ok", engine: ENGINE.NAME, version: ENGINE.VERSION,
+      release_sha: releaseSha, generated_at: new Date().toISOString() });
   }
 
   const kvOk  = env.REVENUE_CRM_KV ? await env.REVENUE_CRM_KV.get("health:ping").then(() => "ok").catch(() => "error") : "not_bound";
@@ -1577,6 +1583,7 @@ export async function handleRevenueEngineHealth(request, env, rid) {
     status: "ok",
     engine: ENGINE.NAME,
     version: ENGINE.VERSION,
+    release_sha: releaseSha,
     checks: {
       revenue_crm_kv: kvOk,
       email_queue_kv: env.EMAIL_QUEUE_KV ? "bound" : "not_bound",
