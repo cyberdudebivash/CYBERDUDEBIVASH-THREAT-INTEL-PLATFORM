@@ -135,6 +135,9 @@ test('production gateway invokes helper only after admin secret and recipient ch
   assert.ok(fn.indexOf('if (!record?.email) return;') <
     fn.indexOf('await dispatchQuotaAlertOnce({'));
   assert.match(fn, /quotaAlertDedupeKey\(identifier, dateStr\)/);
+  assert.ok(fn.indexOf('await env.RATE_LIMIT_KV.get(dedupeKey)') <
+    fn.indexOf('await env.API_KEYS_KV?.get(auth.key, "json")'),
+    'already-alerted requests must not consume a customer-record KV lookup');
   assert.match(fn, /"X-Admin-Secret": env\.REVENUE_ADMIN_SECRET/);
   assert.doesNotMatch(fn, /expirationTtl: 90000/);
 });
