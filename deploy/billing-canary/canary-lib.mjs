@@ -30,13 +30,27 @@ function step(steps, name, ok, detail) {
   return !!ok;
 }
 
+// Source-SHA identity is non-secret and public. Keep the anonymous surface
+// minimal while accepting old (unstamped) Workers for read-only preflight.
+// The strict post-deploy release gate separately REQUIRES the exact new SHA.
+export function isMinimalRevenueHealth(body) {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) return false;
+  const keys = Object.keys(body).sort();
+  const legacy = ["engine", "generated_at", "status", "version"];
+  const stamped = ["engine", "generated_at", "release_sha", "status", "version"];
+  const matches = (expected) => JSON.stringify(keys) === JSON.stringify(expected);
+  if (matches(legacy)) return true;
+  if (!matches(stamped)) return false;
+  return body.release_sha === null ||
+    (typeof body.release_sha === "string" && /^[0-9a-f]{40}$/.test(body.release_sha));
+}
+
 export async function runPublicChecks({ intel, revenue }) {
   const steps = [];
 
   const h = await revenue("GET", "/api/health");
-  step(steps, "revenue_health_anonymous_is_minimal", h.status === 200 && h.body &&
-    JSON.stringify(Object.keys(h.body).sort()) === JSON.stringify(["engine", "generated_at", "status", "version"]),
-    { status: h.status, keys: h.body ? Object.keys(h.body).sort() : null });
+  step(steps, "revenue_health_anonymous_is_minimal", h.status === 200 && isMinimalRevenueHealth(h.body),
+    { status: h.status, keys: h.body && typeof h.body === "object" ? Object.keys(h.body).sort() : null });
 
   const acct = await intel("GET", "/api/v2/billing/account");
   step(steps, "billing_account_requires_key", acct.status === 401, { status: acct.status });
