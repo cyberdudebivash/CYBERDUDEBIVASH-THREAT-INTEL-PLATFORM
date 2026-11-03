@@ -72,7 +72,7 @@ test('production deployment workflow prohibits unnamed fallback and requires exp
   assert.ok(health.length > 300, 'required health step must be present');
   assert.doesNotMatch(health, /continue-on-error:\s*true/);
   assert.match(health, /node scripts\/verify-public-health\.mjs/);
-  assert.match(health, /"\\$HEALTH_FILE" "\\$EXPECTED_VERSION" "\\$GITHUB_SHA"/);
+  assert.match(health, /"\$HEALTH_FILE" "\$EXPECTED_VERSION" "\$GITHUB_SHA"/);
   assert.match(health, /exit 1/, 'failure to verify live service must block release');
 });
 
@@ -100,7 +100,7 @@ test('approved exact checkout SHA is stamped and dry-run before named production
   const deploy = workflow.indexOf('      - name: "Deploy Worker to approved production environment');
   assert.ok(stamp > 0 && deploy > stamp);
   const preDeploy = workflow.slice(stamp, deploy);
-  assert.match(preDeploy, /stamp-release-sha\\.mjs/);
+  assert.match(preDeploy, /stamp-release-sha\.mjs/);
   assert.match(preDeploy, /git rev-parse HEAD/);
   assert.match(preDeploy, /ENGINE_RELEASE_SHA/);
   assert.match(preDeploy, /wrangler deploy --env production --dry-run/);
