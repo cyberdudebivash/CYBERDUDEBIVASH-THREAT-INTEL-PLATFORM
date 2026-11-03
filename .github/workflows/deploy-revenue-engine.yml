@@ -97,7 +97,7 @@ jobs:
         # subscription-lifecycle.test.js trust-boundary gate.
         run: |
           cd ${WORKER_DIR}
-          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js src/__tests__/billing-go-live.test.js src/__tests__/billing-center.test.js src/__tests__/cross-worker-revocation.test.js src/__tests__/commercial-readiness.test.js src/__tests__/pricing-fail-closed.test.js src/__tests__/subscription-webhook-hardening.test.js src/__tests__/renewal-and-key-email.test.js src/__tests__/activation-link.test.js src/__tests__/portal-token-v2.test.js src/__tests__/quote-token-v2.test.js src/__tests__/quote-v2-route-acceptance.test.js src/__tests__/revenue-operator-identity.test.js
+          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js src/__tests__/billing-go-live.test.js src/__tests__/billing-center.test.js src/__tests__/cross-worker-revocation.test.js src/__tests__/commercial-readiness.test.js src/__tests__/pricing-fail-closed.test.js src/__tests__/subscription-webhook-hardening.test.js src/__tests__/renewal-and-key-email.test.js src/__tests__/activation-link.test.js src/__tests__/portal-token-v2.test.js src/__tests__/quote-token-v2.test.js src/__tests__/quote-v2-route-acceptance.test.js src/__tests__/revenue-operator-identity.test.js src/__tests__/revenue-deploy-guard.test.js
 
       - name: "esbuild bundle pre-flight (HARD GATE)"
         # This is the exact check that would have caught the duplicate
@@ -107,7 +107,7 @@ jobs:
         # detection; esbuild (the real bundler Wrangler uses) does.
         run: |
           echo "=== esbuild bundle pre-flight -- HARD GATE ==="
-          npm install -g esbuild
+          npm install -g esbuild@0.25.9
           esbuild --version
           cd ${WORKER_DIR}
           # Bundle the exact entrypoint declared by wrangler.toml. The production
@@ -130,9 +130,11 @@ jobs:
           rm -f /tmp/revenue_engine_bundle_preflight.js
           echo "=== esbuild pre-flight PASSED -- deploy unblocked ==="
 
-      - name: "Install Wrangler (stable)"
+      # Pin legacy Wrangler v3 exactly; the authority gate validates the same
+      # CLI with --env production --dry-run before any production write.
+      - name: "Install pinned production Wrangler (v3.114.17)"
         run: |
-          npm install -g wrangler@3
+          npm install -g wrangler@3.114.17
           wrangler --version
 
       # Only the explicitly authorized production target may be updated. A
