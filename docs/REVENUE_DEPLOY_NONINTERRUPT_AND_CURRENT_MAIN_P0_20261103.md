@@ -1,0 +1,11 @@
+# P0 Revenue Engine — noninterruptible, nonstale manual deployment guard
+
+**Finding:** The previous `.github/workflows/deploy-revenue-engine.yml` used `concurrency.cancel-in-progress: true`, despite deploying to a live customer billing endpoint. A second manual dispatch could cancel the running workflow after the Cloudflare upload and before public-health verification and commercial readiness reporting. Deploy is not atomic with CI and cannot be assumed idempotent in the face of cancellation. A SHA approved at dispatch could also become stale during queued builds.
+
+**Change:** Keep the existing single-worker concurrency group but set `cancel-in-progress: false` so an in-flight release completes its own health acceptance. Immediately before the **only** live Wrangler deploy step, compare `git rev-parse HEAD` and `git ls-remote --exit-code origin refs/heads/main` against the explicitly approved `GITHUB_SHA`. If current main advanced, the lookup fails, or the checkout differs, abort with a nonzero exit. Retain exact `workflow_dispatch` main SHA guard, production-only target, public engine/version/SHA health acceptance, pinned v3 CLI, source-level commercial tests and existing secrets/quotas.
+
+This guards **repository/main at the moment the production write starts**, not revisions merged mid-upload, remote/cloud provider account identity, or a separately operated local deployment. GitHub concurrency may still replace an older *pending* run; that is safe because it has not started a production write. A currently executing release is not canceled by the newer run.
+
+**Testing:** CI runs `src/__tests__/revenue-deploy-guard.test.js` and asserts the non-canceling concurrency, the read-only `git ls-remote` check, fail-closed mismatch behavior, and the late guard's position between the dry-run and production write. Continue full customer billing and security regressions. An environment/network failure resolving origin/main must **block**, not skip, production deployment.
+
+**No live mutation:** The PR only changes workflow source, release-guard tests and documentation. No Cloudflare deployment, secret/config change, database write, quota increase, approval override or researcher closure. Production launch still requires independent provider deployment identity, authorized live positive/negative tests and explicit release permission.
