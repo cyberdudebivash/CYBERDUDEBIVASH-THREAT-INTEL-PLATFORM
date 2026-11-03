@@ -97,7 +97,7 @@ jobs:
         # subscription-lifecycle.test.js trust-boundary gate.
         run: |
           cd ${WORKER_DIR}
-          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js src/__tests__/billing-go-live.test.js src/__tests__/billing-center.test.js src/__tests__/cross-worker-revocation.test.js src/__tests__/commercial-readiness.test.js src/__tests__/pricing-fail-closed.test.js src/__tests__/subscription-webhook-hardening.test.js src/__tests__/renewal-and-key-email.test.js src/__tests__/activation-link.test.js src/__tests__/portal-token-v2.test.js src/__tests__/quote-token-v2.test.js src/__tests__/quote-v2-route-acceptance.test.js src/__tests__/revenue-operator-identity.test.js src/__tests__/revenue-deploy-guard.test.js
+          node --test src/__tests__/subscription-domain.test.js src/__tests__/subscription-engine.test.js src/__tests__/revenue-engine-health.test.js src/__tests__/automation-trigger.test.js src/__tests__/payment-submit.test.js src/__tests__/cors.test.js src/__tests__/manual-payment-retirement.test.js src/__tests__/mssp-tenant-fields.test.js src/__tests__/billing-policy.test.js src/__tests__/billing-credit-notes.test.js src/__tests__/billing-export-po.test.js src/__tests__/billing-go-live.test.js src/__tests__/billing-center.test.js src/__tests__/cross-worker-revocation.test.js src/__tests__/commercial-readiness.test.js src/__tests__/pricing-fail-closed.test.js src/__tests__/subscription-webhook-hardening.test.js src/__tests__/renewal-and-key-email.test.js src/__tests__/activation-link.test.js src/__tests__/portal-token-v2.test.js src/__tests__/quote-token-v2.test.js src/__tests__/quote-v2-route-acceptance.test.js src/__tests__/revenue-operator-identity.test.js src/__tests__/revenue-deploy-guard.test.js src/__tests__/revenue-release-attestation.test.js
 
       - name: "esbuild bundle pre-flight (HARD GATE)"
         # This is the exact check that would have caught the duplicate
@@ -137,6 +137,19 @@ jobs:
           npm install -g wrangler@3.114.17
           wrangler --version
 
+      # Stamp GitHub's APPROVED exact main SHA into the ephemeral checked-out
+      # named-production TOML. Never mutate committed config or use --var,
+      # which could drop existing vars and disrupt real customers.
+      - name: "Stamp and dry-run exact approved production source SHA"
+        run: |
+          set -euo pipefail
+          test "${GITHUB_SHA}" = "${{ inputs.approved_commit_sha }}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          cd ${WORKER_DIR}
+          node scripts/stamp-release-sha.mjs "${GITHUB_SHA}" wrangler.toml
+          test "$(python3 -c 'import tomllib; print(tomllib.load(open("wrangler.toml","rb"))["env"]["production"]["vars"]["ENGINE_RELEASE_SHA"])')" = "${GITHUB_SHA}"
+          wrangler deploy --env production --dry-run
+
       # Only the explicitly authorized production target may be updated. A
       # failed --env production deploy is NOT permission to retry the unnamed
       # default environment, even if the two currently share a Worker name.
@@ -161,9 +174,9 @@ jobs:
             exit 1
           fi
 
-      # Public health checks availability, identity and declared API version,
-      # not the exact code SHA. Deployed-SHA attestation is still a separate
-      # release-control requirement before claiming production certification.
+      # Health must identify the approved source SHA served at the public
+      # route. This validates the Worker-reported release config claim, not a
+      # cryptographic hash of the bundled script or Cloudflare's deployment ID.
       - name: "Post-deploy public health acceptance gate (HARD FAIL)"
         run: |
           set -euo pipefail
@@ -174,13 +187,13 @@ jobs:
           for attempt in 1 2 3 4 5 6; do
             echo "Public health acceptance attempt ${attempt}/6"
             if curl -fsS --max-time 15 "https://revenue.intel.cyberdudebivash.com/api/health" -o "$HEALTH_FILE" &&
-               node scripts/verify-public-health.mjs "$HEALTH_FILE" "$EXPECTED_VERSION"; then
-              echo "Public health accepted: HTTP 200, exact engine and declared version."
+               node scripts/verify-public-health.mjs "$HEALTH_FILE" "$EXPECTED_VERSION" "$GITHUB_SHA"; then
+              echo "Public health accepted: HTTP 200, exact engine, declared version, and approved source SHA."
               exit 0
             fi
             sleep 10
           done
-          echo "::error title=Production health gate failed::Live public health could not confirm expected engine and version. Do not mark deployment successful."
+          echo "::error title=Production health gate failed::Live public health could not confirm expected engine, version and exact approved SHA. Do not mark deployment successful."
           exit 1
 
       # S13/S22: commercial go-live verdict after each deploy (READY/BLOCKED,
