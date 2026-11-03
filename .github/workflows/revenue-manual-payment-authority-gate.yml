@@ -6,12 +6,14 @@ on:
       - 'workers/revenue-engine/src/**'
       - 'workers/revenue-engine/wrangler.toml'
       - '.github/workflows/revenue-manual-payment-authority-gate.yml'
+      - 'docs/REVENUE_OPERATOR_IDENTITY_P0_20261103.md'
   push:
     branches: [main]
     paths:
       - 'workers/revenue-engine/src/**'
       - 'workers/revenue-engine/wrangler.toml'
       - '.github/workflows/revenue-manual-payment-authority-gate.yml'
+      - 'docs/REVENUE_OPERATOR_IDENTITY_P0_20261103.md'
   workflow_dispatch:
 
 permissions:
@@ -38,12 +40,17 @@ jobs:
           node --check src/__tests__/manual-payment-retirement.test.js
           node --check src/portal-token-v2.js
           node --check src/__tests__/portal-token-v2.test.js
+          node --check src/revenue-operator-identity.js
+          node --check src/__tests__/revenue-operator-identity.test.js
 
       - name: P0 manual-payment authority regression
         run: node --test src/__tests__/manual-payment-retirement.test.js
 
       - name: P0 customer-portal trust-boundary and compatibility controls
         run: node --test src/__tests__/portal-token-v2.test.js
+
+      - name: P0 signed operator-identity boundary negative and positive regressions
+        run: node --test src/__tests__/revenue-operator-identity.test.js
 
       - name: Existing Revenue Engine commercial regressions
         run: |

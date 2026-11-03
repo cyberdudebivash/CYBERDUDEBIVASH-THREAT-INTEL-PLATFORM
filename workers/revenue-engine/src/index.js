@@ -13,6 +13,7 @@ import { handleRefundRequest, handleRefundList, handleRefundApprove, handleRefun
 import { handleCommercialReadiness, buildCommercialReadiness } from "./commercial-readiness.js";
 import { handleQuoteCreate, handleQuoteList, handleQuoteView, handleQuoteAccept, handleQuoteCancel, handleQuoteInvoice, handleQuoteReconcile, handleQuoteProvision } from "./enterprise-po.js";
 import { portalV2Enabled, portalV2Configured, legacyPortalAllowed, issuePortalTokenV2, verifyPortalTokenV2, readBoundedPortalJson } from "./portal-token-v2.js";
+import { authorizeRevenueOperator } from "./revenue-operator-identity.js";
 
 const ENGINE = {
   VERSION:  "183.0",
@@ -49,6 +50,18 @@ export default {
     const allowedOrigin = isAllowedRevenueOrigin(requestOrigin) ? requestOrigin : null;
 
     if (method === "OPTIONS") return cors204(allowedOrigin);
+
+    // Optional second factor for ALL X-Admin-Secret requests, including billing
+    // handlers dispatched before the central CRM gate. Fail closed if enabled
+    // but the signed, audience-bound operator identity cannot be verified.
+    // Never challenge public customer/webhook requests lacking this header.
+    if (request.headers.has("X-Admin-Secret") &&
+        !(await authorizeRevenueOperator(request, env))) {
+      return withCorsOrigin(
+        json({ error: "operator_identity_required" }, 403),
+        allowedOrigin
+      );
+    }
 
     const response = await routeRevenueRequest(request, env, ctx, rid, url, path, method);
     return withCorsOrigin(response, allowedOrigin);
