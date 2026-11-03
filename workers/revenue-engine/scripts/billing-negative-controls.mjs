@@ -420,10 +420,21 @@ function stage() {
   return dir;
 }
 
-function suitesPass(dir) {
+function suitesPass(dir, showBaselineDiagnostics = false) {
   for (const [cwd, args] of SUITES) {
     const r = spawnSync(process.execPath, args, { cwd: path.join(dir, cwd), encoding: "utf8" });
-    if (r.status !== 0) return false;
+    if (r.status !== 0) {
+      if (showBaselineDiagnostics) {
+        console.error(`BASELINE_SUITE_FAILED cwd=${cwd} exit=${r.status ?? "signal"}`);
+        // Only concise test-runner failure markers; never dump all test
+        // output (which can contain fixture payloads or credentials).
+        const markers = String((r.stdout || "") + "\\n" + (r.stderr || "")).split(/\\r?\\n/)
+          .filter((line) => /not ok|(?:^|\\s)error:|# fail |ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND|ENOENT|SyntaxError/i.test(line))
+          .slice(0, 12);
+        for (const line of markers) console.error(line.slice(0, 240));
+      }
+      return false;
+    }
   }
   return true;
 }
@@ -431,7 +442,7 @@ function suitesPass(dir) {
 let failures = 0;
 const base = stage();
 try {
-  if (!suitesPass(base)) {
+  if (!suitesPass(base, true)) {
     console.error("BASELINE FAILED: the unmutated copy does not pass; controls would be meaningless.");
     process.exit(1);
   }
