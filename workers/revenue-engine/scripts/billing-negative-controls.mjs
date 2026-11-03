@@ -428,8 +428,8 @@ function suitesPass(dir, showBaselineDiagnostics = false) {
         console.error(`BASELINE_SUITE_FAILED cwd=${cwd} exit=${r.status ?? "signal"}`);
         // Only concise test-runner failure markers; never dump all test
         // output (which can contain fixture payloads or credentials).
-        const markers = String((r.stdout || "") + "\\n" + (r.stderr || "")).split(/\\r?\\n/)
-          .filter((line) => /not ok|(?:^|\\s)error:|# fail |ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND|ENOENT|SyntaxError/i.test(line))
+        const markers = String((r.stdout || "") + "\n" + (r.stderr || "")).split(/\\r?\\n/)
+          .filter((line) => /not ok|(?:^|\s)error:|# fail |ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND|ENOENT|SyntaxError/i.test(line))
           .slice(0, 12);
         for (const line of markers) console.error(line.slice(0, 240));
       }
