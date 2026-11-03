@@ -17,7 +17,7 @@ const encode = value => Buffer.from(
 async function signedJwt(overrides = {}, headerOverrides = {}) {
   const header = { alg: 'RS256', typ: 'JWT', kid: 'operator-key-1', ...headerOverrides };
   const payload = {
-    iss: issuer, aud: [audience], sub: 'operator-001',
+    iss: issuer, aud: [audience], type: 'app', sub: 'operator-001',
     email: 'operator@example.com', iat: NOW - 60, exp: NOW + 3600,
     ...overrides,
   };
@@ -67,10 +67,24 @@ describe('Revenue operator identity gate (offline; zero external calls)', () => 
     assert.equal(await authorizeRevenueOperator(request(), config(), NOW), false);
   });
 
+  test('machine tokens require an independently allowlisted Access service identifier', async () => {
+    const token = await signedJwt({
+      sub: '', email: undefined, common_name: 'automation-client.access',
+    });
+    assert.equal(await authorizeRevenueOperator(request(token), config(), NOW), false);
+    assert.equal(await authorizeRevenueOperator(request(token), config({
+      REVENUE_OPERATOR_ACCESS_SERVICE_IDS: 'automation-client.access',
+    }), NOW), true);
+    assert.equal(await authorizeRevenueOperator(request(token), config({
+      REVENUE_OPERATOR_ACCESS_SERVICE_IDS: 'other-client.access',
+    }), NOW), false);
+  });
+
   test('rejects unauthorized issuer, audience, email and missing identity', async () => {
     for (const claims of [
       { iss: 'https://evil.example.test' },
       { aud: ['wrong-audience'] },
+      { type: 'org' },
       { email: 'unauthorized@example.com' },
       { sub: '' },
       { exp: NOW - 1 },
@@ -88,7 +102,7 @@ describe('Revenue operator identity gate (offline; zero external calls)', () => 
     const valid = await signedJwt();
     const parts = valid.split('.');
     const tampered = parts[0] + '.' + encode({
-      iss: issuer, aud: [audience], sub: 'operator-001',
+      iss: issuer, aud: [audience], type: 'app', sub: 'operator-001',
       email: 'attacker@example.com', iat: NOW - 60, exp: NOW + 3600,
     }) + '.' + parts[2];
     assert.equal(await authorizeRevenueOperator(request(tampered), config(), NOW), false);
