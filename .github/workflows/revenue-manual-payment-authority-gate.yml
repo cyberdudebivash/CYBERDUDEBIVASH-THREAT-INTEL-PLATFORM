@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'workers/revenue-engine/src/**'
+      - 'workers/revenue-engine/scripts/**'
+      - '.github/workflows/deploy-revenue-engine.yml'
       - 'workers/revenue-engine/wrangler.toml'
       - '.github/workflows/revenue-manual-payment-authority-gate.yml'
       - 'docs/REVENUE_OPERATOR_IDENTITY_P0_20261103.md'
@@ -11,6 +13,8 @@ on:
     branches: [main]
     paths:
       - 'workers/revenue-engine/src/**'
+      - 'workers/revenue-engine/scripts/**'
+      - '.github/workflows/deploy-revenue-engine.yml'
       - 'workers/revenue-engine/wrangler.toml'
       - '.github/workflows/revenue-manual-payment-authority-gate.yml'
       - 'docs/REVENUE_OPERATOR_IDENTITY_P0_20261103.md'
@@ -44,6 +48,8 @@ jobs:
           node --check src/__tests__/revenue-operator-identity.test.js
           node --check src/quote-token-v2.js
           node --check src/__tests__/quote-token-v2.test.js
+          node --check scripts/verify-public-health.mjs
+          node --check src/__tests__/revenue-deploy-guard.test.js
 
       - name: P0 manual-payment authority regression
         run: node --test src/__tests__/manual-payment-retirement.test.js
@@ -56,6 +62,9 @@ jobs:
 
       - name: P0 enterprise quotation signer and migration regression
         run: node --test src/__tests__/quote-token-v2.test.js
+
+      - name: P0 approved production environment and strict live-health regression
+        run: node --test src/__tests__/revenue-deploy-guard.test.js
 
       - name: Existing Revenue Engine commercial regressions
         run: |
