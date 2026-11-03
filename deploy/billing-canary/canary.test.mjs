@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { test } from "node:test";
 
-import { EXIT, runPublicChecks, runAdminChecks, runTestCheckout, readinessProvesTestMode } from "./canary-lib.mjs";
+import { EXIT, runPublicChecks, runAdminChecks, runTestCheckout, readinessProvesTestMode, isMinimalRevenueHealth } from "./canary-lib.mjs";
 import revenueWorker from "../../workers/revenue-engine/src/production-entry.js";
 import gatewayWorker from "../../workers/intel-gateway/src/production-entry.js";
 import { createD1 } from "../../workers/revenue-engine/src/__tests__/helpers/d1-sqlite.js";
@@ -100,6 +100,24 @@ test("public canary passes against a correct deployment and mutates nothing", as
   assert.deepEqual(failed(steps), [], JSON.stringify(steps.filter((s) => !s.ok)));
   assert.equal(steps.length, 16, "every public boundary is probed");
   assert.equal(d.revenueEnv.API_KEYS_KV.store.size, 0, "no key minted");
+});
+
+test("billing public health accepts only minimal legacy or validated SHA shapes", async () => {
+  const base = { engine: "SENTINEL-REVENUE-ENGINE", generated_at: "2026-11-03T00:00:00Z", status: "ok", version: "183.0" };
+  assert.equal(isMinimalRevenueHealth(base), true, "existing live Workers remain visible before cutover");
+  assert.equal(isMinimalRevenueHealth({ ...base, release_sha: null }), true);
+  assert.equal(isMinimalRevenueHealth({ ...base, release_sha: "a".repeat(40) }), true);
+  for (const value of ["", "abc", "A".repeat(40), "z".repeat(40), 42, {}, ["a"], true]) {
+    assert.equal(isMinimalRevenueHealth({ ...base, release_sha: value }), false);
+  }
+  assert.equal(isMinimalRevenueHealth({ ...base, release_sha: "a".repeat(40), checks: { crm_db: "bound" } }), false);
+  assert.equal(isMinimalRevenueHealth({ ...base, REVENUE_ADMIN_SECRET: "must_not_leak" }), false);
+  assert.equal(isMinimalRevenueHealth(null), false);
+  assert.equal(isMinimalRevenueHealth([]), false);
+
+  const d = deployment();
+  d.revenueEnv.ENGINE_RELEASE_SHA = "a".repeat(40);
+  assert.deepEqual(failed(await runPublicChecks(d)), [], "in-process signed-release metadata is read-only");
 });
 
 test("admin canary: readable readiness; test mode is BLOCKED, so the live gate fails and admin mode reports it", async () => {
