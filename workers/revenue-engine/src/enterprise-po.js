@@ -29,7 +29,8 @@
 //   POST /api/v2/billing/quotes/provision    admin   {id}: retry provisioning after a failure
 // =============================================================================
 
-import { json, sanitizeEmail, trackEvent, isAdmin, provisionCustomer, timingSafeEqual } from "./index.js";
+import { json, sanitizeEmail, trackEvent, isAdmin, provisionCustomer } from "./index.js";
+import { issueQuoteToken, verifyQuoteToken, quoteSigningReady } from "./quote-token-v2.js";
 import { ensureBillingSchema, issueInvoiceCore, getInvoiceByPayment } from "./billing-ledger.js";
 import {
   normalizeBuyerTaxId, normalizeBillingState, normalizeBillingName, normalizeBillingCountry,
@@ -58,19 +59,13 @@ function plainText(v, max) {
 
 const isoDate = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v + "T00:00:00Z"));
 
-/** HMAC-SHA256(REVENUE_ADMIN_SECRET, "quote:"+id): the customer's capability for one quote. */
+/** Generate a customer quote capability without exposing the admin credential. */
 export async function quoteToken(env, id) {
-  if (!env || !env.REVENUE_ADMIN_SECRET) return null;
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.REVENUE_ADMIN_SECRET),
-    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode("quote:" + id));
-  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return issueQuoteToken(env, id);
 }
 
 async function tokenValid(env, id, token) {
-  if (typeof token !== "string" || !/^[0-9a-f]{64}$/.test(token)) return false;
-  const expected = await quoteToken(env, id);
-  return !!expected && timingSafeEqual(token, expected);
+  return verifyQuoteToken(env, id, token);
 }
 
 export async function getQuote(database, id) {
@@ -157,6 +152,11 @@ export async function handleQuoteCreate(request, env, ctx, rid) {
   if (!Number.isInteger(validDays) || validDays < 1 || validDays > QUOTE_VALID_DAYS_MAX) {
     return json({ error: `valid_days must be 1-${QUOTE_VALID_DAYS_MAX}`, field: "valid_days" }, 400);
   }
+
+  // Fail before creating a persistent quote if v2 signing is enabled but the
+  // independent key is missing, duplicated with an admin/portal key, or invalid.
+  // Never produce a customer quote with an unusable acceptance capability.
+  if (!quoteSigningReady(env)) return json({ error: "quote_signing_unavailable" }, 503);
 
   const database = db(env);
   await ensureBillingSchema(database);
