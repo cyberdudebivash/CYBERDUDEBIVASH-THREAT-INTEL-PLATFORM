@@ -2,7 +2,7 @@
  * P0: customer quota warnings must not be marked "sent" before the Revenue
  * Engine confirms that it actually queued the message.
  *
- * A one-hour KV reservation bounds retry traffic to <=24 attempts/day per key;
+ * A one-hour KV reservation limits single-view retries to ~24/day/key;
  * failed/denied/malformed upstream requests become retryable after its TTL.
  * A 25-hour marker is written ONLY after a strict 200 + matching acknowledgment.
  *
