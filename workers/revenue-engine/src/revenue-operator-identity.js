@@ -53,6 +53,15 @@ function operatorAllowed(email, value) {
     operators.includes(normalized);
 }
 
+function serviceAllowed(commonName, value) {
+  if (typeof commonName !== 'string' || typeof value !== 'string' ||
+      commonName.length > 256 || value.length > 4096) return false;
+  const identifiers = value.split(',').map(v => v.trim());
+  return identifiers.length > 0 && identifiers.length <= 20 &&
+    identifiers.every(v => /^[A-Za-z0-9._-]{8,256}$/.test(v)) &&
+    identifiers.includes(commonName);
+}
+
 /**
  * @param {Request} request
  * @param {object} env
@@ -86,10 +95,13 @@ export async function authorizeRevenueOperator(request, env, nowSeconds = Math.f
     if (!header || !claims || !signature ||
         header.alg !== 'RS256' || typeof header.kid !== 'string' ||
         header.kid.length < 1 || header.kid.length > 256 ||
-        claims.iss !== issuer ||
+        claims.iss !== issuer || claims.type !== 'app' ||
         !(claims.aud === audience || (Array.isArray(claims.aud) && claims.aud.includes(audience))) ||
-        typeof claims.sub !== 'string' || !claims.sub || claims.sub.length > 256 ||
-        !operatorAllowed(claims.email, allowlist)) return false;
+        typeof claims.sub !== 'string' || claims.sub.length > 256 ||
+        !((claims.sub.length > 0 && operatorAllowed(claims.email, allowlist)) ||
+          (claims.sub.length === 0 && serviceAllowed(
+            claims.common_name, env.REVENUE_OPERATOR_ACCESS_SERVICE_IDS
+          )))) return false;
 
     if (!Number.isInteger(nowSeconds) || nowSeconds <= 0 ||
         !Number.isInteger(claims.iat) || !Number.isInteger(claims.exp) ||
