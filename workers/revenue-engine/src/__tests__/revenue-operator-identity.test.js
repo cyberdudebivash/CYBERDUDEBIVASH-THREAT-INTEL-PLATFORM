@@ -2,6 +2,7 @@ import { describe, test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { authorizeRevenueOperator } from '../revenue-operator-identity.js';
+import revenueWorker from '../index.js';
 
 const cryptoApi = globalThis.crypto ?? webcrypto;
 const NOW = 1800000000;
@@ -95,6 +96,15 @@ describe('Revenue operator identity gate (offline; zero external calls)', () => 
     assert.equal(await authorizeRevenueOperator(request(await signedJwt({}, { kid: 'different' })), config(), NOW), false);
     assert.equal(await authorizeRevenueOperator(request(valid), config({ REVENUE_OPERATOR_ACCESS_JWKS: '{"keys":[]}' }), NOW), false);
     assert.equal(await authorizeRevenueOperator(request(valid), config({ REVENUE_OPERATOR_ACCESS_JWKS: '{bad' }), NOW), false);
+  });
+
+  test('rejects stolen admin-secret requests before pre-gated billing handlers execute', async () => {
+    const response = await revenueWorker.fetch(new Request(
+      'https://revenue.example.test/api/v2/billing/refunds/approve',
+      { method: 'POST', headers: { 'X-Admin-Secret': 'synthetic-operator-key' } }
+    ), config({ REVENUE_ADMIN_SECRET: 'synthetic-operator-key' }), {});
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'operator_identity_required' });
   });
 
   test('fails closed for wrong configuration, wrong operator allowlist, invalid tokens and missing keys', async () => {
