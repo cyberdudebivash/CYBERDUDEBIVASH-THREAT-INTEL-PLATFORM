@@ -136,6 +136,11 @@ jobs:
         with:
           node-version: '22'
 
+      # Manual production release is NOT a push side effect: reject workflow
+      # drift back to auto-deploy, default-env fallback or cancel-on-upload.
+      - name: "P0 gateway manual-only release authorization and no-fallback (offline)"
+        run: node --test tests/gateway-manual-release-guard.test.mjs
+
       # P0: a malformed Worker helper once caused 35 import failures in a
       # fully merged PR. Check parser integrity before running the entire
       # expensive gateway suite. These steps never deploy or mutate Cloudflare.
