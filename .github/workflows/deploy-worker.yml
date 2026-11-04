@@ -1,7 +1,7 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v184.0  -  Worker Auto-Deploy
+# CYBERDUDEBIVASH(R) SENTINEL APEX v184.0  -  Manual-only Worker Release
 # =============================================================================
-# Deploys the Cloudflare Worker whenever src/** or wrangler.toml changes.
+# Deploys the Cloudflare Worker only after explicit dispatch and reviewed SHA.
 # Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID
 # Runtime secret (set once via wrangler CLI): CDB_JWT_SECRET
 #
@@ -34,32 +34,27 @@
 #     both are verified end-to-end, the pin here stays 3.114.17 deliberately
 #     -- this note exists so the next attempt starts from verified evidence
 #     instead of re-deriving it.
-#   * Deploy retried once on transient failure
-#   * Health check is informational-only (never blocks deploy success)
+#   * Only one explicitly authorized --env production upload; no default fallback
+#   * Post-deploy health requires the exact approved source SHA
 #
 # HARDENING (v184.0 - ENTERPRISE GRADE):
 #   * CI BOT GUARD: job-level if: condition blocks github-actions[bot] push
 #     triggers. sentinel-blogger commits config/version.json with [skip ci]
 #     but this guard adds defense-in-depth so bot pushes NEVER redeploy Worker.
-#   * cancel-in-progress: true -- Worker deploys are idempotent. If two deploys
-#     queue simultaneously (e.g. manual dispatch + push), cancel the older one.
-#     The latest source is always what we want in production.
+#   * cancel-in-progress: false -- allow in-flight upload and health acceptance
+#     to complete; block obsolete queued approvals at the pre-write main check.
 # =============================================================================
 
 name: deploy-worker v201.0
 
+# No production deploy on a merge/push. Explicit authorization is mandatory.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'workers/intel-gateway/src/**'
-      - 'workers/intel-gateway/scripts/demo-key-operator.mjs'
-      - 'workers/intel-gateway/scripts/demo-key-operator.contract.test.mjs'
-      - 'workers/intel-gateway/wrangler.toml'
-      - 'workers/intel-gateway/package.json'
-      - 'config/version.json'
-      - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
+    inputs:
+      approved_commit_sha:
+        description: 'Exact reviewed 40-character main HEAD approved for production'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -73,24 +68,22 @@ env:
 
 concurrency:
   group: worker-deploy
-  # cancel-in-progress: true -- Worker deploys are fully idempotent.
-  # If a newer deploy queues while one is running, cancel the stale one.
-  # This prevents deploying an older Worker build when a newer commit lands.
-  cancel-in-progress: true
+  # Do not interrupt a live upload before the exact commit's health checks.
+  # Queued manual releases must re-check the approved commit at write time.
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # CI BOT GUARD (v184.0 HARDENING):
-    # Block deploy when triggered by github-actions[bot] push events.
-    # Data pipelines (sentinel-blogger etc.) commit config/version.json with
-    # [skip ci] -- but this guard is defense-in-depth so no bot commit can
-    # ever accidentally trigger a Worker redeploy.
-    # workflow_dispatch is always allowed (manual operator override).
+    # Refuse push, PR, non-main dispatches, or SHA different from the
+    # explicitly reviewed and approved main commit.
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.actor != 'github-actions[bot]')
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.approved_commit_sha == github.sha
+    env:
+      APPROVED_RELEASE_SHA: ${{ inputs.approved_commit_sha }}
 
     steps:
       - name: " Checkout repository"
@@ -100,6 +93,9 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+
+      - name: "P0 local deployment authority and target regression (no cloud calls)"
+        run: node --test tests/gateway-manual-release-guard.test.mjs tests/gateway-production-secret.test.mjs
 
       - name: " Inject version from config/version.json (SSOT)"
         run: |
@@ -517,31 +513,44 @@ jobs:
           fi
           echo "OK: Version governance check PASSED -- no drift detected"
 
-      - name: "GATE — Pre-deploy CDB_JWT_SECRET presence check (HARD FAIL)"
+      - name: "GATE — Verify named-production CDB_JWT_SECRET presence (HARD FAIL)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
-          echo "=== Verifying CDB_JWT_SECRET is configured in Cloudflare Worker ==="
-          cd ${WORKER_DIR}
-          # List secrets — exit 0 means wrangler can reach the API; grep for our secret name
-          set +e
-          SECRET_LIST=$(npx wrangler secret list --env production 2>&1 || npx wrangler secret list 2>&1)
-          set -e
-          echo "$SECRET_LIST"
-          if echo "$SECRET_LIST" | grep -q "CDB_JWT_SECRET"; then
-            echo "OK: CDB_JWT_SECRET is present in Cloudflare Worker secrets."
-          else
-            echo "::error::CDB_JWT_SECRET is NOT configured in Cloudflare Worker secrets."
-            echo "::error::Worker will serve HTTP 503 on all auth requests until this is set."
-            echo "::error::Fix: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET"
-            # Non-blocking: emit error annotation but allow deploy to proceed so operator can fix post-deploy
-            # This prevents the pre-deploy check itself from being a permanent blocker on first-deploy scenarios
-            echo "::warning::Proceeding with deploy — set CDB_JWT_SECRET immediately after deploy."
+          set -euo pipefail
+          cd "${WORKER_DIR}"
+          # Never inspect the default Worker environment. Do not print a
+          # secret list or an API error payload to production build logs.
+          if ! SECRET_LIST="$(npx wrangler secret list --env production 2>/dev/null)"; then
+            echo "::error::Unable to read named-production secret metadata; release denied"
+            exit 1
           fi
-          echo "=== Secret pre-check complete ==="
+          if ! printf '%s' "$SECRET_LIST" | node ../../scripts/verify-gateway-production-secret.mjs; then
+            echo "::error::CDB_JWT_SECRET presence unverified in production; release denied"
+            exit 1
+          fi
+          echo "Named-production JWT secret metadata gate passed."
 
-      - name: " Deploy Worker to Cloudflare (with retry)"
+      - name: "Confirm approved SHA is still main HEAD immediately before production write"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::GitHub checkout SHA invalid"; exit 1
+          fi
+          if [ "$GITHUB_SHA" != "$APPROVED_RELEASE_SHA" ] ||
+             [ "$(git rev-parse HEAD)" != "$APPROVED_RELEASE_SHA" ]; then
+            echo "::error::Manually approved SHA differs from checkout"; exit 1
+          fi
+          CURRENT_MAIN="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ -z "$CURRENT_MAIN" ] || [ "$CURRENT_MAIN" != "$APPROVED_RELEASE_SHA" ]; then
+            echo "::error::Reviewed SHA superseded or latest main unavailable; deny deploy"
+            exit 1
+          fi
+          echo "Manual production release approval and current main HEAD verified."
+
+      - name: " Deploy Worker to Cloudflare (production only)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
@@ -613,7 +622,7 @@ jobs:
             echo "        Routes are static and already exist -- verifying live deploy..."
             if verify_live; then
               echo ""
-              echo "DEPLOY SUCCESS (verified live): worker script is deployed and"
+              echo "PROVISIONAL ROUTE-ONLY RESULT: post-deploy exact SHA check is required;"
               echo "serving on existing routes. Route reconciliation was skipped due"
               echo "to token scope -- this does NOT affect the deployed code."
               echo "ACTION (optional, to silence this): add 'Workers Routes: Edit'"
@@ -624,7 +633,7 @@ jobs:
             return 1
           }
 
-          echo "Deploy attempt 1/2 (--env production)..."
+          echo "Only authorized deploy attempt (--env production)..."
           if wrangler deploy --env production > "$LOG" 2>&1; then
             cat "$LOG"
             echo "Deploy successful (production env)"
@@ -635,20 +644,7 @@ jobs:
             handle_routes_gap && exit 0 || exit 1
           fi
 
-          echo "Production env deploy failed  -  retrying without env flag..."
-          sleep 5
-
-          if wrangler deploy > "$LOG" 2>&1; then
-            cat "$LOG"
-            echo "Deploy successful (default env)"
-            exit 0
-          fi
-          cat "$LOG"
-          if is_routes_only_failure; then
-            handle_routes_gap && exit 0 || exit 1
-          fi
-
-          echo "FATAL: Both deploy attempts failed"
+          echo "FATAL: named production deploy failed; never retry against default environment"
           exit 1
 
       - name: "[OK] Post-deploy smoke test (version + exact commit assertion)"
