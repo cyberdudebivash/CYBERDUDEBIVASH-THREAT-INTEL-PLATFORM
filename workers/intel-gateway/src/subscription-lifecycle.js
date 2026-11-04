@@ -49,12 +49,17 @@ export const SUBSCRIPTION_STATUS_VALID_STATES = new Set(["active", "past_due", "
  * Pure decision function, no KV/network access. resolveAuth() and
  * handleLogin() (index.js) are the only production callers -- this is not
  * a second decision path.
- * @param {{expires_at?: string|null, subscription_status?: string}} record
+ * @param {{expires_at?: string|null, subscription_status?: string, status?: string}} record
  * @returns {{allowed: boolean, error: string|null}}
  */
 export function evaluateKeyRecordAccess(record) {
   if (record.expires_at && new Date(record.expires_at) < new Date()) {
     return { allowed: false, error: "key_expired" };
+  }
+  // A tombstoned credential cannot regain access through a stale or legacy subscription record.
+  // Preserve existing expired-key precedence and legacy records with no status field.
+  if (record.status === "revoked") {
+    return { allowed: false, error: "key_revoked" };
   }
   if (record.subscription_status) {
     if (!SUBSCRIPTION_STATUS_VALID_STATES.has(record.subscription_status)) {
