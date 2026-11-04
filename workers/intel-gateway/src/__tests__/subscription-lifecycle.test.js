@@ -45,6 +45,29 @@ test("an unrecognized subscription_status string fails closed, not open", () => 
   assert.equal(result.error, "subscription_status_invalid");
 });
 
+test("a revoked key is rejected even when the subscription record is active, past_due or legacy", () => {
+  for (const subscription_status of [undefined, "active", "past_due"]) {
+    const record = { tier: "PRO", status: "revoked" };
+    if (subscription_status) record.subscription_status = subscription_status;
+    assert.deepEqual(evaluateKeyRecordAccess(record),
+      { allowed: false, error: "key_revoked" }, String(subscription_status));
+  }
+});
+
+test("valid legacy key status and past_due subscription preserve customer access", () => {
+  for (const record of [
+    { tier: "PRO", status: "active" },
+    { tier: "PRO", status: "active", subscription_status: "past_due" },
+    { tier: "PRO", subscription_status: "active" },
+  ]) assert.equal(evaluateKeyRecordAccess(record).allowed, true);
+});
+
+test("expired revoked key retains canonical expiry error precedence", () => {
+  assert.equal(evaluateKeyRecordAccess({
+    status: "revoked", expires_at: new Date(Date.now() - 60000).toISOString(),
+  }).error, "key_expired");
+});
+
 test("expires_at in the past denies regardless of subscription_status being active", () => {
   const result = evaluateKeyRecordAccess({
     subscription_status: "active",
