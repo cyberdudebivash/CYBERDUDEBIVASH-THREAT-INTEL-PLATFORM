@@ -378,6 +378,22 @@ test("VDP TI-03: Copilot router denies anonymous, spoofed, invalid, FREE; admits
   }));
   await denied({ "X-API-Key": freeKey, "X-Plan": "PRO" }, 403, "FREE key plus spoofed tier");
 
+  // A recorded revocation must deny even when an old KV mirror still says active.
+  const revokedKey = "cdb_revoked_test_vdp_copilot_0123456789abcdef";
+  env.API_KEYS_KV._m.set(revokedKey, JSON.stringify({
+    tier: "PRO", customer_id: "vdp_synthetic_revoked",
+    status: "revoked", subscription_status: "active",
+  }));
+  await denied({ "X-API-Key": revokedKey }, 401, "revoked key with stale active subscription");
+
+  const expiredKey = "cdb_expired_test_vdp_copilot_0123456789abcdef";
+  env.API_KEYS_KV._m.set(expiredKey, JSON.stringify({
+    tier: "PRO", customer_id: "vdp_synthetic_expired",
+    status: "active", subscription_status: "active",
+    expires_at: "2020-01-01T00:00:00Z",
+  }));
+  await denied({ "X-API-Key": expiredKey }, 401, "expired PRO credential");
+
   const pro = await req(route, {
     method: "POST", headers: { "X-API-Key": PRO_KEY }, body,
   });
