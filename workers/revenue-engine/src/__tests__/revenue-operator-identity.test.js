@@ -137,4 +137,36 @@ describe('Revenue operator identity gate (offline; zero external calls)', () => 
     }), NOW), false);
     assert.equal(await authorizeRevenueOperator(request('untrusted.payload.bad'), config(), NOW), false);
   });
+
+  test('public customer health remains reachable in required mode without operator header', async () => {
+    const response = await revenueWorker.fetch(new Request(
+      'https://revenue.example.test/api/health',
+      { method: 'GET' }
+    ), config({ REVENUE_ADMIN_SECRET: 'synthetic-operator-key' }), {});
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.engine, 'SENTINEL-REVENUE-ENGINE');
+  });
+
+  test('operator header on public health still requires verified identity in required mode', async () => {
+    const response = await revenueWorker.fetch(new Request(
+      'https://revenue.example.test/api/health',
+      { method: 'GET', headers: { 'X-Admin-Secret': 'synthetic-operator-key' } }
+    ), config({ REVENUE_ADMIN_SECRET: 'synthetic-operator-key' }), {});
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'operator_identity_required' });
+  });
+
+  test('malformed required-mode configuration fails closed before privileged dispatch', async () => {
+    const response = await revenueWorker.fetch(new Request(
+      'https://revenue.example.test/api/crm/leads',
+      { method: 'GET', headers: { 'X-Admin-Secret': 'synthetic-operator-key' } }
+    ), config({
+      REVENUE_ADMIN_SECRET: 'synthetic-operator-key',
+      REVENUE_OPERATOR_ACCESS_JWKS: '{bad'
+    }), {});
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'operator_identity_required' });
+  });
+
 });
