@@ -375,14 +375,8 @@ def _normalize(report: dict) -> dict:
                     techniques.append({"id": t_id, "name": name, "tactic": tactic, "count": 1})
                     tactics_seen[tactic] = tactics_seen.get(tactic, 0) + 1
 
-        # Auto-derive from title if still empty
-        if not techniques:
-            title_str = (r.get("title") or "")
-            for tid in re.findall(r'\bT\d{4}(?:\.\d{3})?\b', r.get("executive_summary", "") + title_str, re.I):
-                tid_up = tid.upper()
-                info = _ATTACK.get(tid_up, ("Unknown Technique", "Unknown"))
-                techniques.append({"id": tid_up, "name": info[0], "tactic": info[1], "count": 1})
-                tactics_seen[info[1]] = tactics_seen.get(info[1], 0) + 1
+        # Do not promote a technique appearing only in prose to evidence.
+        # Only structured upstream mappings enter this report.
 
         if techniques:
             r["mitre_coverage"] = {
@@ -399,9 +393,9 @@ def _normalize(report: dict) -> dict:
         base_recs = [
             f"Apply vendor patch for {title} immediately - check NVD for official fix guidance.",
             "Enable enhanced logging and alerting on all systems running affected software versions.",
-            "Deploy the Sigma detection rule from this report into your SIEM platform (Sentinel / Splunk / Elastic).",
+            "Review and syntax-test any evidence-linked detection logic against actual SIEM telemetry before deployment.",
             "Audit all internet-facing instances of affected products and confirm patch deployment.",
-            "Conduct a threat hunt using MITRE ATT&amp;CK techniques mapped in this advisory.",
+            "Use ATT&amp;CK only as a hypothesis framework until mapped behaviors are verified in telemetry.",
             "Rotate credentials and API keys for any services co-located with affected systems.",
             "Review firewall and WAF rules to restrict exploitation vectors identified in this report.",
         ]
@@ -872,10 +866,10 @@ def _section_mitre(report: dict, st: dict) -> list:
     W, _ = A4
     usable = W - 32*mm
     elems  = []
-    elems.append(Paragraph("MITRE ATT&amp;CK\xae v15 Mapping", st["SectionHead"]))
+    elems.append(Paragraph("MITRE ATT&amp;CK\xae - Candidate Mapping", st["SectionHead"]))
     elems.append(Paragraph(
         f"Technique density score: <b><font color='#00d4ff'>{density:.1f}</font></b>  \xb7  "
-        f"Techniques observed: <b>{len(techniques)}</b>  \xb7  "
+        f"Candidate technique mappings: <b>{len(techniques)}</b>  \xb7  "
         f"Tactics covered: <b>{len(tactics)}</b>",
         st["BodyLeft"]))
 
@@ -898,8 +892,8 @@ def _section_mitre(report: dict, st: dict) -> list:
         elems.append(tbl)
     else:
         elems.append(Paragraph(
-            "MITRE ATT&amp;CK techniques pending analyst enrichment. "
-            "Deploy detection rules from Section 6 to identify related activity.", st["Body"]))
+            "No validated ATT&amp;CK technique mapping supplied. "
+            "No mapping does not establish the absence of malicious activity.", st["Body"]))
 
     if tactics:
         elems.append(_sp(3))
@@ -1008,73 +1002,45 @@ def _section_iocs(report: dict, st: dict) -> list:
 
 
 def _section_detection(report: dict, st: dict) -> list:
-    """FIX-08: Detection Engineering section with auto-generated Sigma rule."""
-    threats = report.get("top_threats") or []
-    if not threats:
-        return []
-    t     = threats[0]
-    cve   = _cve_id_from_report(report)
-    title = t.get("title") or cve or "Threat Advisory"
-    sev   = (t.get("severity") or "medium").lower()
+    """Evidence-gated detection guidance; no fabricated deployable rules."""
+    elems = [Paragraph("Detection Engineering - Evidence Status", st["SectionHead"]), _hr()]
+    rules = report.get("validated_detection_rules") or []
+    eligible = []
+    for obj in rules if isinstance(rules, list) else []:
+        if not isinstance(obj, dict):
+            continue
+        language = str(obj.get("language") or "").lower()
+        content = obj.get("content")
+        if (language in ("sigma", "kql")
+                and isinstance(content, str) and content.strip()
+                and obj.get("syntax_tested") is True
+                and obj.get("scenario_tested") is True
+                and isinstance(obj.get("source_url"), str)
+                and obj["source_url"].startswith("https://")):
+            eligible.append(obj)
 
-    vuln_class   = _detect_vuln_class(title, str((t.get("apex_ai") or {}).get("description") or ""))
-    cve_slug     = (cve or "cdb-advisory").lower().replace(":", "-").replace(" ", "-")
-    today_str    = datetime.now(timezone.utc).strftime("%Y/%m/%d")
-    # v184.4 FIX: a title that is only a bare CVE ID (e.g. "CVE-2026-65706" with
-    # no trailing description) leaves an empty string after stripping the CVE
-    # prefix, so .split() returns [] and [0] raised IndexError -- crashing PDF
-    # generation for that advisory entirely. Fall back to the CVE id itself.
-    _stripped_title = re.sub(r'CVE-\d{4}-\d+\s*-?\s*', '', title).strip() if title else ""
-    _stripped_parts = _stripped_title.split()
-    product_hint = _stripped_parts[0][:20] if _stripped_parts else (cve or "target")
-
-    sigma_tpl = _SIGMA_TEMPLATES.get(vuln_class, _SIGMA_TEMPLATES["generic"])
-    sigma_rule = sigma_tpl.format(
-        cve_id=cve or "CDB-ADVISORY",
-        cve_slug=cve_slug,
-        date=today_str,
-        product_hint=product_hint,
-        severity=sev,
-    )
-
-    # KQL query
-    cve_tag = (cve or "ADVISORY").replace("-", "")
-    kql = (
-        f"// SENTINEL APEX - {title}\n"
-        f"// {cve or 'Advisory'} | Microsoft Sentinel KQL\n"
-        f"let time_window = ago(24h);\n"
-        f"SecurityAlert\n"
-        f"| where TimeGenerated > time_window\n"
-        f"| where Description has \"{cve or title[:40]}\"\n"
-        f"    or AlertName has \"{cve or title[:40]}\"\n"
-        f"    or ExtendedProperties has \"{cve or title[:40]}\"\n"
-        f"| extend Rule = \"APEX-{cve_tag}\", Severity = \"{sev.upper()}\"\n"
-        f"| project TimeGenerated, AlertName, AlertSeverity, Entities, Description, Rule, Severity\n"
-        f"| order by TimeGenerated desc"
-    )
-
-    W, _ = A4
-    usable = W - 32*mm
-    elems  = []
-    elems.append(PageBreak())
-    elems.append(Paragraph("Detection Engineering", st["SectionHead"]))
-    elems.append(_hr())
+    if not eligible:
+        elems.append(Paragraph(
+            "NOT VALIDATED - No report-specific Sigma or KQL rule with recorded "
+            "syntax, scenario and source evidence is attached. Generic detection "
+            "templates are withheld; do not deploy unvalidated rules as "
+            "production controls.", st["Body"]))
+    else:
+        elems.append(Paragraph(
+            f"{len(eligible)} report-specific rule(s) passed supplied validation "
+            "evidence gates. Review actual source, test logs and tenant-specific "
+            "telemetry before rollout.", st["Body"]))
+        for obj in eligible[:6]:
+            elems.append(Paragraph(_x(str(obj["language"]).upper()) +
+                                   " - source-backed candidate", st["SubHead"]))
+            elems.append(Paragraph("Evidence: " + _x(obj["source_url"]), st["Small"]))
+            for line in obj["content"].splitlines()[:80]:
+                elems.append(Paragraph(_x(line) or " ", st["Mono"]))
     elems.append(Paragraph(
-        "Deploy these production-ready detection rules into your SIEM platform to identify "
-        "exploitation attempts in real time. Compatible with Microsoft Sentinel, Splunk ES, "
-        "and any Sigma-compatible platform.", st["Body"]))
-    elems.append(_sp(3))
-
-    elems.append(Paragraph("Sigma Rule - Webserver / Process Monitoring", st["SubHead"]))
-    for line in sigma_rule.split("\n"):
-        elems.append(Paragraph(_x(line) or " ", st["Mono"]))
-    elems.append(_sp(5))
-
-    elems.append(Paragraph("Microsoft Sentinel - KQL Query", st["SubHead"]))
-    for line in kql.split("\n"):
-        elems.append(Paragraph(_x(line) or " ", st["Mono"]))
+        "SOC acceptance: confirm telemetry and field schema, syntax tests, "
+        "positive/negative scenarios, false-positive rates, peer review "
+        "and rollback before any production deployment.", st["BodyLeft"]))
     elems.append(_sp(4))
-
     return elems
 
 
@@ -1096,8 +1062,8 @@ def _section_playbook(report: dict, st: dict) -> list:
         ],
         "Phase 2 - 24-72 Hours (Eradication)": [
             f"Apply vendor patch for {cve or product} or implement recommended mitigation.",
-            f"Deploy Sigma and KQL detection rules from Section 6 across all SIEM platforms.",
-            f"Rotate all API keys, service account credentials, and session tokens.",
+            f"Review proposed detection content against telemetry, test evidence and change-control before deployment.",
+            f"Rotate affected credentials only when compromise evidence or approved vendor guidance warrants it.",
             f"Conduct forensic timeline reconstruction for potential compromise window.",
             f"Validate patch deployment across 100% of affected instances via asset inventory.",
         ],
@@ -1129,45 +1095,31 @@ def _section_playbook(report: dict, st: dict) -> list:
 
 
 def _section_financial(report: dict, st: dict) -> list:
-    """FIX-10: Financial Impact (FAIR Model)."""
-    sev = _first_threat_field(report, "severity", "MEDIUM").upper()
-    fin = _get_financial(sev)
-    sev_c = Brand.sev(sev)
-
+    """Do not infer customer loss, legal duties or FAIR outputs from CVSS."""
     W, _ = A4
     usable = W - 32*mm
-    elems  = []
-    elems.append(Paragraph("Financial Impact Analysis (FAIR Model)", st["SectionHead"]))
-    elems.append(_hr())
-
-    col_w4 = usable / 4
-    fin_card = [[
-        Paragraph(f'<font color="{sev_c.hexval()}" size="14"><b>{_x(fin["range"])}</b></font>'
-                  f'<br/><font size="7" color="#64748b">Breach Cost Range (FAIR)</font>', st["Body"]),
-        Paragraph(f'<font color="#f59e0b" size="14"><b>{_x(fin["median"])}</b></font>'
-                  f'<br/><font size="7" color="#64748b">IBM Cost of Breach 2025 Median</font>', st["Body"]),
-        Paragraph(f'<font color="#f97316" size="14"><b>{_x(fin["downtime"])}</b></font>'
-                  f'<br/><font size="7" color="#64748b">Business Interruption Cost</font>', st["Body"]),
-        Paragraph(f'<font color="#ef4444" size="14"><b>{_x(fin["regulatory"])}</b></font>'
-                  f'<br/><font size="7" color="#64748b">Regulatory Fine Exposure</font>', st["Body"]),
-    ]]
-    ftbl = Table(fin_card, colWidths=[col_w4]*4)
-    ftbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0),(-1,-1), Brand.PANEL),
-        ("BOX",           (0,0),(-1,-1), 0.5, Brand.BORDER),
-        ("INNERGRID",     (0,0),(-1,-1), 0.3, Brand.BORDER),
-        ("ALIGN",         (0,0),(-1,-1), "CENTER"),
-        ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
-        ("TOPPADDING",    (0,0),(-1,-1), 5*mm),
-        ("BOTTOMPADDING", (0,0),(-1,-1), 5*mm),
-    ]))
-    elems.append(ftbl)
-    elems.append(_sp(3))
-    elems.append(Paragraph(_x(fin["detail"]), st["Body"]))
-    elems.append(Paragraph(
-        f"<b>Remediation Cost Estimate:</b> {_x(fin['remediation'])}  \xb7  "
-        "Includes engineering time, IR retainer activation, forensic investigation, "
-        "and customer notification costs.", st["BodyLeft"]))
+    elems = [Paragraph("Business Impact - Customer Evidence Assessment", st["SectionHead"]),
+             _hr(),
+             Paragraph(
+                 "FINANCIAL LOSS: NOT ASSESSED. This advisory does not establish "
+                 "customer exposure, loss-event frequency, downtime, control "
+                 "effectiveness or regulatory jurisdiction. No monetary range "
+                 "or fine is inferred from vulnerability severity.", st["Body"])]
+    items = [
+        ("Asset exposure", "Affected inventory, products and installed versions"),
+        ("Likelihood", "Exploit observations and customer control effectiveness"),
+        ("Service impact", "Business dependencies, recovery objectives and outage data"),
+        ("Financial loss", "Customer loss history, scenario model and reviewer approval"),
+        ("Legal obligations", "Applicable jurisdiction, affected data and confirmed incident scope"),
+    ]
+    rows = [[Paragraph("Assessment", st["Label"]),
+             Paragraph("Required supporting evidence", st["Label"])]]
+    for label, evidence in items:
+        rows.append([Paragraph(_x(label), st["BodyLeft"]),
+                     Paragraph(_x(evidence), st["BodyLeft"])])
+    table = Table(rows, colWidths=[usable*0.27, usable*0.73], repeatRows=1)
+    table.setStyle(_ts())
+    elems.append(table)
     elems.append(_sp(4))
     return elems
 
@@ -1236,7 +1188,7 @@ def _section_appendix(report: dict, st: dict) -> list:
         ("Customer Email", report.get("customer_email") or "-"),
         ("TLP",            report.get("tlp") or "TLP:GREEN"),
         ("STIX Version",   "2.1"),
-        ("ATT&CK Version", "v15"),
+        ("ATT&CK Dataset", "Not asserted; consult pinned evidence source"),
     ]
     rows = [["Field", "Value"]] + list(meta)
     tbl  = Table(rows, colWidths=[usable*0.30, usable*0.70])
