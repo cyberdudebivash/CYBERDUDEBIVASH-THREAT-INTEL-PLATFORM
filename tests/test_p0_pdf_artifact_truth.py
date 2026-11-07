@@ -200,3 +200,34 @@ def test_pdf_report_never_promotes_unverified_prose_to_observed_attack_mapping()
     assert "Techniques observed:" not in funcs["_section_mitre"]
     assert "v15 Mapping" not in funcs["_section_mitre"]
     assert '("ATT&CK Version", "v15")' not in funcs["_section_appendix"]
+
+
+def test_store_enterprise_report_promises_remain_evidence_gated():
+    """Customer-facing product claims must agree with premium PDF evidence gates."""
+    html = (ROOT / "store.html").read_text(encoding="utf-8")
+    section = html.split('<section id="reports">', 1)[1].split("</section>", 1)[0]
+    for forbidden in ("FAIR MODEL", "FAIR financial impact", "$1M", "ready-to-deploy",
+                      "Top 10 risks prioritized by financial impact", "MITRE v15",
+                      "Organization risk posture score"):
+        assert forbidden not in section, forbidden
+    for required in ("EVIDENCE-LINKED",
+                     "Customer financial impact and exposure not assessed",
+                     "Detection logic only when validation evidence is attached",
+                     "Customer exposure marked unknown until assets and controls are assessed",
+                     "PDF download offered only when a genuine PDF exists"):
+        assert required in section, required
+
+
+def test_store_report_buyer_journey_preserves_plan_prices_and_permissioned_leads():
+    html = (ROOT / "store.html").read_text(encoding="utf-8")
+    section = html.split('<section id="reports">', 1)[1].split("</section>", 1)[0]
+    assert '/upgrade.html?plan=pro&amp;feature=premium-reports' in section
+    assert '<span class="curr">$</span>49' in section
+    assert '<span class="curr">$</span>299' in section
+    assert '<span class="curr">$</span>99' in section
+    assert '<span style="font-size:28px;">$599</span>' in section
+    assert "mailto:contact@cyberdudebivash.in?subject=Enterprise+CTI+Report+Scope+Request" in section
+    assert "mailto:contact@cyberdudebivash.in?subject=Executive+Risk+Report+Scope" in section
+    assert "Technology+stack%3A" in section
+    assert "Procurement+timeline%3A" in section
+    assert "confirm deliverables and availability before a separate engagement" in section
