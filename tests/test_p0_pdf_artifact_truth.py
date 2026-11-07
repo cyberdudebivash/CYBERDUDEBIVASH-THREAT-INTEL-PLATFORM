@@ -162,3 +162,41 @@ def test_active_generator_reconciles_valid_existing_pdf_without_regeneration(tmp
     assert saved["pdf_available"] is True
     assert saved["pdf_url"] == "/reports/pdf/intel--p0-synthetic.pdf"
     assert path.read_bytes() == VALID_PDF
+
+
+def test_pdf_renderer_source_claims_require_customer_evidence():
+    """New P0 PDF source-claim checks run in the existing mandatory PDF job.
+
+    AST validation avoids introducing ReportLab into the lightweight CI
+    environment; real PDF rendering remains a separate release gate.
+    """
+    import ast
+    source = (ROOT / "scripts" / "generate_premium_pdf.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    funcs = {n.name: ast.get_source_segment(source, n) for n in tree.body
+             if isinstance(n, ast.FunctionDef)}
+    fin = funcs["_section_financial"]
+    det = funcs["_section_detection"]
+    assert "FINANCIAL LOSS: NOT ASSESSED" in fin
+    assert "_get_financial(" not in fin and "$" not in fin
+    assert "IBM Cost of Breach" not in fin
+    assert "syntax_tested" in det and "scenario_tested" in det
+    assert 'obj["source_url"].startswith("https://")' in det
+    assert "NOT VALIDATED" in det and "_SIGMA_TEMPLATES" not in det
+    assert "Deploy the Sigma detection rule" not in funcs["_normalize"]
+    assert "Deploy Sigma and KQL detection rules" not in funcs["_section_playbook"]
+    assert "Rotate all API keys" not in funcs["_section_playbook"]
+
+
+def test_pdf_report_never_promotes_unverified_prose_to_observed_attack_mapping():
+    import ast
+    source = (ROOT / "scripts" / "generate_premium_pdf.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    funcs = {n.name: ast.get_source_segment(source, n) for n in tree.body
+             if isinstance(n, ast.FunctionDef)}
+    normalized = funcs["_normalize"]
+    assert "Auto-derive from title if still empty" not in normalized
+    assert "Only structured upstream mappings enter this report." in normalized
+    assert "Techniques observed:" not in funcs["_section_mitre"]
+    assert "v15 Mapping" not in funcs["_section_mitre"]
+    assert '("ATT&CK Version", "v15")' not in funcs["_section_appendix"]
