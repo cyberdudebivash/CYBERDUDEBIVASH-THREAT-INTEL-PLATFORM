@@ -571,6 +571,20 @@ def _ts():
 # SECTION BUILDERS
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _report_tlp_display(report: dict) -> str:
+    """Do not invent a permissive sharing label for unmarked dossiers.
+
+    An absent or malformed marking is not TLP:GREEN or TLP:CLEAR.
+    Publisher-level authorization remains a separate, mandatory control.
+    """
+    raw = report.get("tlp")
+    if not isinstance(raw, str) or not raw.strip():
+        return "NOT PROVIDED"
+    label = raw.strip().upper()
+    valid = {"TLP:CLEAR", "TLP:GREEN", "TLP:AMBER", "TLP:AMBER+STRICT", "TLP:RED"}
+    return label if label in valid else "UNRECOGNIZED"
+
+
 def _section_cover(report: dict, st: dict) -> list:
     """Cover page - FIX-01: no forced PageBreak; flows into page 2 naturally."""
     W, _ = A4
@@ -637,12 +651,13 @@ def _section_cover(report: dict, st: dict) -> list:
 
     # Severity / Classification row
     tier_str = (report.get("tier") or "PRO").upper()
-    tlp_str  = report.get("tlp") or "TLP:GREEN"
+    tlp_str  = _report_tlp_display(report)
+    tlp_color = "#ef4444" if tlp_str in {"NOT PROVIDED", "UNRECOGNIZED", "TLP:RED"} else "#10b981"
     risk_str = f"{float(risk):.1f}" if risk else "N/A"
     class_data = [[
         Paragraph(f'<font color="{sev_c.hexval()}"><b>{_x(sev)}</b></font><br/><font size="7" color="#64748b">Severity</font>', st["Body"]),
         Paragraph(f'<font color="#00d4ff"><b>{_x(risk_str)}</b></font><br/><font size="7" color="#64748b">CVSS / Risk Score</font>', st["Body"]),
-        Paragraph(f'<font color="#10b981"><b>{_x(tlp_str)}</b></font><br/><font size="7" color="#64748b">TLP Classification</font>', st["Body"]),
+        Paragraph(f'<font color="{tlp_color}"><b>{_x(tlp_str)}</b></font><br/><font size="7" color="#64748b">TLP Classification</font>', st["Body"]),
         Paragraph(f'<font color="#7c3aed"><b>{_x(tier_str)}</b></font><br/><font size="7" color="#64748b">Customer Tier</font>', st["Body"]),
     ]]
     tbl2 = Table(class_data, colWidths=[col_w]*4)
@@ -656,6 +671,10 @@ def _section_cover(report: dict, st: dict) -> list:
         ("BOTTOMPADDING", (0,0),(-1,-1), 3*mm),
     ]))
     elems.append(tbl2)
+    if tlp_str in {"NOT PROVIDED", "UNRECOGNIZED"}:
+        elems.append(Paragraph(
+            "TLP MARKING NOT VERIFIED. Sharing or publication requires a "
+            "separate source-owner policy and authorization review.", st["Small"]))
     elems.append(_sp(5))
 
     # Executive Summary
@@ -1223,7 +1242,7 @@ def _section_appendix(report: dict, st: dict) -> list:
         ("Generated At",   (report.get("generated_at") or "-")[:25]),
         ("Customer Tier",  (report.get("tier") or "-").upper()),
         ("Customer Email", report.get("customer_email") or "-"),
-        ("TLP",            report.get("tlp") or "TLP:GREEN"),
+        ("TLP",            _report_tlp_display(report)),
         ("STIX Version",   "2.1"),
         ("ATT&CK Dataset", "Not asserted; consult pinned evidence source"),
     ]
