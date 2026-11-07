@@ -359,3 +359,36 @@ def test_pdf_report_empty_ioc_state_does_not_promise_unproved_delivery():
     for unsupported in ("real-time IOC push", "Ingest directly into",
                         "Full IOC packages include"):
         assert unsupported not in text
+
+
+def test_pdf_missing_tlp_does_not_gain_permissive_green_sharing():
+    """Missing or malformed source marking must never be invented as TLP:GREEN."""
+    import ast
+    source = (ROOT / "scripts" / "generate_premium_pdf.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    funcs = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+    formatter = funcs["_report_tlp_display"]
+    code = compile(ast.Module(body=[formatter], type_ignores=[]),
+                   "<synthetic-tlp-contract>", "exec")
+    namespace = {}
+    exec(code, namespace)
+    label = namespace["_report_tlp_display"]
+    for supplied, expected in [
+        ({}, "NOT PROVIDED"),
+        ({"tlp": ""}, "NOT PROVIDED"),
+        ({"tlp": None}, "NOT PROVIDED"),
+        ({"tlp": "TLP:GREEN"}, "TLP:GREEN"),
+        ({"tlp": "TLP:CLEAR"}, "TLP:CLEAR"),
+        ({"tlp": "TLP:AMBER+STRICT"}, "TLP:AMBER+STRICT"),
+        ({"tlp": "tlp:red"}, "TLP:RED"),
+        ({"tlp": "TLP:BLUE"}, "UNRECOGNIZED"),
+        ({"tlp": "TLP:WHITE"}, "UNRECOGNIZED"),
+    ]:
+        assert label(supplied) == expected
+    cover = ast.get_source_segment(source, funcs["_section_cover"])
+    appendix = ast.get_source_segment(source, funcs["_section_appendix"])
+    assert "TLP MARKING NOT VERIFIED" in cover
+    assert "_report_tlp_display(report)" in cover
+    assert "_report_tlp_display(report)" in appendix
+    assert 'or "TLP:GREEN"' not in cover
+    assert 'or "TLP:GREEN"' not in appendix
