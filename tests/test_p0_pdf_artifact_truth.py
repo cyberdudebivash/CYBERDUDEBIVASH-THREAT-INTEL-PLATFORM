@@ -268,3 +268,19 @@ def test_pro_lead_submit_preserves_verified_checkout_without_premature_payment_c
     modal = html.split('<div id="apex-lead-modal"', 1)[1].split("<script>", 1)[0]
     assert "Instant activation" not in modal
     assert "Activates on payment confirmation" not in modal or "This is not a free trial." in modal
+
+
+
+def test_assisted_detection_bundle_does_not_promise_instant_fulfillment():
+    """A mailto lead is not an automated paid checkout/download."""
+    html = (ROOT / "store.html").read_text(encoding="utf-8")
+    packs = html.split('<section id="detection-packs">', 1)[1].split("</section>", 1)[0]
+    bundle = packs.split('<div class="product-name">APT Intelligence Full Bundle</div>', 1)[1]
+    assert '<div class="product-price"><span class="curr">$</span>499</div>' in bundle
+    assert "save $128" in bundle
+    assert "instant download" not in bundle
+    assert "assisted order &middot; delivery after confirmation" in bundle
+    assert "subject=APT+Full+Bundle+Purchase&amp;body=" in bundle
+    assert "Target+SIEM%2FEDR%3A" in bundle
+    assert "Approval+to+receive+a+quote%3A" in bundle
+    assert "Request Full Bundle Quote" in bundle
