@@ -284,3 +284,19 @@ def test_assisted_detection_bundle_does_not_promise_instant_fulfillment():
     assert "Target+SIEM%2FEDR%3A" in bundle
     assert "Approval+to+receive+a+quote%3A" in bundle
     assert "Request Full Bundle Quote" in bundle
+
+
+
+def test_default_pdf_recommendations_do_not_order_unverified_disruptive_changes():
+    """Generic severity must not trigger forced credential rotations or blind patching."""
+    import ast
+    source = (ROOT / "scripts" / "generate_premium_pdf.py").read_text(encoding="utf-8")
+    mod = ast.parse(source)
+    normalize = next(n for n in mod.body
+                     if isinstance(n, ast.FunctionDef) and n.name == "_normalize")
+    code = ast.get_source_segment(source, normalize)
+    assert "Rotate credentials and API keys for any services co-located" not in code
+    assert "Apply vendor patch for {title} immediately" not in code
+    assert "rotate only when compromise evidence or vendor guidance supports it" in code
+    assert "vendor-approved remediation" in code
+    assert "customer change process" in code
