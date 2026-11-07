@@ -10,15 +10,15 @@ FIXES IN v166.0 (comprehensive premium rewrite):
   FIX-02  Watermark - changed from aggressive 38pt diagonal to a subtle
           low-opacity corner stamp; content is fully readable on every page.
   FIX-03  ATT&CK XML encoding - all & in ReportLab Paragraph now &amp;
-  FIX-04  MITRE 0/0 - broadened field lookup (ttps/mitre_techniques/
-          mitre_tactics/techniques); auto-generates from title when empty.
+  FIX-04  MITRE 0/0 - broadened field lookup with candidate structured fields;
+          no technique inference from report title.
   FIX-05  IOC section - looks for iocs/ioc_objects/indicators; shows
           "IOCs pending enrichment" instead of silently omitting section.
   FIX-06  CVSS/EPSS - broadened to cvss_score/cvss/cvss3/score/epss_score/epss
   FIX-07  NEW: CVE Deep-Dive section - CVSS vector grid, CWE, affected products
-  FIX-08  NEW: Detection Engineering - auto-generated Sigma rule per vuln class
+  FIX-08  Detection Engineering - evidence-gated Sigma/KQL candidates only
   FIX-09  NEW: Incident Response Playbook - 3-phase containment/eradication/recovery
-  FIX-10  NEW: Financial Impact - FAIR model breach cost estimates per severity
+  FIX-10  Financial Impact - unassessed without customer evidence and scoping
   FIX-11  Recommendations - enriched; minimum 5 specific, CVE-aware items
   FIX-12  Schema normalizer - handles both generate_advisory_pdfs schema AND
           weekly_threat_brief schema transparently
@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -335,7 +336,7 @@ def _normalize(report: dict) -> dict:
                 {
                     "type":       (i.get("type") or i.get("ioc_type") or "indicator").upper(),
                     "value":      i.get("value") or i.get("indicator") or str(i),
-                    "confidence": i.get("confidence", 0.7),
+                    "confidence": i.get("confidence"),
                     "first_seen": i.get("first_seen") or i.get("date") or "",
                 }
                 for i in raw_iocs[:60]
@@ -959,6 +960,26 @@ def _section_actor_intel(report: dict, st: dict) -> list:
     return elems
 
 
+def _ioc_confidence_display(value: Any) -> str:
+    """Evidence-preserving confidence label; unspecified is not 70%.
+
+    Upstream report records may use either normalized 0..1 or documented
+    percentage-scale 1..100 inputs. Reject nonnumeric, boolean and out-of-
+    range values instead of manufacturing plausible-looking confidence.
+    """
+    if value is None or isinstance(value, bool):
+        return "Not assessed"
+    try:
+        score = float(value)
+    except (ValueError, TypeError, OverflowError):
+        return "Not assessed"
+    if not math.isfinite(score) or score < 0 or score > 100:
+        return "Not assessed"
+    if score <= 1:
+        score *= 100
+    return f"{score:.0f}%"
+
+
 def _section_iocs(report: dict, st: dict) -> list:
     """FIX-05: Always render IOC section; show actionable empty state."""
     iocs  = report.get("iocs") or []
@@ -969,8 +990,9 @@ def _section_iocs(report: dict, st: dict) -> list:
 
     if iocs:
         elems.append(Paragraph(
-            f"{len(iocs)} indicator(s) extracted from this advisory. "
-            "Ingest directly into your SIEM / EDR / firewall deny-list.", st["Body"]))
+            f"{len(iocs)} candidate indicator(s) supplied in this advisory. "
+            "Corroborate provenance, syntax, scope, false positives and customer "
+            "telemetry before adding detections or changing deny-list controls.", st["Body"]))
         col_w = [usable*0.16, usable*0.50, usable*0.16, usable*0.18]
         rows  = [["Type", "Indicator Value", "Confidence", "First Seen"]]
         for ioc in iocs[:60]:
@@ -978,7 +1000,7 @@ def _section_iocs(report: dict, st: dict) -> list:
             rows.append([
                 (str(ioc.get("type") or "INDICATOR"))[:14],
                 (str(ioc.get("value") or ""))[:55],
-                f"{int(float(conf)*100)}%" if conf is not None else "-",
+                _ioc_confidence_display(conf),
                 (str(ioc.get("first_seen") or ""))[:10] or "-",
             ])
         tbl = Table(rows, colWidths=col_w, repeatRows=1)
@@ -986,15 +1008,15 @@ def _section_iocs(report: dict, st: dict) -> list:
         elems.append(tbl)
         if len(iocs) > 60:
             elems.append(Paragraph(
-                f"… and {len(iocs)-60} additional IOCs. Full structured export available via API.",
+                f"… and {len(iocs)-60} additional supplied IOC candidates; "
+                "check approved, entitled structured exports for complete evidence.",
                 st["Small"]))
     else:
         elems.append(Paragraph(
-            "IOC extraction for this advisory is pending enrichment pipeline completion. "
-            "PRO subscribers receive real-time IOC push to SIEM/SOAR via the SENTINEL APEX "
-            "webhook at: <b>GET /api/v1/intel/iocs?advisory={id}</b>. "
-            "Full IOC packages include IPv4, domain, SHA256, and URL indicators with "
-            "confidence scores, first-seen timestamps, and STIX 2.1 formatted bundles.",
+            "No IOC values were supplied with this report. This is not evidence "
+            "that compromise occurred or that no malicious activity exists. "
+            "Review the primary vendor record and approved, entitled exports "
+            "for indicators and customer-applicable telemetry.",
             st["Body"]))
 
     elems.append(_sp(4))
