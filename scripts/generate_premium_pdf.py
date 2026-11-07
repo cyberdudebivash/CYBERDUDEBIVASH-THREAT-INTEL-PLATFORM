@@ -471,9 +471,11 @@ def _draw_page(c: canvas.Canvas, doc, report: dict, page_num: int, total_pages: 
     c.drawString(16*mm, H - 20*mm, "SENTINEL APEX  |  THREAT INTELLIGENCE PLATFORM  |  v166.0")
 
     # TLP badge
-    tier  = (report.get("tier") or "pro").upper()
-    tlp   = report.get("tlp") or ("TLP:GREEN" if tier in ("PRO", "PREMIUM") else "TLP:AMBER")
-    tlp_c = Brand.GREEN if tlp == "TLP:GREEN" else (Brand.YELLOW if tlp == "TLP:AMBER" else Brand.RED)
+    tlp = _report_tlp_display(report)
+    # Neither paid tier nor absent source marking can authorize sharing.
+    tlp_c = (Brand.RED if tlp in {"TLP:RED", "NOT PROVIDED", "UNRECOGNIZED"}
+             else Brand.YELLOW if tlp.startswith("TLP:AMBER")
+             else Brand.GREEN if tlp == "TLP:GREEN" else Brand.ACCENT)
     c.setFillColor(tlp_c)
     c.roundRect(W - 48*mm, H - 19*mm, 32*mm, 8*mm, 2*mm, fill=1, stroke=0)
     c.setFillColor(Brand.WHITE if tlp_c == Brand.RED else colors.HexColor("#0a0f1e"))
