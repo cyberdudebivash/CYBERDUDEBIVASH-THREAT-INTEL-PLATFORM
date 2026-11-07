@@ -337,6 +337,7 @@ def _normalize(report: dict) -> dict:
                     "type":       (i.get("type") or i.get("ioc_type") or "indicator").upper(),
                     "value":      i.get("value") or i.get("indicator") or str(i),
                     "confidence": i.get("confidence"),
+                    "confidence_scale": i.get("confidence_scale") or i.get("confidence_unit"),
                     "first_seen": i.get("first_seen") or i.get("date") or "",
                 }
                 for i in raw_iocs[:60]
@@ -960,12 +961,12 @@ def _section_actor_intel(report: dict, st: dict) -> list:
     return elems
 
 
-def _ioc_confidence_display(value: Any) -> str:
-    """Evidence-preserving confidence label; unspecified is not 70%.
+def _ioc_confidence_display(value: Any, scale: Optional[str] = None) -> str:
+    """Render IOC confidence only with a defensible 0..1 or 0..100 scale.
 
-    Upstream report records may use either normalized 0..1 or documented
-    percentage-scale 1..100 inputs. Reject nonnumeric, boolean and out-of-
-    range values instead of manufacturing plausible-looking confidence.
+    STIX native confidence is integral on 0..100, while other upstream
+    records use a fractional 0..1 range. Never treat an ambiguous 0.7 as
+    70% without a declared scale, or the boundary 1 as automatically 100%.
     """
     if value is None or isinstance(value, bool):
         return "Not assessed"
@@ -973,11 +974,25 @@ def _ioc_confidence_display(value: Any) -> str:
         score = float(value)
     except (ValueError, TypeError, OverflowError):
         return "Not assessed"
-    if not math.isfinite(score) or score < 0 or score > 100:
+    if not math.isfinite(score):
         return "Not assessed"
-    if score <= 1:
+    unit = str(scale or "").strip().lower()
+    if unit in {"fraction", "0-1", "normalized", "probability"}:
+        if not 0 <= score <= 1:
+            return "Not assessed"
         score *= 100
-    return f"{score:.0f}%"
+    elif unit in {"percent", "percentage", "0-100", "stix"}:
+        if not 0 <= score <= 100:
+            return "Not assessed"
+    elif not unit:
+        # Unscaled fractional values and 1 are ambiguous. An integral 2..100
+        # cannot be a normalized probability, and 0 maps to 0 on both scales.
+        if not (isinstance(value, (int, float))
+                and (score == 0 or (1 < score <= 100 and score.is_integer()))):
+            return "Not assessed"
+    else:
+        return "Not assessed"
+    return f"{score:.0f}%" if score.is_integer() else f"{score:.1f}%"
 
 
 def _section_iocs(report: dict, st: dict) -> list:
@@ -1000,7 +1015,7 @@ def _section_iocs(report: dict, st: dict) -> list:
             rows.append([
                 (str(ioc.get("type") or "INDICATOR"))[:14],
                 (str(ioc.get("value") or ""))[:55],
-                _ioc_confidence_display(conf),
+                _ioc_confidence_display(conf, ioc.get("confidence_scale") or ioc.get("confidence_unit")),
                 (str(ioc.get("first_seen") or ""))[:10] or "-",
             ])
         tbl = Table(rows, colWidths=col_w, repeatRows=1)
