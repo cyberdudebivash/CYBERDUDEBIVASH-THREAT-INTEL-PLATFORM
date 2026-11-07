@@ -390,5 +390,10 @@ def test_pdf_missing_tlp_does_not_gain_permissive_green_sharing():
     assert "TLP MARKING NOT VERIFIED" in cover
     assert "_report_tlp_display(report)" in cover
     assert "_report_tlp_display(report)" in appendix
+    header = ast.get_source_segment(source, funcs["_draw_page"])
+    assert "_report_tlp_display(report)" in header
+    assert "Neither paid tier nor absent source marking can authorize sharing." in header
+    assert "NOT PROVIDED" in header and "UNRECOGNIZED" in header
     assert 'or "TLP:GREEN"' not in cover
     assert 'or "TLP:GREEN"' not in appendix
+    assert 'or ("TLP:GREEN"' not in header
