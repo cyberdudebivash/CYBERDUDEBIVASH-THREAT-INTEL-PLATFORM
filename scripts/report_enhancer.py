@@ -40,6 +40,7 @@ from html import escape as _html_escape
 import logging
 import os
 import re
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -745,11 +746,15 @@ def enhance_report_html(html: str, item: Dict, tier: str = "free") -> str:
     # PDF download link
     item_id  = item.get("id","unknown")
     pdf_path = f"/reports/pdf/{item_id}.pdf"
-    pdf_btn  = (
-        f'<div style="text-align:right;margin-bottom:12px;">'
+    # Never advertise a downloadable PDF until its on-disk bytes are verified.
+    pdf_link = (
         f'<a href="{pdf_path}" style="background:#1e293b;color:#e2e8f0;padding:8px 16px;'
         f'border-radius:6px;text-decoration:none;font-size:11px;border:1px solid #334155;margin-right:8px;">'
         f'📄 Download PDF</a>'
+    ) if item.get("pdf_available") is True else ""
+    pdf_btn  = (
+        f'<div style="text-align:right;margin-bottom:12px;">'
+        f'{pdf_link}'
         # v166.3-FIX: /stix/{id}.json was a 404 path. STIX export requires Pro auth.
         # Link to get-api-key so users can unlock it.
         f'<a href="https://intel.cyberdudebivash.com/get-api-key.html?plan=pro&utm_source=report-stix-btn" style="background:#1e293b;color:#e2e8f0;padding:8px 16px;'
@@ -784,52 +789,55 @@ def enhance_report_html(html: str, item: Dict, tier: str = "free") -> str:
     return html
 
 
+def _is_real_pdf_artifact(path: Path) -> bool:
+    """Truthful local-format check. This is not parser or delivery certification."""
+    try:
+        return path.is_file() and path.stat().st_size > 512 and path.open("rb").read(5) == b"%PDF-"
+    except (OSError, ValueError):
+        return False
+
+
 def generate_pdf_report(item: Dict, html_content: str, out_path: Path) -> bool:
-    """
-    Generate PDF from HTML using weasyprint (if available) or fallback to
-    a standalone self-contained HTML file that browsers can print-to-PDF.
-    Returns True on success.
+    """Write an actual PDF atomically, never HTML masquerading as .pdf.
+
+    Missing or failing optional WeasyPrint must not destroy previously valid
+    customer artifacts or set success metadata. The original HTML remains
+    printable in the browser and is not repackaged under an incorrect suffix.
     """
     if not _tlp.publication_decision(item)["allowed"]:
         log.warning("PDF refused for %s: TLP policy", str(item.get("id", ""))[:16])
         return False
     try:
         import weasyprint
-        weasyprint.HTML(string=html_content).write_pdf(str(out_path))
-        log.info("PDF generated via weasyprint: %s", out_path.name)
-        return True
     except ImportError:
-        pass
+        log.warning("PDF converter absent for %s; keeping printable HTML only",
+                    str(item.get("id", ""))[:16])
+        return False
 
-    # Fallback: write a print-optimized HTML that functions as a PDF proxy
-    item_id  = item.get("id","unknown")
-    severity = (item.get("severity") or "HIGH").upper()
-    title    = item.get("title","Intel Report")
-    sev_col  = SEV_COLORS.get(severity, C_ORG)
-
-    pdf_html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>{title} — PDF Report</title>
-<style>
-@media print {{ @page {{ margin: 1.5cm; size: A4; }} body {{ print-color-adjust: exact; }} }}
-body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 24px; }}
-h1 {{ font-size: 18px; font-weight: 800; color: {sev_col}; }}
-table {{ width: 100%; border-collapse: collapse; margin: 12px 0; }}
-td, th {{ padding: 8px 12px; border-bottom: 1px solid #334155; font-size: 12px; }}
-th {{ color: #94a3b8; font-size: 10px; text-transform: uppercase; }}
-pre {{ background: #0a0f1a; padding: 12px; border-radius: 6px; font-size: 10px; overflow: auto; }}
-</style>
-</head>
-<body>
-{html_content}
-</body>
-</html>"""
-    out_path.write_text(pdf_html, encoding="utf-8")
-    log.info("PDF proxy HTML written: %s", out_path.name)
-    return True
+    temp_path = None
+    try:
+        pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
+        if (not isinstance(pdf_bytes, (bytes, bytearray))
+                or len(pdf_bytes) <= 512 or pdf_bytes[:5] != b"%PDF-"):
+            log.error("PDF converter returned invalid format for %s",
+                      str(item.get("id", ""))[:16])
+            return False
+        # Never truncate the old file if rendering or writing fails.
+        with tempfile.NamedTemporaryFile(mode="wb", dir=out_path.parent,
+                                         prefix=".cdb-pdf-", suffix=".tmp",
+                                         delete=False) as temp:
+            temp_path = Path(temp.name)
+            temp.write(pdf_bytes)
+        os.replace(temp_path, out_path)
+        log.info("Real PDF generated: %s", out_path.name)
+        return True
+    except Exception as exc:
+        log.error("PDF generation failed for %s: %s",
+                  str(item.get("id", ""))[:16], type(exc).__name__)
+        return False
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -898,17 +906,32 @@ def run_enhancement(manifest_path: Path = MANIFEST_PATH, tier: str = "free") -> 
 
         try:
             html = report_path.read_text(encoding="utf-8", errors="replace")
+            pdf_path = pdf_dir / f"{item_id}.pdf"
+            expected_pdf_url = f"/reports/pdf/{item_id}.pdf"
+            # Any pre-existing valid PDF is retained on generator failure.
+            had_real_pdf = _is_real_pdf_artifact(pdf_path)
+            item["pdf_available"] = had_real_pdf
+            if had_real_pdf:
+                item["pdf_url"] = expected_pdf_url
+            else:
+                item.pop("pdf_url", None)
+
+            # First render remains truthful without a speculative PDF link.
             enhanced_html = enhance_report_html(html, item, tier)
+            if generate_pdf_report(item, enhanced_html, pdf_path):
+                stats["pdfs"] += 1
+                item["pdf_url"] = expected_pdf_url
+                item["pdf_available"] = True
+                # The printed PDF uses link-free source HTML. Only after real
+                # binary success may the public HTML advertise Download PDF.
+                enhanced_html = enhance_report_html(html, item, tier)
+            elif not had_real_pdf:
+                item["pdf_available"] = False
+                item.pop("pdf_url", None)
+
             report_path.write_text(enhanced_html, encoding="utf-8")
             stats["enhanced"] += 1
             log.info("Enhanced: %s [%s]", item_id[:16], severity)
-
-            # Generate PDF companion
-            pdf_path = pdf_dir / f"{item_id}.pdf"
-            if generate_pdf_report(item, enhanced_html, pdf_path):
-                stats["pdfs"] += 1
-                item["pdf_url"]      = f"/reports/pdf/{item_id}.pdf"
-                item["pdf_available"] = True
 
         except Exception as e:
             log.error("Enhancement failed for %s: %s", item_id[:16], e)

@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -76,6 +77,15 @@ def _find_manifest() -> tuple[Path, list[dict]]:
 
 # Legacy single-path used only to keep the module importable by old code
 MANIFEST_PATH = MANIFEST_CANDIDATES[0]
+
+def _verified_pdf_file(path: Path) -> bool:
+    """Format gate for download metadata; not a full semantic PDF audit."""
+    try:
+        with path.open("rb") as fh:
+            magic = fh.read(5)
+        return path.is_file() and path.stat().st_size > 512 and magic == b"%PDF-"
+    except (OSError, ValueError):
+        return False
 
 # ---------------------------------------------------------------------------
 # Map advisory dict → generate_premium_pdf.generate_pdf() report dict
@@ -230,7 +240,7 @@ def main() -> None:
     except ImportError as e:
         log.error("Cannot import generate_premium_pdf / ReportLab: %s", e)
         log.error("Run: pip install reportlab --break-system-packages")
-        sys.exit(0)  # non-blocking — don't break pipeline
+        generate_pdf = None  # still audit stale metadata without extra network jobs
 
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     log.info("PDF output dir: %s", PDF_DIR)
@@ -247,52 +257,51 @@ def main() -> None:
 
         pdf_path = PDF_DIR / f"{item_id}.pdf"
 
-        # Skip only if already a REAL PDF (magic bytes %PDF-) AND fresh (same day).
-        # v161.4 FIX: old pipeline stored HTML files with .pdf extension -- always
-        # regenerate those even if they are "fresh". Only a genuine %PDF- file qualifies.
-        if pdf_path.exists() and pdf_path.stat().st_size > 512:
-            try:
-                magic = pdf_path.read_bytes()[:4]
-                is_real_pdf = (magic == b'%PDF')
-            except Exception:
-                is_real_pdf = False
-
-            if is_real_pdf:
-                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                mtime = datetime.fromtimestamp(pdf_path.stat().st_mtime, tz=timezone.utc).strftime("%Y-%m-%d")
-                if mtime == today:
-                    log.debug("Skip (fresh real PDF): %s", item_id[:24])
-                    # Ensure pdf_url is set even for skipped files
-                    if not item.get("pdf_url"):
-                        item["pdf_url"]       = f"/reports/pdf/{item_id}.pdf"
-                        item["pdf_available"] = True
-                        manifest_changed = True
-                    stats["skipped"] += 1
-                    continue
-                # Older real PDF -- regenerate to keep content current
-                log.debug("Regenerating stale real PDF: %s", item_id[:24])
-            else:
-                # HTML/garbage file masquerading as PDF -- always regenerate
-                log.info("Detected non-PDF file at %s.pdf -- will regenerate as real PDF", item_id[:24])
+        expected_pdf_url = f"/reports/pdf/{item_id}.pdf"
+        had_real_pdf = _verified_pdf_file(pdf_path)
+        if had_real_pdf:
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            mtime = datetime.fromtimestamp(pdf_path.stat().st_mtime, tz=timezone.utc).strftime("%Y-%m-%d")
+            if mtime == today:
+                # A verified existing PDF is a real deliverable, even if the
+                # prior manifest incorrectly omitted or negated its availability.
+                if item.get("pdf_url") != expected_pdf_url or item.get("pdf_available") is not True:
+                    item["pdf_url"] = expected_pdf_url
+                    item["pdf_available"] = True
+                    manifest_changed = True
+                stats["skipped"] += 1
+                continue
+            log.debug("Regenerating stale real PDF: %s", item_id[:24])
+        elif pdf_path.exists():
+            log.warning("Found non-PDF artifact at %s.pdf; never certify as downloadable", item_id[:24])
 
         try:
             report_dict = _build_report_dict(item)
             pdf_bytes   = generate_pdf(report_dict)
 
-            if len(pdf_bytes) < 512:
-                raise ValueError(f"PDF too small ({len(pdf_bytes)} bytes) — likely generation failure")
+            if not isinstance(pdf_bytes, (bytes, bytearray)) or len(pdf_bytes) <= 512:
+                raise ValueError("PDF generator returned missing or implausibly short binary content")
+            if pdf_bytes[:5] != b'%PDF-':
+                raise ValueError("PDF generator returned non-PDF content")
 
-            # v161.4 FIX: Validate magic bytes — reject HTML fallbacks
-            if pdf_bytes[:4] != b'%PDF':
-                raise ValueError(f"generate_pdf() returned non-PDF bytes (got {pdf_bytes[:8]!r}) — ReportLab may not be installed")
+            # Stage to a unique temporary file and atomically replace only
+            # after format validation. A failed write never truncates an
+            # already-valid customer artifact.
+            temp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(mode="wb", dir=PDF_DIR,
+                                                 prefix=".cdb-pdf-", suffix=".tmp",
+                                                 delete=False) as temp:
+                    temp_path = Path(temp.name)
+                    temp.write(pdf_bytes)
+                os.replace(temp_path, pdf_path)
+            finally:
+                if temp_path is not None:
+                    temp_path.unlink(missing_ok=True)
 
-            pdf_path.write_bytes(pdf_bytes)
-            log.info(
-                "PDF generated: %s  [%s]  %.1f KB",
-                item_id[:28], item.get("severity","?"), len(pdf_bytes) / 1024,
-            )
-
-            item["pdf_url"]       = f"/reports/pdf/{item_id}.pdf"
+            log.info("PDF generated: %s [%s] %.1f KB",
+                     item_id[:28], item.get("severity", "?"), len(pdf_bytes) / 1024)
+            item["pdf_url"] = expected_pdf_url
             item["pdf_available"] = True
             manifest_changed = True
             stats["generated"] += 1
@@ -300,6 +309,13 @@ def main() -> None:
         except Exception as exc:
             log.warning("PDF generation failed for %s: %s", item_id[:28], exc)
             stats["errors"] += 1
+            if not _verified_pdf_file(pdf_path):
+                # A previous HTML/garbage artifact or absent file cannot be
+                # represented as an available downloadable PDF in the manifest.
+                if item.get("pdf_available") is not False or item.get("pdf_url"):
+                    item["pdf_available"] = False
+                    item.pop("pdf_url", None)
+                    manifest_changed = True
     # Persist manifest with pdf_url updates (handles both list and dict formats)
     if manifest_changed and manifest_path:
         try:

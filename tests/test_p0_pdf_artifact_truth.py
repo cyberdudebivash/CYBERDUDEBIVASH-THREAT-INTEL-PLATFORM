@@ -1,0 +1,164 @@
+"""P0: never sell HTML as PDF; keep binary files, links and manifests truthful.
+
+All artifact writes in these tests occur in pytest tmp_path; no network, R2,
+production feed, customer artifact or credential is accessed.
+"""
+from __future__ import annotations
+
+import builtins
+import json
+import os
+import sys
+import time
+import types
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import report_enhancer as legacy
+import generate_advisory_pdfs as active
+
+VALID_PDF = b"%PDF-1.7\n" + b"0" * 700 + b"\n%%EOF\n"
+INVALID_HTML = b"<!DOCTYPE html><html><body>not a PDF</body></html>" + b"x" * 700
+ITEM = {"id": "intel--p0-synthetic", "title": "Synthetic advisory", "tlp": "TLP:CLEAR",
+        "severity": "HIGH", "pdf_url": "/reports/pdf/intel--p0-synthetic.pdf",
+        "pdf_available": True}
+
+
+def _fake_renderer(monkeypatch, value):
+    module = types.ModuleType("weasyprint")
+
+    class HTML:
+        def __init__(self, string):
+            assert "<html" in string
+        def write_pdf(self):
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+    module.HTML = HTML
+    monkeypatch.setitem(sys.modules, "weasyprint", module)
+
+
+def _active_manifest(tmp_path, monkeypatch, data=ITEM):
+    manifest = tmp_path / "feed.json"
+    manifest.write_text(json.dumps([dict(data)]), encoding="utf-8")
+    monkeypatch.setattr(active, "MANIFEST_CANDIDATES", [manifest])
+    monkeypatch.setattr(active, "PDF_DIR", tmp_path / "pdf")
+    monkeypatch.setattr(active, "REPO_ROOT", tmp_path)
+    (tmp_path / "pdf").mkdir(exist_ok=True)
+    return manifest, tmp_path / "pdf" / (data["id"] + ".pdf")
+
+
+def _active_pdf_generator(monkeypatch, value):
+    module = types.ModuleType("generate_premium_pdf")
+    def generate_pdf(_report):
+        if isinstance(value, Exception):
+            raise value
+        return value
+    module.generate_pdf = generate_pdf
+    monkeypatch.setitem(sys.modules, "generate_premium_pdf", module)
+
+
+def test_legacy_missing_converter_never_writes_html_under_pdf_suffix(tmp_path, monkeypatch):
+    out = tmp_path / "intel.pdf"
+    existing = VALID_PDF
+    out.write_bytes(existing)
+    original_import = builtins.__import__
+
+    def deny_weasy(name, *args, **kwargs):
+        if name == "weasyprint":
+            raise ImportError("simulated missing optional converter")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", deny_weasy)
+    assert legacy.generate_pdf_report(dict(ITEM), "<html>printable</html>", out) is False
+    assert out.read_bytes() == existing
+
+
+@pytest.mark.parametrize("bad_value", [INVALID_HTML, b"%PDF" + b"0" * 900,
+                                        b"%PDF-" + b"0" * 8,
+                                        RuntimeError("simulated rendering failure")])
+def test_legacy_invalid_or_failed_render_preserves_original_bytes(tmp_path, monkeypatch, bad_value):
+    out = tmp_path / "intel.pdf"
+    out.write_bytes(VALID_PDF)
+    _fake_renderer(monkeypatch, bad_value)
+    assert legacy.generate_pdf_report(dict(ITEM), "<html>printable</html>", out) is False
+    assert out.read_bytes() == VALID_PDF
+
+
+def test_legacy_real_pdf_is_atomic_and_format_checked(tmp_path, monkeypatch):
+    out = tmp_path / "intel.pdf"
+    out.write_bytes(INVALID_HTML)
+    _fake_renderer(monkeypatch, VALID_PDF)
+    assert legacy.generate_pdf_report(dict(ITEM), "<html>printable</html>", out)
+    assert out.read_bytes() == VALID_PDF
+    assert legacy._is_real_pdf_artifact(out)
+
+
+def test_legacy_report_download_action_requires_verified_manifest(tmp_path):
+    # Directly inspect a real sanitized fixture instead of inventing IOC/ATT&CK context.
+    fixture = json.loads((ROOT / "tests" / "fixtures" / "dossier_p0_721_real_records.json").read_text(encoding="utf-8"))
+    item = dict(fixture["records"][0])
+    item["tlp"] = "TLP:CLEAR"
+    item["pdf_available"] = False
+    item.pop("pdf_url", None)
+    html = "<html><body><p>Preserve actual source content.</p></body></html>"
+    first = legacy.enhance_report_html(html, item, "free")
+    assert "Download PDF" not in first
+    assert "Preserve actual source content." in first
+    item["pdf_available"] = True
+    later = legacy.enhance_report_html(html, item, "free")
+    assert "Download PDF" in later
+
+
+def test_active_generator_clears_fake_download_metadata_on_failure(tmp_path, monkeypatch):
+    manifest, path = _active_manifest(tmp_path, monkeypatch)
+    path.write_bytes(INVALID_HTML)
+    _active_pdf_generator(monkeypatch, INVALID_HTML)
+    active.main()
+    saved = json.loads(manifest.read_text(encoding="utf-8"))[0]
+    assert saved["pdf_available"] is False
+    assert "pdf_url" not in saved
+    assert path.read_bytes() == INVALID_HTML  # no unauthorised bulk clean/delete
+    assert not list(path.parent.glob("*.tmp"))
+
+
+def test_active_generator_writes_real_pdf_and_repairs_manifest(tmp_path, monkeypatch):
+    manifest, path = _active_manifest(tmp_path, monkeypatch)
+    path.write_bytes(INVALID_HTML)
+    _active_pdf_generator(monkeypatch, VALID_PDF)
+    active.main()
+    saved = json.loads(manifest.read_text(encoding="utf-8"))[0]
+    assert path.read_bytes() == VALID_PDF
+    assert saved["pdf_available"] is True
+    assert saved["pdf_url"] == "/reports/pdf/intel--p0-synthetic.pdf"
+    assert not list(path.parent.glob("*.tmp"))
+
+
+def test_active_generator_preserves_valid_old_pdf_if_regeneration_fails(tmp_path, monkeypatch):
+    manifest, path = _active_manifest(tmp_path, monkeypatch)
+    path.write_bytes(VALID_PDF)
+    old = time.time() - 86400 * 2
+    os.utime(path, (old, old))
+    _active_pdf_generator(monkeypatch, RuntimeError("test renderer unavailable"))
+    active.main()
+    assert path.read_bytes() == VALID_PDF
+    saved = json.loads(manifest.read_text(encoding="utf-8"))[0]
+    assert saved["pdf_available"] is True
+    assert saved["pdf_url"] == "/reports/pdf/intel--p0-synthetic.pdf"
+
+
+def test_active_generator_reconciles_valid_existing_pdf_without_regeneration(tmp_path, monkeypatch):
+    manifest, path = _active_manifest(tmp_path, monkeypatch,
+                                     {**ITEM, "pdf_available": False, "pdf_url": ""})
+    path.write_bytes(VALID_PDF)
+    _active_pdf_generator(monkeypatch, RuntimeError("must not regenerate fresh PDF"))
+    active.main()
+    saved = json.loads(manifest.read_text(encoding="utf-8"))[0]
+    assert saved["pdf_available"] is True
+    assert saved["pdf_url"] == "/reports/pdf/intel--p0-synthetic.pdf"
+    assert path.read_bytes() == VALID_PDF
