@@ -304,7 +304,7 @@ def test_default_pdf_recommendations_do_not_order_unverified_disruptive_changes(
 
 
 def test_pdf_ioc_confidence_is_unknown_without_explicit_evidence():
-    """Unspecified IOC confidence must not be reported as 70%."""
+    """Source-specific confidence scales are explicit and missing stays unknown."""
     import ast
     import math
     source = (ROOT / "scripts" / "generate_premium_pdf.py").read_text(encoding="utf-8")
@@ -314,29 +314,36 @@ def test_pdf_ioc_confidence_is_unknown_without_explicit_evidence():
     iocs = ast.get_source_segment(source, funcs["_section_iocs"])
     assert 'i.get("confidence")' in normalized
     assert 'i.get("confidence", 0.7)' not in normalized
+    assert '"confidence_scale": i.get("confidence_scale") or i.get("confidence_unit")' in normalized
+    assert 'ioc.get("confidence_scale") or ioc.get("confidence_unit")' in iocs
     assert "Ingest directly into your SIEM" not in iocs
-    assert "PRO subscribers receive real-time IOC push" not in iocs
     assert "No IOC values were supplied with this report" in iocs
-    assert "_ioc_confidence_display(conf)" in iocs
-    # Execute just this side-effect-free pure formatter without importing
-    # the ReportLab renderer in lightweight gateway CI.
-    namespace = {"Any": object, "math": math}
+    # Execute only the side-effect-free formatter; optional ReportLab is not
+    # installed in this lightweight gate.
+    namespace = {"Any": object, "Optional": __import__("typing").Optional, "math": math}
     code = compile(ast.Module(body=[funcs["_ioc_confidence_display"]],
                               type_ignores=[]), "<synthetic-ioc-contract>", "exec")
     exec(code, namespace)
     fmt = namespace["_ioc_confidence_display"]
-    assert fmt(None) == "Not assessed"
-    assert fmt(True) == "Not assessed"
-    assert fmt(False) == "Not assessed"
-    assert fmt("invalid") == "Not assessed"
-    assert fmt(float("nan")) == "Not assessed"
-    assert fmt(float("inf")) == "Not assessed"
-    assert fmt(-0.01) == "Not assessed"
-    assert fmt(101) == "Not assessed"
-    assert fmt(0) == "0%"
-    assert fmt(0.7) == "70%"
-    assert fmt(0.85) == "85%"
-    assert fmt(85) == "85%"
+    cases = [
+        (None, None, "Not assessed"), (True, None, "Not assessed"),
+        (False, None, "Not assessed"), ("invalid", None, "Not assessed"),
+        (float("nan"), None, "Not assessed"),
+        (float("inf"), None, "Not assessed"),
+        (-1, None, "Not assessed"), (101, None, "Not assessed"),
+        (0, None, "0%"), (1, None, "Not assessed"),
+        (0.7, None, "Not assessed"), (1.0, None, "Not assessed"),
+        (85, None, "85%"), (85.0, None, "85%"),
+        (85.5, None, "Not assessed"), ("85", None, "Not assessed"),
+        (0.7, "fraction", "70%"), (0.7, "percent", "0.7%"),
+        (1, "stix", "1%"), (1, "fraction", "100%"),
+        ("85", "stix", "85%"), ("85", None, "Not assessed"),
+        (99.9, "0-100", "99.9%"), (0.85, "0-1", "85%"),
+        (105, "0-100", "Not assessed"), (2, "fraction", "Not assessed"),
+        (0.8, "unknown", "Not assessed"), (100, "stix", "100%"),
+    ]
+    for value, scale, expected in cases:
+        assert fmt(value, scale) == expected, (value, scale, expected)
 
 
 def test_pdf_report_empty_ioc_state_does_not_promise_unproved_delivery():
