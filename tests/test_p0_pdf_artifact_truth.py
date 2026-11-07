@@ -234,3 +234,37 @@ def test_store_report_buyer_journey_preserves_plan_prices_and_permissioned_leads
     assert "Budget+approval%3A" in section
     assert "Required+deliverables%3A" in section
     assert "confirm deliverables and availability before a separate engagement" in section
+
+
+
+def test_pro_lead_modal_displays_canonical_paid_offer_without_unverified_promises():
+    """Homepage lead popup must not sell phantom advisories or deployable rules."""
+    import json
+    root = ROOT
+    contract = json.loads((root / "config/commercial-contract.json").read_text(encoding="utf-8"))
+    pro = contract["tiers"]["pro"]
+    assert (pro["usd_monthly"], pro["requests_per_day"],
+            pro["requests_per_minute"], pro["api_keys"], pro["seats"]) == (49, 5000, 120, 10, 1)
+    html = (root / "index.html").read_text(encoding="utf-8")
+    assert '<div id="apex-lead-modal"' in html
+    dialog = html.split('<div id="apex-lead-modal"', 1)[1].split("<script>", 1)[0]
+    for unsupported in ("500 advisories/day", "Deploy-ready Sigma",
+                        "MITRE ATT&amp;CK v15 mapping",
+                        "START FREE 7-DAY TRIAL"):
+        assert unsupported not in dialog, unsupported
+    for verified in ("5,000 API requests/day", "120 requests/min",
+                     "10 API keys", "1 seat", "$49 due at checkout",
+                     "validate against your telemetry before deployment",
+                     "This is not a free trial."):
+        assert verified in dialog, verified
+
+
+def test_pro_lead_submit_preserves_verified_checkout_without_premature_payment_claims():
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+    assert "window.location.href = '/upgrade.html?plan=pro&utm_source=lead-modal&utm_medium=timed-popup';" in html
+    assert "sessionStorage.setItem('apex_lead_email', email)" in html
+    assert "UPGRADE NOW" in html or "CONTINUE TO PRO" in html
+    # A lead referral does not itself establish captured payment or active access.
+    modal = html.split('<div id="apex-lead-modal"', 1)[1].split("<script>", 1)[0]
+    assert "Instant activation" not in modal
+    assert "Activates on payment confirmation" not in modal or "This is not a free trial." in modal
