@@ -311,6 +311,14 @@ jobs:
       - name: "P0 certification source coverage offline negative controls"
         run: python3 -m pytest -q tests/test_certification_source_coverage.py
 
+      # P0 #721: prohibit the HTML-under-.pdf format regression. This offline
+      # test suite uses synthetic tmp_path artifacts only (no R2, Cloudflare,
+      # production object changes, credentials, or customer delivery).
+      # The curated Python suite below does not discover new test files.
+      - name: "P0 PDF binary integrity, no-clobber and download truth negatives"
+        run: python3 -m pytest -q --strict-markers tests/test_p0_pdf_artifact_truth.py
+
+
       # Scoped to the suites that are self-contained -- no network, no cloud
       # SDK, no credentials. Deliberately NOT `pytest tests/`: 115 modules live
       # there and several require boto3 or network access, so a whole-directory
