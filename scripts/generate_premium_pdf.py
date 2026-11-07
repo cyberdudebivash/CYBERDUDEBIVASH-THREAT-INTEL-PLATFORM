@@ -391,12 +391,12 @@ def _normalize(report: dict) -> dict:
         title = r.get("title") or "this vulnerability"
         sev = _first_threat_field(r, "severity", "MEDIUM").upper()
         base_recs = [
-            f"Apply vendor patch for {title} immediately - check NVD for official fix guidance.",
+            f"Verify affected versions and vendor-approved remediation for {title}; schedule changes under the customer change process.",
             "Enable enhanced logging and alerting on all systems running affected software versions.",
             "Review and syntax-test any evidence-linked detection logic against actual SIEM telemetry before deployment.",
             "Audit all internet-facing instances of affected products and confirm patch deployment.",
             "Use ATT&amp;CK only as a hypothesis framework until mapped behaviors are verified in telemetry.",
-            "Rotate credentials and API keys for any services co-located with affected systems.",
+            "Review affected-system credential exposure; rotate only when compromise evidence or vendor guidance supports it.",
             "Review firewall and WAF rules to restrict exploitation vectors identified in this report.",
         ]
         existing_lower = {r_.lower() for r_ in recs}
