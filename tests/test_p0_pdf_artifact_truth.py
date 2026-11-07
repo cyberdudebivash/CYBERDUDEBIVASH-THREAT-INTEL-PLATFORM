@@ -230,4 +230,7 @@ def test_store_report_buyer_journey_preserves_plan_prices_and_permissioned_leads
     assert "mailto:contact@cyberdudebivash.in?subject=Executive+Risk+Report+Scope" in section
     assert "Technology+stack%3A" in section
     assert "Procurement+timeline%3A" in section
+    assert "subject=Custom+Intel+Package+Request" in section
+    assert "Budget+approval%3A" in section
+    assert "Required+deliverables%3A" in section
     assert "confirm deliverables and availability before a separate engagement" in section
