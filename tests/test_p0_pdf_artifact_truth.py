@@ -300,3 +300,55 @@ def test_default_pdf_recommendations_do_not_order_unverified_disruptive_changes(
     assert "rotate only when compromise evidence or vendor guidance supports it" in code
     assert "vendor-approved remediation" in code
     assert "customer change process" in code
+
+
+
+def test_pdf_ioc_confidence_is_unknown_without_explicit_evidence():
+    """Unspecified IOC confidence must not be reported as 70%."""
+    import ast
+    import math
+    source = (ROOT / "scripts" / "generate_premium_pdf.py").read_text(encoding="utf-8")
+    parsed = ast.parse(source)
+    funcs = {n.name: n for n in parsed.body if isinstance(n, ast.FunctionDef)}
+    normalized = ast.get_source_segment(source, funcs["_normalize"])
+    iocs = ast.get_source_segment(source, funcs["_section_iocs"])
+    assert 'i.get("confidence")' in normalized
+    assert 'i.get("confidence", 0.7)' not in normalized
+    assert "Ingest directly into your SIEM" not in iocs
+    assert "PRO subscribers receive real-time IOC push" not in iocs
+    assert "No IOC values were supplied with this report" in iocs
+    assert "_ioc_confidence_display(conf)" in iocs
+    # Execute just this side-effect-free pure formatter without importing
+    # the ReportLab renderer in lightweight gateway CI.
+    namespace = {"Any": object, "math": math}
+    code = compile(ast.Module(body=[funcs["_ioc_confidence_display"]],
+                              type_ignores=[]), "<synthetic-ioc-contract>", "exec")
+    exec(code, namespace)
+    fmt = namespace["_ioc_confidence_display"]
+    assert fmt(None) == "Not assessed"
+    assert fmt(True) == "Not assessed"
+    assert fmt(False) == "Not assessed"
+    assert fmt("invalid") == "Not assessed"
+    assert fmt(float("nan")) == "Not assessed"
+    assert fmt(float("inf")) == "Not assessed"
+    assert fmt(-0.01) == "Not assessed"
+    assert fmt(101) == "Not assessed"
+    assert fmt(0) == "0%"
+    assert fmt(0.7) == "70%"
+    assert fmt(0.85) == "85%"
+    assert fmt(85) == "85%"
+
+
+def test_pdf_report_empty_ioc_state_does_not_promise_unproved_delivery():
+    import ast
+    source = (ROOT / "scripts" / "generate_premium_pdf.py").read_text(encoding="utf-8")
+    nodes = ast.parse(source).body
+    method = next(n for n in nodes
+                  if isinstance(n, ast.FunctionDef) and n.name == "_section_iocs")
+    text = ast.get_source_segment(source, method)
+    assert "No IOC values were supplied" in text
+    assert "approved, entitled exports" in text
+    assert "customer-applicable telemetry" in text
+    for unsupported in ("real-time IOC push", "Ingest directly into",
+                        "Full IOC packages include"):
+        assert unsupported not in text
