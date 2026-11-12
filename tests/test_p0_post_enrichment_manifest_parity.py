@@ -119,7 +119,7 @@ def test_workflow_final_manifest_is_mandatory_and_after_both_enrichers():
     ioc_step = workflow.index('name: "STAGE 3.93.15c - P20.2 IOC Hardener"')
     p21_step = workflow.index('name: "STAGE 3.93.15d - P21.0 Enterprise Certification Gate"')
     rebuild = workflow.index('name: "STAGE 3.93.19 - Re-generate Immutable API Manifests (post-enrichment)"')
-    next_step = workflow.index('name: "STAGE 3.93.2: DAILY BRIEF GENERATOR')
+    next_step = workflow.index('name: "STAGE 3.93.2 - Daily Brief Generator (v184.0)"')
     # Existing post-enrichment regeneration must remain the only later one.
     # Do not add a third invocation or silently raise runner usage.
     assert initial < evidence_step < ioc_step < p21_step < rebuild < next_step
