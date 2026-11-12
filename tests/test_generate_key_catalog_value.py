@@ -47,11 +47,11 @@ class KeyCatalogValueTests(unittest.TestCase):
 
     def test_qualifying_keys_are_only_provisional_catalog_value_not_cash(self):
         data = {"keys": {
-            "mssp1": {"tier": "MSSP", "status": "active", "expires_at": "2099-01-01"},
-            "mssp2": {"tier": "mssp", "status": "active", "expires_at": "2099-01-01"},
-            "pro": {"tier": "PRO", "status": "active", "expires_at": "2099-01-01"},
-            "expired": {"tier": "ENTERPRISE", "status": "active", "expires_at": "2000-01-01"},
-            "revoked": {"tier": "ENTERPRISE", "status": "revoked", "expires_at": "2099-01-01"},
+            "mssp1": {"tier": "MSSP", "status": "active", "expires_at": "2099-01-01T00:00:00+00:00"},
+            "mssp2": {"tier": "mssp", "status": "active", "expires_at": "2099-01-01T00:00:00+00:00"},
+            "pro": {"tier": "PRO", "status": "active", "expires_at": "2099-01-01T00:00:00+00:00"},
+            "expired": {"tier": "ENTERPRISE", "status": "active", "expires_at": "2000-01-01T00:00:00+00:00"},
+            "revoked": {"tier": "ENTERPRISE", "status": "revoked", "expires_at": "2099-01-01T00:00:00+00:00"},
         }}
         with patch.object(keys, "load_json", return_value=data):
             summary = keys.revenue_summary()
@@ -65,7 +65,7 @@ class KeyCatalogValueTests(unittest.TestCase):
 
     def test_missing_price_contract_is_not_silently_assumed_to_be_zero(self):
         with patch.object(keys, "load_json", return_value={"keys": {
-            "x": {"status": "active", "tier": "MSSP", "expires_at": "2099-01-01"},
+            "x": {"status": "active", "tier": "MSSP", "expires_at": "2099-01-01T00:00:00+00:00"},
         }}), patch.object(keys, "canonical_catalog_monthly_prices", side_effect=OSError("offline")):
             summary = keys.revenue_summary()
         self.assertEqual(summary["catalog_pricing_status"], "unavailable")
@@ -75,7 +75,7 @@ class KeyCatalogValueTests(unittest.TestCase):
 
     def test_unknown_active_tier_cannot_inflate_or_understate_catalog_value(self):
         with patch.object(keys, "load_json", return_value={"keys": {
-            "x": {"status": "active", "tier": "UNMAPPED", "expires_at": "2099-01-01"},
+            "x": {"status": "active", "tier": "UNMAPPED", "expires_at": "2099-01-01T00:00:00+00:00"},
         }}):
             summary = keys.revenue_summary()
         self.assertEqual(summary["catalog_pricing_status"], "unavailable")
