@@ -113,7 +113,7 @@ def test_every_latest_report_gate_rejected_never_certifies_customer_delivery(clo
          patch.object(dcv, "_is_expected_publication_rejection", return_value=True):
         p3 = dcv.phase3_incremental_retry([], MANIFEST)
     assert not p3.success
-    assert "0 distinct reports delivered HTTP 200" in p3.message
+    assert "0 distinct report URLs returned HEAD HTTP 200" in p3.message
     assert len(p3.probes) == dcv.MAX_REPORT_PROBES
     assert all(result.gate_rejected for result in p3.probes)
     assert not any(result.status_code == 200 for result in p3.probes)
@@ -130,7 +130,7 @@ def test_current_positive_delivery_and_verified_denials_remain_eligible(clock):
          patch.object(dcv, "_is_expected_publication_rejection", return_value=True):
         p3 = dcv.phase3_incremental_retry([], MANIFEST)
     assert p3.success
-    assert "1 distinct reports delivered HTTP 200" in p3.message
+    assert "1 distinct report URLs returned HEAD HTTP 200" in p3.message
     assert sum(result.status_code == 200 for result in p3.probes) == 1
 
 
