@@ -367,6 +367,19 @@ def _probe_batch(urls: List[str], label: str = "") -> Tuple[List[ProbeResult], i
     return results, ok, fail
 
 
+def _has_delivered_report_200(results: List[ProbeResult]) -> bool:
+    """Require actual HTTP 200 report delivery, not an expected gated 404.
+
+    Publication-gate rejection proves the access boundary works, but it is
+    not customer-report delivery evidence. Only canonical report URLs count.
+    """
+    return any(
+        r.success and not r.gate_rejected and r.status_code == 200
+        and r.url.startswith(PAGES_BASE_URL + "/reports/")
+        for r in results
+    )
+
+
 # ---------------------------------------------------------------------------
 # Feed / manifest loading
 # ---------------------------------------------------------------------------
@@ -715,7 +728,13 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
     confirmed = sum(url_status.values())
     total = len(url_status)
     success_rate = confirmed / total if total else 0
-    phase_success = confirmed == total and total > 0  # Every sampled report must resolve.
+    delivered = _has_delivered_report_200(all_results)
+    # Expected publication-gate denials remain non-retryable, but never
+    # authorize a release when every sampled report was actually withheld.
+    phase_success = confirmed == total and total > 0 and delivered
+    if confirmed == total and not delivered:
+        log.error("Phase 3: P0 NO_CUSTOMER_READY_REPORT_DELIVERED: "
+                  "all report confirmations were publication-gate denials")
 
     duration = time.monotonic() - t0
     return PhaseResult(
@@ -724,8 +743,9 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
         success=phase_success,
         probes=all_results,
         duration_s=round(duration, 1),
-        message=f"{confirmed}/{total} report URLs confirmed ({success_rate:.0%}). "
-                f"{'PASS' if phase_success else 'FAIL  -  below 90% threshold'}",
+        message=f"{confirmed}/{total} report URLs confirmed ({success_rate:.0%}); "
+                f"positive_report_200={delivered}. "
+                f"{'PASS' if phase_success else 'FAIL - customer report delivery unverified'}",
     )
 
 
@@ -762,7 +782,17 @@ def phase4_convergence_confirmation(feed: List[dict], manifest: dict) -> PhaseRe
         all_results.extend(results)
 
         success_rate = ok / len(core_urls) if core_urls else 0
-        if success_rate >= 0.9:
+        reports = [r for r in results if r.url in latest_urls[:5]]
+        delivered = _has_delivered_report_200(reports)
+        if latest_urls and reports and all(r.gate_rejected for r in reports):
+            # No eventual-consistency retry can certify this run without a
+            # single customer-deliverable report. Avoid repeated billable
+            # probes against an authoritative publication-gate denial.
+            log.error("Phase 4: P0 NO_CUSTOMER_READY_REPORT_DELIVERED: "
+                      "all sampled reports are publication-gate denied")
+            consecutive_clean = 0
+            break
+        if success_rate >= 0.9 and (not latest_urls or delivered):
             consecutive_clean += 1
             log.info("Phase 4: Clean pass %d/%d confirmed (%.0f%% success rate) ✅", consecutive_clean, CONFIRM_RUNS, success_rate * 100)
         else:
