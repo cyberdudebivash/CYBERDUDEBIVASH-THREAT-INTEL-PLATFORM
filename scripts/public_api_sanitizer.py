@@ -150,6 +150,74 @@ def _reviewed_public_references(item: dict) -> list:
     }]
 
 
+# FREE public manifest is a field-and-SHAPE allowlist. The top-level fields
+# 'mitre_techniques', 'ttps', 'mitre_tactics' and 'ioc_paywall' may contain
+# nested premium detection instructions in the canonical/PRO inventory.
+# Never copy nested source objects wholesale to anonymous latest.json.
+_PUBLIC_SIMPLE_LISTS = frozenset({"tags", "cve_ids"})
+_PUBLIC_TECHNIQUE_LISTS = frozenset({"mitre_techniques", "attack_techniques", "ttps"})
+_PUBLIC_TECHNIQUE_KEYS = ("technique_id", "technique_name", "tactic")
+_PUBLIC_TACTIC_KEYS = ("id", "name", "tactic")
+
+
+def _public_text_list(value: Any) -> list:
+    if not isinstance(value, list):
+        return []
+    return [item.strip()[:256] for item in value[:100]
+            if isinstance(item, str) and item.strip()]
+
+
+def _public_technique_list(value: Any, keys: tuple[str, ...]) -> list:
+    if not isinstance(value, list):
+        return []
+    safe = []
+    for entry in value[:100]:
+        if isinstance(entry, str):
+            if entry.strip():
+                safe.append(entry.strip()[:256])
+        elif isinstance(entry, dict):
+            row = {key: entry[key].strip()[:256] for key in keys
+                   if isinstance(entry.get(key), str) and entry[key].strip()}
+            if row:
+                safe.append(row)
+    return safe
+
+
+def _public_ioc_paywall(value: Any) -> dict | None:
+    if not isinstance(value, dict):
+        return None
+    out = {}
+    if type(value.get("locked")) is bool:
+        out["locked"] = value["locked"]
+    for key in ("count", "confidence"):
+        v = value.get(key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0:
+            out[key] = v
+    for key in ("threat_level", "upgrade_url", "message"):
+        v = value.get(key)
+        if isinstance(v, str):
+            out[key] = v[:512]
+    if "primary_types" in value:
+        out["primary_types"] = _public_text_list(value["primary_types"])
+    return out or None
+
+
+def _project_public_latest_field(key: str, value: Any) -> Any:
+    if key in _PUBLIC_SIMPLE_LISTS:
+        return _public_text_list(value)
+    if key in _PUBLIC_TECHNIQUE_LISTS:
+        return _public_technique_list(value, _PUBLIC_TECHNIQUE_KEYS)
+    if key == "mitre_tactics":
+        return _public_technique_list(value, _PUBLIC_TACTIC_KEYS)
+    if key == "ioc_paywall":
+        return _public_ioc_paywall(value)
+    # An unrecognized object/list hidden beneath a supposedly public key
+    # is NOT a new public schema. Drop it instead of leaking its children.
+    if isinstance(value, (dict, list)):
+        return None
+    return value
+
+
 def project_for_public_latest(item: dict) -> dict:
     """Construct bounded-field public listing without altering the source.
 
@@ -159,7 +227,13 @@ def project_for_public_latest(item: dict) -> dict:
     """
     if not isinstance(item, dict):
         raise TypeError("public latest entry must be an advisory object")
-    out = {key: value for key, value in item.items() if key in PUBLIC_LATEST_FIELDS}
+    out = {}
+    for key, value in item.items():
+        if key not in PUBLIC_LATEST_FIELDS:
+            continue
+        projected = _project_public_latest_field(key, value)
+        if projected is not None or value is None:
+            out[key] = projected
     references = _reviewed_public_references(item)
     if references:
         # Exactly one bounded, editor-reviewed advisory (never raw input).
