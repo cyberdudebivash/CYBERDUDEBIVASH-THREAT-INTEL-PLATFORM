@@ -199,12 +199,13 @@ def test_all_gate_rejected_reports_do_not_certify_historical_delivery(
     phase4 = dcv.phase4_convergence_confirmation([], manifest)
     phase5 = dcv.phase5_historical_report_audit([], manifest)
 
-    # Every historical report in this fixture returns 404 and its
-    # publication-status is REJECTED. Such denials are expected enforcement,
-    # NOT positive evidence that a historical report was delivered. The
-    # convergence control was deliberately tightened to fail closed.
-    assert all(phase.success for phase in (phase1, phase2, phase3, phase4))
-    assert not phase5.success
+    # Every sampled latest/historical report is publication-gate REJECTED.
+    # Protected 404 denials prove enforcement, NEVER positive customer report
+    # delivery. All report-certifying phases must fail closed, while core CDN
+    # reachability (Phases 1-2) can still succeed.
+    assert phase1.success and phase2.success
+    assert not phase3.success and not phase4.success and not phase5.success
+    assert "positive_report_200=False" in phase3.message
     assert "HISTORICAL POSITIVE EVIDENCE MISSING" in phase5.message
     assert len(phase5.probes) == dcv.HIST_PROBE_COUNT
     assert dcv._REQUESTS_USED <= dcv.MAX_TOTAL_REQUESTS
