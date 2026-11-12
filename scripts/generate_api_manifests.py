@@ -332,6 +332,33 @@ except (ImportError, OSError, ValueError, RuntimeError) as exc:
 deduped_feed = deduplicate(raw_feed)
 info(f'Dedup complete: {len(deduped_feed)} unique items ({len(raw_feed) - len(deduped_feed)} removed)')
 
+# P0 FINAL PRO/FREE TLP PARITY: the record-level gate above is necessary but
+# insufficient for the final recursive R2 TLP gate, which also checks nested
+# evidence and contradictory parent classifications across feed manifests.
+# If that last-mile gate would remove even one nested byte, withhold the WHOLE
+# advisory *before* FREE and PRO are generated from a shared source population.
+# Never silently "repair" sensitive evidence or bypass the existing gate.
+try:
+    from strict_public_manifest_selection import select_last_mile_verified
+    from pathlib import Path as _Path
+    _stable, _last_mile_held = select_last_mile_verified(deduped_feed, _Path.cwd())
+except (ImportError, OSError, ValueError, TypeError) as _exc:
+    fatal('[TLP] recursive source/parent proof unavailable: denying manifest generation')
+if _last_mile_held:
+    warn(f'[TLP] withheld {sum(_last_mile_held.values())} whole advisory/ies before FREE/PRO projection: {_last_mile_held}')
+    if not _stable:
+        # No previous PRO bundle may be regarded as current; publisher and
+        # last-mile gates MUST fail closed, never upload an unverified old file.
+        fatal('[TLP] no recursively verified public records; PRO/FREE generation blocked')
+    # finalize_public_feed() above already reconciled the untouched candidate
+    # inventory into the INTERNAL canonical manifest. Only the public source
+    # copies lose unsafe advisories; never rewrite the internal evidence archive.
+    _safe_json = json.dumps(_stable, ensure_ascii=False, separators=(',', ':'))
+    atomic_write(FEED_PATH, _safe_json)
+    atomic_write('feed.json', _safe_json)
+    deduped_feed = _stable
+    raw_feed = _stable
+
 # ── STEP 2: Sort by freshness ─────────────────────────────────────────────────
 sorted_feed = sorted(deduped_feed, key=sort_key, reverse=True)
 info(f'Sorted: {len(sorted_feed)} items by freshness DESC')
