@@ -144,3 +144,17 @@ def test_workflow_enables_paid_only_in_final_post_commit_sync():
     assert "CDB_FINAL_PAID_R2_SYNC" not in stage_early
     assert "CDB_FINAL_PAID_R2_SYNC: '1'" in stage_final
     assert sum(1 for row in resync.RESYNC_FILES if row[1] == PRO_KEY) == 1
+
+
+def test_final_paid_publication_failure_is_a_release_blocker_not_a_green_warning():
+    """Live PRO parity/TLP failure must not be swallowed by the workflow."""
+    workflow = (Path(__file__).resolve().parents[1] /
+                ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
+    stage = workflow.split(
+        '- name: "STAGE 4.1 - Final R2 Full Sync', 1
+    )[1].split('P0 FIX: Upload Intel State to R2', 1)[0]
+    assert "set -euo pipefail" in stage
+    assert "python3 scripts/r2_resync_manifests.py" in stage
+    assert "if ! python3 scripts/r2_resync_manifests.py" not in stage
+    assert "|| true" not in stage
+    assert "::warning::STAGE 4.1" not in stage
