@@ -644,22 +644,14 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
 
     latest_urls, _ = _extract_report_urls(feed, manifest)
     if not latest_urls:
-        # v160.6 FIX: soft-pass when no URLs available after all 3 fallbacks.
-        # Godmode-skip scenario: all reports are pre-existing large files,
-        # report_generator skipped regeneration, no new Pages manifest entries.
-        # Platform IS stable (confirmed by Phase 1+2). Hard-fail here produced
-        # false DEPLOYMENT_FAILED Score=32.5/100 in 3 consecutive CI runs.
-        log.warning(
-            "Phase 3: No report URLs after all fallbacks. "
-            "SOFT PASS — godmode-skip run (reports pre-existing on CDN). "
-            "Platform stability confirmed by Phase 1+2."
-        )
+        # P0: an absent authoritative sample is not customer-delivery evidence.
+        # Pre-existing CDN assets can be healthy, but this release cannot prove
+        # any current report is deliverable. Preserve the strict NO-GO gate.
+        log.error("Phase 3: NO_CANONICAL_LATEST_REPORT_EVIDENCE; customer delivery unverified")
         return PhaseResult(
             phase=3, name="Incremental Retry",
-            success=True, probes=[],
-            duration_s=0,
-            message="Soft pass — no new reports this cycle (godmode-skip). "
-                    "CDN stability confirmed by Phase 1+2.",
+            success=False, probes=[], duration_s=0,
+            message="NO_CANONICAL_LATEST_REPORT_EVIDENCE; customer delivery unverified.",
         )
 
     # Track per-URL success
@@ -669,7 +661,7 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
     for attempt in range(MAX_RETRIES):
         pending = [u for u, ok in url_status.items() if not ok]
         if not pending:
-            log.info("Phase 3: All %d report URLs confirmed HTTP 200 ✅", len(latest_urls))
+            log.info("Phase 3: All %d report routes classified; positive HTTP 200 delivery checked separately", len(latest_urls))
             break
 
         log.info("Phase 3 retry round %d/%d: probing %d pending URLs...", attempt + 1, MAX_RETRIES, len(pending))
@@ -715,7 +707,19 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
     confirmed = sum(url_status.values())
     total = len(url_status)
     success_rate = confirmed / total if total else 0
-    phase_success = confirmed == total and total > 0  # Every sampled report must resolve.
+    # HTTP 404 is a correct publication-gate *denial*, not delivered report HTML.
+    # The preceding route/propagation checks deliberately tolerate that denial
+    # to avoid costly CDN retries. Never promote 15/15 denied URLs into a
+    # customer-delivery PASS. Require at least one genuinely delivered HTTP 200
+    # from the canonical newest sample in addition to complete route checks.
+    positive_deliveries = {
+        result.url for result in all_results
+        if result.url in url_status and result.success
+        and not result.gate_rejected and result.status_code == 200
+    }
+    phase_success = confirmed == total and total > 0 and bool(positive_deliveries)
+    if confirmed == total and not positive_deliveries:
+        log.error("Phase 3: CURRENT_REPORT_POSITIVE_DELIVERY_MISSING; all sampled routes were denied")
 
     duration = time.monotonic() - t0
     return PhaseResult(
@@ -724,8 +728,9 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
         success=phase_success,
         probes=all_results,
         duration_s=round(duration, 1),
-        message=f"{confirmed}/{total} report URLs confirmed ({success_rate:.0%}). "
-                f"{'PASS' if phase_success else 'FAIL  -  below 90% threshold'}",
+        message=f"{confirmed}/{total} report routes classified ({success_rate:.0%}); "
+                f"{len(positive_deliveries)} distinct reports delivered HTTP 200. "
+                f"{'PASS' if phase_success else 'FAIL  -  customer report delivery unverified'}",
     )
 
 
