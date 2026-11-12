@@ -137,6 +137,24 @@ def test_all_withheld_replaces_stale_public_bundles_with_tombstones_then_fails(t
     assert "LEAKMARKER-BODY" not in blob
 
 
+def test_nested_restricted_all_denied_replaces_earlier_paid_manifests_with_tombstones(tmp_path):
+    """The first generator pass must never survive when the final recursive gate denies all."""
+    sensitive = _adv(1, tlp="TLP:CLEAR",
+                     nested={"tlp": "TLP:RED", "payload": "NESTED-SECRET-CANNOT-PUBLISH"})
+    result, existing = _run_manifests(tmp_path, [sensitive])
+    assert result.returncode == 1
+    assert "REPLACED by empty tombstones" in result.stdout
+    out = existing.parent
+    for name in ("latest", "latest_pro", "top10", "apex"):
+        artifact = json.loads((out / f"{name}.json").read_text(encoding="utf8"))
+        assert artifact["count"] == 0 and artifact["items"] == []
+        assert artifact["tlp_boundary"]["withheld_all"] is True
+    assert json.loads((out / "manifest.json").read_text())["bundles"]["latest_pro"]["count"] == 0
+    assert "last_known_good" not in existing.read_text()
+    assert "NESTED-SECRET-CANNOT-PUBLISH" not in "".join(
+        p.read_text() for p in out.glob("*.json"))
+
+
 def test_manifests_refuse_when_policy_module_unavailable(tmp_path):
     result, existing = _run_manifests(tmp_path, [_adv(1, tlp="TLP:CLEAR")], copy_policy=False)
     assert result.returncode == 1
