@@ -3500,8 +3500,10 @@ jobs:
       # THIS STAGE: Runs AFTER STAGE 4 Git Sync (post-commit, post-push) and
       # re-uploads the final committed versions of all API manifests to R2.
       # R2 now receives the same final-item feed that GitHub Pages serves.
-      # Non-fatal: step always exits 0 so the pipeline never dies here, but
-      # upload failures emit a ::warning:: annotation visible in the UI.
+      # P0 paid fulfillment: do not claim this stage passed when the final
+      # PRO manifest was refused for TLP/source parity or a required R2 PUT
+      # failed. A warning-only wrapper allowed later release stages to run
+      # while customers still had an old/absent paid artifact.
       # -----------------------------------------------------------------------
       - name: "STAGE 4.1 - Final R2 Full Sync (v184.0 -- post-git-push complete feed)"
         timeout-minutes: 5
@@ -3514,13 +3516,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
         run: |
-          # v184.0 P1 FIX: Replace silent '|| true' with annotation-emitting wrapper.
-          # Previous: 'python3 scripts/r2_resync_manifests.py || true' swallowed ALL
-          # exit codes including upload failures, making stale R2 data invisible.
-          # Now: captures exit code, emits ::warning:: on failure, always exits 0.
-          if ! python3 scripts/r2_resync_manifests.py; then
-            echo "::warning::STAGE 4.1: Final R2 full sync failed — feed data in R2 may be stale. Check CF_ACCOUNT_ID, CF_R2_ACCESS_KEY_ID, CF_R2_SECRET_ACCESS_KEY secrets and bucket 'sentinel-apex-data' policy. See error annotation above for file-level detail."
-          fi
+          # A nonzero exit means incomplete/unsafe final paid fulfillment.
+          # Preserve the uploader's fail-before-PUT behavior and fail this job,
+          # rather than marking a refused PRO write as a successful release.
+          set -euo pipefail
+          python3 scripts/r2_resync_manifests.py
 
       # -----------------------------------------------------------------------
       # P0 FIX: Upload Intel State to R2 (runtime-authoritative, final)
