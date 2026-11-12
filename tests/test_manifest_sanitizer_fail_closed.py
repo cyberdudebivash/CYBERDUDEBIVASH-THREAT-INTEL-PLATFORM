@@ -11,7 +11,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 ELIGIBILITY_DEPENDENCIES = ("p0_r44_publication_boundary.py", "p0_r35_feed_prewrite_guard.py",
                             "sentinel_apex_mandate_enforcer.py", "manifest_reconciler.py", "safe_io.py",
-                            "evidence_score_enforcer.py")
+                            "evidence_score_enforcer.py", "tlp_public_boundary.py",
+                            "strict_public_manifest_selection.py")
 
 
 @pytest.mark.parametrize("dependency", ["missing", "broken", "healthy"])
