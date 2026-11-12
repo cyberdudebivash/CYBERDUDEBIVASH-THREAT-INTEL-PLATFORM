@@ -21,6 +21,8 @@ import { applyTierGateV2 } from './revenue-enforcement.js';
 import { extractDetectionArtifacts, toPublicArtifact } from './detection-registry.js';
 import { _buildIRChecklist } from './p23-handlers.js';
 import { _deriveExposure } from './p27-handlers.js';
+import { denyNonFreshLiveFeed } from './stale-feed-policy.js';
+import { publicTlpJsonVerified } from './intel-static-proxy.js';
 
 // 
 // SCOPES SYSTEM
@@ -914,7 +916,28 @@ export async function handleCSVExport(request, env, auth, rid) {
     const source = await env?.INTEL_R2?.get("api/v1/intel/latest_pro.json");
     if (!source) return extJson({ error: "ioc_feed_unavailable", request_id: rid }, 503);
     const payload = await source.json();
-    const paidItems = Array.isArray(payload?.items) ? payload.items : [];
+    // Paid IOC CSV is a *live intelligence* product, not a historical
+    // archive. The authenticated export must honor the exact same 6-hour
+    // freshness, generation and record-count policy as the customer feed.
+    // Never turn stale R2 data into an apparently successful CSV download.
+    if (denyNonFreshLiveFeed(payload)) {
+      return extJson({
+        error: "ioc_feed_unavailable",
+        reason: "paid_intelligence_freshness_unverified",
+        request_id: rid,
+      }, 503);
+    }
+    // The normal live feed uses this same last-mile TLP check. Scope-based
+    // customer access cannot authorize publishing RESTRICTED or unverified
+    // producer records, including restricted nested advisories in old R2.
+    if (!publicTlpJsonVerified(payload)) {
+      return extJson({
+        error: "ioc_feed_unavailable",
+        reason: "paid_intelligence_classification_unverified",
+        request_id: rid,
+      }, 503);
+    }
+    const paidItems = payload.items;
     const usableIoc = (ioc) => ioc !== null && typeof ioc === "object" &&
       typeof ioc.type === "string" && ioc.type.trim().length > 0 &&
       typeof ioc.value === "string" && ioc.value.trim().length > 0;
