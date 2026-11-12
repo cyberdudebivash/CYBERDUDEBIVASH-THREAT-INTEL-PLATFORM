@@ -3507,6 +3507,9 @@ jobs:
         timeout-minutes: 5
         if: ${{ !cancelled() && steps.r2-manifest-integrity.outcome == 'success' && steps.pipeline_stage_1_3.outcome == 'success' && steps.p0_apex_enrichment.outcome == 'success' }}
         env:
+          # P0 paid manifest is written exactly once, after its FINAL
+          # generation. Stage 3.93.6 does not set this flag.
+          CDB_FINAL_PAID_R2_SYNC: '1'
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
