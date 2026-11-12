@@ -10,6 +10,7 @@ const BASE = 'https://intel.cyberdudebivash.com';
 
 const report = {
   id: 'intel--synthetic-source',
+  tlp: 'TLP:CLEAR',
   stix_id: 'report--synthetic-paid-alias',
   title: 'Synthetic P0 advisory; not a real threat',
   severity: 'CRITICAL',
@@ -28,6 +29,10 @@ const routes = [
   ['/api/intel/ir-guidance', handleIRGuidance],
   ['/api/intel/exposure', handleExposureAnalysis],
 ];
+
+function freshPaid(items, overrides = {}) {
+  return { tier: 'PRO', generated_at: new Date().toISOString(), count: items.length, items, ...overrides };
+}
 
 function setup(files = {}) {
   const reads = [];
@@ -57,7 +62,7 @@ test('PRO, ENTERPRISE, MSSP: both backend specialists find the same paid STIX al
   for (const tier of ['PRO', 'ENTERPRISE', 'MSSP']) {
     for (const [, handler] of routes) {
       const ctx = setup({
-        [PAID]: { items: [report] },
+        [PAID]: freshPaid([report]),
         [PUBLIC]: { items: [{ id: report.id, iocs: undefined }] },
       });
       const response = await invoke(handler, ctx, report.stix_id, auth(tier));
@@ -80,7 +85,7 @@ test('PRO, ENTERPRISE, MSSP: both backend specialists find the same paid STIX al
 
 test('canonical report id alias is accepted when no STIX id is selected', async () => {
   for (const [, handler] of routes) {
-    const ctx = setup({ [PAID]: { items: [report] } });
+    const ctx = setup({ [PAID]: freshPaid([report]) });
     const response = await invoke(handler, ctx, report.id);
     assert.equal(response.status, 200);
     assert.deepEqual(ctx.reads, [PAID]);
@@ -90,7 +95,7 @@ test('canonical report id alias is accepted when no STIX id is selected', async 
 test('FREE and PRO without read:intel cannot read the paid manifest or receive source details', async () => {
   for (const [, handler] of routes) {
     for (const caller of [auth('FREE'), { tier: 'PRO', scopes: ['export:csv'] }]) {
-      const ctx = setup({ [PAID]: { items: [report] } });
+      const ctx = setup({ [PAID]: freshPaid([report]) });
       const response = await invoke(handler, ctx, report.stix_id, caller);
       assert.equal(response.status, 403);
       assert.deepEqual(ctx.reads, []);
@@ -115,7 +120,7 @@ test('no paid artifact, malformed paid schema and empty paid inventory fail clos
 
 test('unknown report in valid paid inventory returns 404 rather than substituting public data', async () => {
   for (const [, handler] of routes) {
-    const ctx = setup({ [PAID]: { items: [report] }, [PUBLIC]: { items: [{ ...report, id: 'public-only-id' }] } });
+    const ctx = setup({ [PAID]: freshPaid([report]), [PUBLIC]: { items: [{ ...report, id: 'public-only-id' }] } });
     const response = await invoke(handler, ctx, 'public-only-id');
     assert.equal(response.status, 404);
     assert.equal((await response.json()).error, 'report_not_found');
@@ -126,7 +131,42 @@ test('unknown report in valid paid inventory returns 404 rather than substitutin
 test('malformed optional arrays do not crash or invent IOCs/TTPs', async () => {
   const damaged = { ...report, iocs: [null, 'garbage'], ttps: {}, tags: 'bad', cve_ids: 'bad', cve: 5 };
   for (const [, handler] of routes) {
-    const ctx = setup({ [PAID]: { items: [damaged] } });
+    const ctx = setup({ [PAID]: freshPaid([damaged]) });
+    const response = await invoke(handler, ctx);
+    assert.equal(response.status, 200);
+    assert.deepEqual(ctx.reads, [PAID]);
+  }
+});
+
+
+test('paid IR and exposure handlers reject stale, malformed and TLP-restricted manifests', async () => {
+  const cases = [
+    ['expired', freshPaid([report], { generated_at: new Date(Date.now() - 7 * 3600000).toISOString() })],
+    ['future', freshPaid([report], { generated_at: new Date(Date.now() + 4 * 3600000).toISOString() })],
+    ['missing timestamp', freshPaid([report], { generated_at: undefined })],
+    ['invalid count', freshPaid([report], { count: 3 })],
+    ['restricted', freshPaid([{ ...report, tlp: 'TLP:RED' }])],
+    ['unlabeled', freshPaid([{ ...report, tlp: undefined }])],
+    ['nested restriction', freshPaid([{ ...report, child: { id: 'restricted-child', title: 'Not for export', tlp: 'TLP:AMBER' } }])],
+  ];
+  for (const [, handler] of routes) {
+    for (const [label, document] of cases) {
+      const ctx = setup({ [PUBLIC]: freshPaid([report]), [PAID]: document });
+      const response = await invoke(handler, ctx);
+      assert.equal(response.status, 503, label);
+      const body = await response.text();
+      assert.match(body, /paid_report_unavailable/, label);
+      assert.doesNotMatch(body, /CVE-2026-10001|Not for export|PRIVATE_R2/i, label);
+      assert.deepEqual(ctx.reads, [PAID], label);
+    }
+  }
+});
+
+test('valid five-hour-old paid intelligence remains available for both specialists', async () => {
+  for (const [, handler] of routes) {
+    const ctx = setup({ [PAID]: freshPaid([report], {
+      generated_at: new Date(Date.now() - 5 * 3600000).toISOString(),
+    }) });
     const response = await invoke(handler, ctx);
     assert.equal(response.status, 200);
     assert.deepEqual(ctx.reads, [PAID]);
