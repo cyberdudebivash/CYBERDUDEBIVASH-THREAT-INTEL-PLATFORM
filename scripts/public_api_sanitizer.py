@@ -158,6 +158,7 @@ _PUBLIC_SIMPLE_LISTS = frozenset({"tags", "cve_ids"})
 _PUBLIC_TECHNIQUE_LISTS = frozenset({"mitre_techniques", "attack_techniques", "ttps"})
 _PUBLIC_TECHNIQUE_KEYS = ("technique_id", "technique_name", "tactic")
 _PUBLIC_TACTIC_KEYS = ("id", "name", "tactic")
+_PUBLIC_ATTACK_ID = re.compile(r"^T(?:A)?[0-9]{4}(?:\.[0-9]{3})?$", re.I)
 
 
 def _public_text_list(value: Any) -> list:
@@ -173,8 +174,11 @@ def _public_technique_list(value: Any, keys: tuple[str, ...]) -> list:
     safe = []
     for entry in value[:100]:
         if isinstance(entry, str):
-            if entry.strip():
-                safe.append(entry.strip()[:256])
+            # Only MITRE ATT&CK technique/tactic IDs may be scalar entries;
+            # arbitrary string payloads can contain paid rule/query content.
+            candidate = entry.strip()
+            if _PUBLIC_ATTACK_ID.fullmatch(candidate):
+                safe.append(candidate)
         elif isinstance(entry, dict):
             row = {key: entry[key].strip()[:256] for key in keys
                    if isinstance(entry.get(key), str) and entry[key].strip()}
