@@ -133,6 +133,21 @@ def test_mixed_eligible_and_gate_rejected_reports_keep_positive_delivery_proof(c
     assert "positive_report_200=True" in p3.message
 
 
+
+def test_no_latest_report_sample_cannot_certify_phase3_or_phase4(monkeypatch):
+    """Empty canonical selection must fail before any network request or fallback."""
+    monkeypatch.setattr(dcv, "_extract_report_urls", lambda *args: ([], []))
+    monkeypatch.setattr(
+        dcv, "_http_probe", lambda *args, **kwargs: pytest.fail("unexpected live HTTP probe")
+    )
+    p3 = dcv.phase3_incremental_retry([], {"files": {}})
+    p4 = dcv.phase4_convergence_confirmation([], {"files": {}})
+    assert not p3.success and not p4.success
+    assert p3.probes == [] and p4.probes == []
+    assert "NO_CANONICAL_LATEST_REPORT_EVIDENCE" in p3.message
+    assert "NO_CANONICAL_LATEST_REPORT_EVIDENCE" in p4.message
+
+
 def test_without_gate_verdict_burns_over_15_minutes_of_retry_budget(clock):
     """Negative control: unclassified 404s still trigger costly repeated backoff.
 
