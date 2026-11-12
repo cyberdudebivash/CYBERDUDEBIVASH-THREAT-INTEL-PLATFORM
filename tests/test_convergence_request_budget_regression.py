@@ -205,7 +205,7 @@ def test_all_gate_rejected_reports_do_not_certify_historical_delivery(
     # convergence control was deliberately tightened to fail closed.
     assert all(phase.success for phase in (phase1, phase2, phase4))
     assert not phase3.success
-    assert "0 distinct reports delivered HTTP 200" in phase3.message
+    assert "0 distinct report URLs returned HEAD HTTP 200" in phase3.message
     assert not phase5.success
     assert "HISTORICAL POSITIVE EVIDENCE MISSING" in phase5.message
     assert len(phase5.probes) == dcv.HIST_PROBE_COUNT
