@@ -103,6 +103,36 @@ def test_gate_rejected_404s_do_not_stall_the_stage(clock):
     assert any(r.gate_rejected for r in p3.probes)
 
 
+
+def test_all_publication_gated_latest_reports_never_certify_report_delivery(clock, monkeypatch):
+    """404 can verify intentional withholding, never successful customer delivery."""
+    latest = REJECTED + OK_REPORTS
+    net = FakeNet({u: 404 for u in latest})
+    monkeypatch.setattr(dcv, "_extract_report_urls", lambda *a: (latest, HISTORY))
+    dcv._GATE_VERDICTS.clear()
+    with patch.object(dcv, "_http_probe", side_effect=net.probe), \
+         patch.object(dcv, "_is_expected_publication_rejection", return_value=True):
+        p3 = dcv.phase3_incremental_retry([], MANIFEST)
+        before_p4 = len(net.calls)
+        p4 = dcv.phase4_convergence_confirmation([], MANIFEST)
+    assert not p3.success
+    assert not p4.success
+    assert "positive_report_200=False" in p3.message
+    assert all(r.gate_rejected for r in p3.probes)
+    assert not dcv._has_delivered_report_200(p3.probes)
+    # One bounded confirmation pass, not repeated retries for known 404 denials.
+    assert len(net.calls) - before_p4 <= 7
+    assert sum(clock) < 60
+
+
+def test_mixed_eligible_and_gate_rejected_reports_keep_positive_delivery_proof(clock):
+    net = FakeNet({u: 404 for u in REJECTED})
+    p2, p3, p4 = _run(net)
+    assert p2.success and p3.success and p4.success
+    assert dcv._has_delivered_report_200(p3.probes)
+    assert "positive_report_200=True" in p3.message
+
+
 def test_without_gate_verdict_burns_over_15_minutes_of_retry_budget(clock):
     """Negative control: unclassified 404s still trigger costly repeated backoff.
 
