@@ -58,7 +58,7 @@ function withCatalog(hx, catalog, certRecords) {
   hx.env.INTEL_R2.put = async () => {};
 }
 
-test("route: lists CUSTOMER_READY reports only, as application/xml", async () => {
+test("route: persisted customer-ready approvals without resolvable/TLP-verified source never enter sitemap", async () => {
   const hx = harness();
   // These synthetic historical snapshots model records certified under the
   // current policy. Legacy records without proof must never enter a sitemap.
@@ -76,9 +76,9 @@ test("route: lists CUSTOMER_READY reports only, as application/xml", async () =>
   const res = await hx.call("GET", "/reports/sitemap.xml");
   assert.equal(res.status, 200);
   assert.match(res.headers.get("Content-Type"), /^application\/xml/);
-  assert.ok(res.text.includes("/reports/2026/09/intel--aa11.html"));
-  assert.ok(res.text.includes("/reports/2026/09/intel--cc33.html"));
-  assert.ok(!res.text.includes("intel--bb22"), "a withheld report (404 on /reports/**) must not be listed");
+  assert.ok(!res.text.includes("intel--aa11"), "a persisted approval with no resolvable item would 404 on /reports/**");
+  assert.ok(!res.text.includes("intel--cc33"), "historic certification alone is not proof of current public TLP provenance");
+  assert.ok(!res.text.includes("intel--bb22"), "a withheld report must never enter the sitemap");
   assert.ok(!res.text.includes("intel--dd44"), "legacy customer-ready without proof must never enter sitemap");
 });
 
