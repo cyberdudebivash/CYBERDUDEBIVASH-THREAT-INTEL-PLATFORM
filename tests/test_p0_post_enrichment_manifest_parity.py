@@ -117,11 +117,14 @@ def test_workflow_final_manifest_is_mandatory_and_after_both_enrichers():
     initial = workflow.index('name: "STAGE 3.93 - Generate Immutable API Manifests')
     evidence_step = workflow.index('name: "STAGE 3.93.15b - P20.1 Evidence Chain Enricher"')
     ioc_step = workflow.index('name: "STAGE 3.93.15c - P20.2 IOC Hardener"')
-    rebuild = workflow.index('name: "STAGE 3.93.15c.1 - Rebuild signed manifests after P20 final enrichment (P0)"')
-    next_gate = workflow.index('name: "STAGE 3.93.15d - P21.0 Enterprise Certification Gate"')
-    assert initial < evidence_step < ioc_step < rebuild < next_gate
+    p21_step = workflow.index('name: "STAGE 3.93.15d - P21.0 Enterprise Certification Gate"')
+    rebuild = workflow.index('name: "STAGE 3.93.19 - Re-generate Immutable API Manifests (post-enrichment)"')
+    next_step = workflow.index('name: "STAGE 3.93.2: DAILY BRIEF GENERATOR')
+    # Existing post-enrichment regeneration must remain the only later one.
+    # Do not add a third invocation or silently raise runner usage.
+    assert initial < evidence_step < ioc_step < p21_step < rebuild < next_step
     assert workflow.count("python3 scripts/generate_api_manifests.py") == 2
-    final_block = workflow[rebuild:next_gate]
+    final_block = workflow[rebuild:next_step]
     assert "continue-on-error: true" not in final_block
     assert "python3 scripts/verify_post_enrichment_manifest_parity.py" in final_block
     assert final_block.index("generate_api_manifests.py") < final_block.index("verify_post_enrichment_manifest_parity.py")
