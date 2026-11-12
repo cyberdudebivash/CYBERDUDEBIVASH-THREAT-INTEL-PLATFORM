@@ -86,6 +86,7 @@ on:
       - 'tests/test_r2_*.py'
       - 'tests/test_backup_*.py'
       - 'tests/test_p0_r2_stix_manifest_diagnostic_read_only.py'
+      - 'tests/test_p0_paid_pro_final_r2_parity.py'
   pull_request:
     branches: [main]
   workflow_dispatch: {}
@@ -133,6 +134,11 @@ jobs:
 
       - name: "P0 #788 -- final R2 public latest preflight uses Worker truth"
         run: python -m pytest tests/test_p0_r2_resync_worker_preflight.py -v --tb=short
+
+      # PRO manifest is an entitled customer artifact: verify same-generation
+      # FREE/PRO R2 parity, TLP safety, and cost-neutral single-writer routing.
+      - name: "P0 paid PRO final R2 generation parity (no Cloudflare network)"
+        run: python -m pytest tests/test_p0_paid_pro_final_r2_parity.py -v --tb=short
 
       - name: "P0 #788 -- Python/Worker nested TLP contract parity on public R2 copies"
         run: python -m pytest tests/test_p0_worker_tlp_publication_parity.py tests/test_p0_721_public_boundary.py -v --tb=short

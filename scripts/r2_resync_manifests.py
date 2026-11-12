@@ -60,6 +60,7 @@ log = logging.getLogger("sentinel.r2_resync")
 # basicConfig() call is a no-op and log lines keep the [r2_resync] prefix.
 from r2_upload import stale_manifest_reason, tlp_safe_public_feed_source, tlp_safe_public_json_source  # noqa: E402
 from tlp_public_boundary import build_parent_index  # noqa: E402
+from public_freshness_contract import classify_manifest_freshness, FRESH  # noqa: E402
 
 REPO_ROOT       = Path(__file__).resolve().parent.parent
 PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "184.0")
@@ -70,6 +71,9 @@ BUCKET_DATA     = "sentinel-apex-data"
 RESYNC_FILES = [
     ("api/feed.json",                "api/feed.json",              "no-store, max-age=0"),
     ("api/v1/intel/latest.json",     "api/v1/intel/latest.json",   "public, max-age=300, stale-while-revalidate=60"),
+    # PRO is generated after Stage 3.5 and synced exactly once, in Stage 4.1.
+    # Only a separately authenticated Worker may expose this private payload.
+    ("api/v1/intel/latest_pro.json", "api/v1/intel/latest_pro.json", "private, no-store"),
     ("api/v1/intel/top10.json",      "api/v1/intel/top10.json",    "public, max-age=300, stale-while-revalidate=60"),
     ("api/v1/intel/apex.json",       "api/v1/intel/apex.json",     "no-cache, no-store, must-revalidate"),
     ("api/v1/intel/manifest.json",   "api/v1/intel/manifest.json", "public, max-age=300"),
@@ -195,6 +199,69 @@ def assert_worker_deliverable_latest(latest_path: Path, parents=None) -> None:
             raise ValueError("P0_PUBLIC_LATEST_WORKER_REJECTED:" + reason)
 
 
+PAID_PRO_KEY = "api/v1/intel/latest_pro.json"
+PAID_FINAL_SYNC_ENV = "CDB_FINAL_PAID_R2_SYNC"
+
+
+def assert_final_paid_pro_pair(root: Path) -> None:
+    """Offline, fail-closed FREE/PRO generation and TLP parity before any R2 PUT.
+
+    Both publisher bundles are generated in one invocation. Never write an
+    early, unknown-timestamp, empty, mismatched or TLP-modified PRO artifact.
+    This check makes no network call and never modifies source files.
+    """
+    docs = {}
+    for name in ("latest.json", "latest_pro.json"):
+        path = root / "api" / "v1" / "intel" / name
+        if not path.is_file():
+            raise ValueError("P0_PAID_PARITY_MISSING_ARTIFACT")
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError) as exc:
+            raise ValueError("P0_PAID_PARITY_UNREADABLE_ARTIFACT") from exc
+        if not isinstance(data, dict):
+            raise ValueError("P0_PAID_PARITY_NOT_OBJECT")
+        freshness = classify_manifest_freshness(data.get("generated_at"))
+        if freshness["state"] != FRESH:
+            raise ValueError("P0_PAID_PARITY_FRESHNESS_UNVERIFIED")
+        items = data.get("items")
+        if (not isinstance(items, list) or not items or
+                type(data.get("count")) is not int or data["count"] != len(items)):
+            raise ValueError("P0_PAID_PARITY_COUNT_UNVERIFIED")
+        ids = [it.get("id") if isinstance(it, dict) else None for it in items]
+        if any(not isinstance(ident, str) or not ident.strip() for ident in ids):
+            raise ValueError("P0_PAID_PARITY_RECORD_ID_UNVERIFIED")
+        if len(set(ids)) != len(ids):
+            raise ValueError("P0_PAID_PARITY_DUPLICATE_RECORD")
+        docs[name] = (data, ids)
+
+    free, free_ids = docs["latest.json"]
+    paid, paid_ids = docs["latest_pro.json"]
+    if (free["generated_at"] != paid["generated_at"] or
+            free_ids != paid_ids or paid.get("tier") != "PRO"):
+        raise ValueError("P0_PAID_PARITY_SOURCE_DRIFT")
+
+    # The last-mile TLP sanitizer must not silently remove or rewrite
+    # paid source content. Producer-side TLP authorization must be explicit.
+    from tlp_public_boundary import build_parent_index
+    parents = build_parent_index([
+        root / "api" / "feed.json",
+        root / "data" / "feed_manifest.json",
+        root / "data" / "stix" / "feed_manifest.json",
+    ])
+    with tempfile.TemporaryDirectory(prefix="cdb-pro-r2-parity-") as tmp:
+        verified_path = tlp_safe_public_json_source(
+            root / PAID_PRO_KEY, Path(tmp), PAID_PRO_KEY, parents)
+        if verified_path is None:
+            raise ValueError("P0_PAID_PARITY_TLP_UNVERIFIED")
+        try:
+            verified = json.loads(verified_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError) as exc:
+            raise ValueError("P0_PAID_PARITY_TLP_UNREADABLE") from exc
+        if verified != paid:
+            raise ValueError("P0_PAID_PARITY_TLP_MODIFIED")
+
+
 def main() -> None:
     log.info("=" * 64)
     log.info("SENTINEL APEX v%s -- R2 Post-STAGE-3.93 Manifest Resync", PIPELINE_VERSION)
@@ -202,6 +269,16 @@ def main() -> None:
     log.info("=" * 64)
 
     os.chdir(REPO_ROOT)
+
+    final_paid_sync = os.environ.get(PAID_FINAL_SYNC_ENV) == "1"
+    if final_paid_sync:
+        try:
+            assert_final_paid_pro_pair(REPO_ROOT)
+        except ValueError as exc:
+            # Fail BEFORE credentials and any PUT. No split-generation
+            # paid manifests are permitted at the final publication point.
+            log.critical("P0 final PRO publication refused: %s", exc)
+            sys.exit(1)
 
     # Fail before first PUT if exact public manifest would cause API 503.
     _parents = build_parent_index([
@@ -234,6 +311,10 @@ def main() -> None:
     _tlp_parents = build_parent_index([REPO_ROOT / "api" / "feed.json", REPO_ROOT / "data" / "feed_manifest.json",
                                        REPO_ROOT / "data" / "stix" / "feed_manifest.json"])
     for src_rel, dst_key, cache_ctrl in RESYNC_FILES:
+        # Stage 3.93.6 remains FREE-only. Stage 4.1 explicitly enables the
+        # one final PRO PUT, replacing (not adding to) Stage 3.5's early PUT.
+        if dst_key == PAID_PRO_KEY and not final_paid_sync:
+            continue
         src_path = REPO_ROOT / src_rel
         if not src_path.exists():
             log.warning("SKIP: %s not found -- STAGE 3.93 may not have generated it yet", src_rel)
