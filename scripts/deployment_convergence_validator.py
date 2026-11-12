@@ -657,22 +657,14 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
 
     latest_urls, _ = _extract_report_urls(feed, manifest)
     if not latest_urls:
-        # v160.6 FIX: soft-pass when no URLs available after all 3 fallbacks.
-        # Godmode-skip scenario: all reports are pre-existing large files,
-        # report_generator skipped regeneration, no new Pages manifest entries.
-        # Platform IS stable (confirmed by Phase 1+2). Hard-fail here produced
-        # false DEPLOYMENT_FAILED Score=32.5/100 in 3 consecutive CI runs.
-        log.warning(
-            "Phase 3: No report URLs after all fallbacks. "
-            "SOFT PASS — godmode-skip run (reports pre-existing on CDN). "
-            "Platform stability confirmed by Phase 1+2."
-        )
+        # A healthy homepage/CDN is not proof that any CURRENT report can be
+        # opened. A missing canonical latest sample must not inherit the legacy
+        # godmode-skip transport soft-pass as a customer-release certificate.
+        log.error("Phase 3: NO_CANONICAL_LATEST_REPORT_EVIDENCE; delivery unverified")
         return PhaseResult(
-            phase=3, name="Incremental Retry",
-            success=True, probes=[],
-            duration_s=0,
-            message="Soft pass — no new reports this cycle (godmode-skip). "
-                    "CDN stability confirmed by Phase 1+2.",
+            phase=3, name="Incremental Retry", success=False,
+            probes=[], duration_s=0,
+            message="NO_CANONICAL_LATEST_REPORT_EVIDENCE; customer report delivery unverified.",
         )
 
     # Track per-URL success
@@ -682,7 +674,7 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
     for attempt in range(MAX_RETRIES):
         pending = [u for u, ok in url_status.items() if not ok]
         if not pending:
-            log.info("Phase 3: All %d report URLs confirmed HTTP 200 ✅", len(latest_urls))
+            log.info("Phase 3: %d report routes classified; positive HEAD 200 evaluated separately", len(latest_urls))
             break
 
         log.info("Phase 3 retry round %d/%d: probing %d pending URLs...", attempt + 1, MAX_RETRIES, len(pending))
@@ -761,6 +753,15 @@ def phase4_convergence_confirmation(feed: List[dict], manifest: dict) -> PhaseRe
     t0 = time.monotonic()
 
     latest_urls, _ = _extract_report_urls(feed, manifest)
+    if not latest_urls:
+        # Do not spend Worker/R2 requests or mark 3/3 clean confirmations
+        # when there is no canonical current report to validate.
+        log.error("Phase 4: NO_CANONICAL_LATEST_REPORT_EVIDENCE; confirmation withheld")
+        return PhaseResult(
+            phase=4, name="Convergence Confirmation", success=False,
+            probes=[], duration_s=0,
+            message="NO_CANONICAL_LATEST_REPORT_EVIDENCE; no current report confirmation.",
+        )
     core_urls = [
         PAGES_BASE_URL + "/",
         PAGES_BASE_URL + "/api/feed.json",
