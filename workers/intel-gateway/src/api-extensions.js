@@ -22,6 +22,7 @@ import { extractDetectionArtifacts, toPublicArtifact } from './detection-registr
 import { _buildIRChecklist } from './p23-handlers.js';
 import { _deriveExposure } from './p27-handlers.js';
 import { denyNonFreshLiveFeed } from './stale-feed-policy.js';
+import { publicTlpJsonVerified } from './intel-static-proxy.js';
 
 // 
 // SCOPES SYSTEM
@@ -923,6 +924,16 @@ export async function handleCSVExport(request, env, auth, rid) {
       return extJson({
         error: "ioc_feed_unavailable",
         reason: "paid_intelligence_freshness_unverified",
+        request_id: rid,
+      }, 503);
+    }
+    // The normal live feed uses this same last-mile TLP check. Scope-based
+    // customer access cannot authorize publishing RESTRICTED or unverified
+    // producer records, including restricted nested advisories in old R2.
+    if (!publicTlpJsonVerified(payload)) {
+      return extJson({
+        error: "ioc_feed_unavailable",
+        reason: "paid_intelligence_classification_unverified",
         request_id: rid,
       }, 503);
     }
