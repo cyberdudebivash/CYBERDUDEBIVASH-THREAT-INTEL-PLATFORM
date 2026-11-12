@@ -48,6 +48,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Optional
+from pathlib import Path
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 ACTIVE_KEYS_PATH   = "data/keys/active_keys.json"
@@ -417,22 +418,55 @@ def rotate_key(old_key_plaintext: str, customer_email: str, ref_id: str) -> dict
     _append_audit("KEY_ROTATED", kh[:12], old_record["tier"], customer_email, ref_id)
     return new_record
 
-# ─── REVENUE SUMMARY ─────────────────────────────────────────────────────────
-PLAN_MRR = {
-    "FREE": 0, "TRIAL": 0, "PRO": 4100, "ENTERPRISE": 41600, "MSSP": 166600
-}
+# ─── CATALOG VALUE (NOT COLLECTED REVENUE) ─────────────────────────────────
+# The billing gateway charges the prices in config/commercial-contract.json.
+# Loading it here is lazy: a reporting-file problem cannot block live API-key
+# provision/revoke operations. Never silently use a stale hard-coded fallback.
+def canonical_catalog_monthly_prices(contract_path=None) -> dict:
+    path = Path(contract_path) if contract_path is not None else (
+        Path(__file__).resolve().parents[2] / "config" / "commercial-contract.json"
+    )
+    with path.open("r", encoding="utf-8") as source:
+        contract = json.load(source)
+    if contract.get("currency_primary") != "INR":
+        raise ValueError("CATALOG_CURRENCY_NOT_INR")
+    tiers = contract.get("tiers")
+    if not isinstance(tiers, dict):
+        raise ValueError("CATALOG_TIERS_UNAVAILABLE")
+    amounts = {"FREE": 0, "TRIAL": 0}
+    for tier in ("PRO", "ENTERPRISE", "MSSP"):
+        row = tiers.get(tier.lower())
+        amount = row.get("inr_monthly") if isinstance(row, dict) else None
+        if type(amount) is not int or amount <= 0:
+            raise ValueError("CATALOG_PRICE_INVALID_" + tier)
+        amounts[tier] = amount
+    return amounts
+
 
 def revenue_summary() -> dict:
     data = load_json(ACTIVE_KEYS_PATH, {"keys": {}})
     keys = data.get("keys", {})
+    active = [
+        v for v in keys.values()
+        if v.get("status") == "active"
+        and not is_expired(v.get("expires_at", "2000-01-01"))
+    ]
 
-    active = [v for v in keys.values() if v.get("status") == "active" and not is_expired(v.get("expires_at", "2000-01-01"))]
+    try:
+        prices = canonical_catalog_monthly_prices()
+    except (OSError, ValueError, KeyError, TypeError):
+        prices = None  # Report unknown, never a fabricated catalog estimate.
+
     tier_counts = {}
-    mrr = 0
-    for k in active:
-        tier = k.get("tier", "FREE")
+    catalog_value = 0 if prices is not None else None
+    for key_record in active:
+        tier = str(key_record.get("tier", "FREE")).upper()
         tier_counts[tier] = tier_counts.get(tier, 0) + 1
-        mrr += PLAN_MRR.get(tier, 0)
+        if catalog_value is not None:
+            if tier not in prices:
+                catalog_value = None  # Unknown tier must not undercount.
+            else:
+                catalog_value += prices[tier]
 
     return {
         "active_keys": len(active),
@@ -440,8 +474,14 @@ def revenue_summary() -> dict:
         "mrr_inr": None,
         "arr_equivalent_inr": None,
         "revenue_status": "unverified_no_payment_ledger",
-        "estimated_monthly_catalog_value_inr": mrr,
-        "estimated_annual_catalog_value_inr": mrr * 12,
+        "catalog_pricing_status": (
+            "canonical_contract_verified" if catalog_value is not None
+            else "unavailable"
+        ),
+        "estimated_monthly_catalog_value_inr": catalog_value,
+        "estimated_annual_catalog_value_inr": (
+            catalog_value * 12 if catalog_value is not None else None
+        ),
         "as_of": now_utc(),
     }
 
@@ -558,7 +598,11 @@ def cmd_revenue(args):
     print(f"  ─────────────────────────────────────────")
     print(f"  Active Keys:  {summary['active_keys']}")
     print("  Verified MRR: unavailable (payment ledger not consulted)")
-    print(f"  Catalog value: ₹{summary['estimated_monthly_catalog_value_inr']:,}/month (estimate; not revenue)")
+    catalog_value = summary["estimated_monthly_catalog_value_inr"]
+    if catalog_value is None:
+        print("  Catalog value: unavailable (canonical pricing unresolved; not revenue)")
+    else:
+        print(f"  Catalog value: ₹{catalog_value:,}/month (estimate; not revenue)")
     print(f"  Tier Breakdown:")
     for tier, count in summary["tier_breakdown"].items():
         print(f"    {tier:<12}: {count}")
