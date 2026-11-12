@@ -1,6 +1,7 @@
 """R35: invalid records must be rejected before the public feed write."""
 import sys
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,13 +28,28 @@ def test_prewrite_guard_before_any_feed_file_writes():
     assert body.index("assert_publishable(payload)") < body.index("for target in targets:")
     assert "backfill_provenance(payload)" not in body
 
-def test_valid_explicit_evidence_passes_only_prewrite_check():
-    item = {
+def _explicit_evidence_fixture(*, age: timedelta) -> dict:
+    # The prior fixed October 9 timestamp became stale and incorrectly failed
+    # the "valid evidence" regression as the calendar advanced. Keep the
+    # production mandate-9 cutoff unchanged; make fixture age intentional.
+    pub = datetime.now(timezone.utc).replace(microsecond=0) - age
+    retrieved = pub + timedelta(minutes=5)
+    return {
         "id": "verified-1", "title": "Reported vulnerability",
         "source": "Publisher", "source_name": "Publisher",
         "source_url": "https://publisher.example/incident/1",
-        "publication_timestamp": "2026-10-09T13:00:00Z",
-        "retrieval_timestamp": "2026-10-09T14:00:00Z",
-        "content_hash": "abc123", "trust_score": 7, "evidence_count": 2
+        "publication_timestamp": pub.isoformat().replace("+00:00", "Z"),
+        "retrieval_timestamp": retrieved.isoformat().replace("+00:00", "Z"),
+        "content_hash": "abc123", "trust_score": 7, "evidence_count": 2,
     }
+
+
+def test_valid_explicit_evidence_passes_only_prewrite_check():
+    item = _explicit_evidence_fixture(age=timedelta(hours=2))
     assert_publishable([item])  # Does not prove source authenticity or release GO.
+
+
+def test_truly_stale_publication_remains_blocked_by_mandate_9():
+    stale = _explicit_evidence_fixture(age=timedelta(days=400))
+    with pytest.raises(ValueError, match="M9"):
+        assert_publishable([stale])
