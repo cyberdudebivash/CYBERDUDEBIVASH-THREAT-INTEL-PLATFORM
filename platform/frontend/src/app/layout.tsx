@@ -132,7 +132,6 @@ const organizationSchema = {
       "sameAs": [
         "https://www.linkedin.com/company/cyberdudebivash/",
         "https://github.com/cyberdudebivash",
-        "https://www.facebook.com/cyberdudebivash",
         "https://www.instagram.com/cyberdudebivash_official/",
         "https://medium.com/@cyberdudebivash",
         "https://cyberdudebivash.com/",
