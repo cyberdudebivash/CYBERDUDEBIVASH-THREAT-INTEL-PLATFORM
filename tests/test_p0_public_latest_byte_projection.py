@@ -87,6 +87,85 @@ def test_projection_is_allowlist_not_delete_only_and_keeps_explicit_tlp():
     assert "evidence_chain" not in allowed
 
 
+def test_free_public_latest_strips_paid_nested_detection_evidence_without_pro_loss():
+    """A top-level allowlist is insufficient: legitimate ATT&CK lists carry premium children."""
+    original = example(42)
+    private_technique = {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "tactic": "execution",
+        "confidence": "high",
+        "justification": "premium analyst justification",
+        "observed_behavior": "premium private telemetry",
+        "detection_hint": "private detection playbook",
+        "sigma_tag": "private sigma rule",
+        "kql_example": "DeviceProcessEvents | where AccountName == 'private'",
+        "evidence_chain": [{"ioc_payload": "PRIVATE_IOC", "tlp": "TLP:RED"}],
+        "mapping_engine": "internal",
+    }
+    original["mitre_techniques"] = [copy.deepcopy(private_technique)]
+    original["ttps"] = [copy.deepcopy(private_technique), "T1059"]
+    original["mitre_tactics"] = [
+        {"id": "TA0002", "name": "Execution", "tactic": "execution",
+         "justification": "private paid attribution", "evidence_chain": ["private"]}
+    ]
+    original["ioc_paywall"] = {
+        "locked": True, "count": 3, "confidence": 0.8,
+        "threat_level": "high", "primary_types": ["domain"],
+        "upgrade_url": "/upgrade.html?plan=pro", "message": "Upgrade to access",
+        "kql_example": "PRIVATE", "evidence_chain": [{"secret": "PRIVATE"}],
+    }
+    canonical = copy.deepcopy(original)
+    anonymous = project_for_public_latest(sanitize_feed([original])[0])
+
+    expected_technique = {
+        "technique_id": "T1059",
+        "technique_name": "Command and Scripting Interpreter",
+        "tactic": "execution",
+    }
+    assert anonymous["mitre_techniques"] == [expected_technique]
+    assert anonymous["ttps"] == [expected_technique, "T1059"]
+    assert anonymous["mitre_tactics"] == [
+        {"id": "TA0002", "name": "Execution", "tactic": "execution"}
+    ]
+    assert anonymous["ioc_paywall"] == {
+        "locked": True, "count": 3, "confidence": 0.8,
+        "threat_level": "high", "primary_types": ["domain"],
+        "upgrade_url": "/upgrade.html?plan=pro", "message": "Upgrade to access",
+    }
+    serialized = json.dumps(anonymous, ensure_ascii=False)
+    for forbidden in ("kql_example", "evidence_chain", "justification",
+                      "observed_behavior", "detection_hint", "sigma_tag",
+                      "PRIVATE_IOC", "private paid attribution", "private telemetry"):
+        assert forbidden not in serialized
+    assert original == canonical, "projection must never mutate canonical records"
+    pro = sanitize_feed_pro([original])[0]
+    assert pro["ttps"][0]["kql_example"] == canonical["ttps"][0]["kql_example"]
+    assert pro["mitre_techniques"][0]["evidence_chain"] == canonical["mitre_techniques"][0]["evidence_chain"]
+
+
+def test_free_public_latest_rejects_unreviewed_nested_shape_under_allowed_fields():
+    item = example(43)
+    item["description"] = {"text": "Public title", "internal_report_url": "PRIVATE"}
+    item["summary"] = ["Public summary", {"stix_bundle": "PRIVATE"}]
+    item["tags"] = ["alpha", {"ioc_payload": "PRIVATE"}, "beta"]
+    item["mitre_techniques"] = [
+        {"technique_id": "T1059", "kql_example": "PRIVATE"},
+        {"kql_example": "PRIVATE_ONLY"},
+        {"technique_id": {"value": "UNREVIEWED_NESTED"}},
+    ]
+    item["ioc_paywall"] = {"locked": True, "primary_types": [
+        "domain", {"ioc_payload": "PRIVATE"}], "internal_report_url": "PRIVATE"}
+    projected = project_for_public_latest(item)
+    assert "description" not in projected
+    assert "summary" not in projected
+    assert projected["tags"] == ["alpha", "beta"]
+    assert projected["mitre_techniques"] == [{"technique_id": "T1059"}]
+    assert projected["ioc_paywall"] == {"locked": True, "primary_types": ["domain"]}
+    assert "PRIVATE" not in json.dumps(projected)
+    assert item["description"]["internal_report_url"] == "PRIVATE"
+
+
 def test_worker_still_denies_nested_restricted_record_in_allowed_field(tmp_path):
     record = project_for_public_latest(sanitize_feed([example(2)])[0])
     record["ttps"] = [{"id": "intel--restricted", "title": "Not public", "tlp": "TLP:RED"}]
