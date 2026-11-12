@@ -47,7 +47,10 @@ log = logging.getLogger("p20-evidence")
 REPO      = Path(__file__).resolve().parent.parent
 DRY_RUN   = os.environ.get("DRY_RUN", "false").strip().lower() == "true"
 FEED_PATH = Path(os.environ.get("FEED_PATH", str(REPO / "api" / "feed.json")))
-MANIFEST_PATH = REPO / "data" / "feed_manifest.json"
+# The publisher/report generator reads data/stix/feed_manifest.json, not the
+# obsolete data/feed_manifest.json path. Keep both quality enrichers on the
+# same canonical inventory so the rebuilt customer manifest has real evidence.
+MANIFEST_PATH = REPO / "data" / "stix" / "feed_manifest.json"
 
 # Source domain → (reliability_code, reliability_label, source_category)
 SOURCE_RELIABILITY_MAP: Dict[str, tuple] = {

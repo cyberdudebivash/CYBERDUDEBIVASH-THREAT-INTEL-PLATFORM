@@ -308,6 +308,13 @@ jobs:
         run: |
           python -m pytest tests/test_deployment_convergence_report_slug.py -v --tb=short
 
+      # P0 customer-ready report quality remediation: prevent regression to
+      # stale pre-enrichment paid manifests, wrong STIX target and dropped IOC
+      # context when there are zero false-positive IOCs.
+      - name: "P0 post-enrichment PRO manifest source-integrity regressions (offline)"
+        run: |
+          python -m pytest tests/test_p0_post_enrichment_manifest_parity.py -v --tb=short
+
       - name: Run Report URL Canary rolling-window deferral regression tests (P0 STAGE 5.8.1b false-positive gate failure)
         run: |
           python -m pytest tests/test_report_url_canary_window_deferral.py -v --tb=short

@@ -43,7 +43,10 @@ log = logging.getLogger("p20-ioc")
 REPO      = Path(__file__).resolve().parent.parent
 DRY_RUN   = os.environ.get("DRY_RUN", "false").strip().lower() == "true"
 FEED_PATH = Path(os.environ.get("FEED_PATH", str(REPO / "api" / "feed.json")))
-MANIFEST_PATH = REPO / "data" / "feed_manifest.json"
+# The publisher/report generator reads data/stix/feed_manifest.json, not the
+# obsolete data/feed_manifest.json path. Keep both quality enrichers on the
+# same canonical inventory so the rebuilt customer manifest has real evidence.
+MANIFEST_PATH = REPO / "data" / "stix" / "feed_manifest.json"
 
 # ── False-positive domain blocklist ──────────────────────────────────────────
 # Package ecosystems, documentation, developer infrastructure, CDNs
@@ -261,7 +264,10 @@ def harden_item_iocs(item: Dict) -> int:
             continue
         operational.append(_enrich_ioc(ioc, item))
 
-    if fp_count > 0 or len(operational) != len(raw_iocs):
+    # A real IOC can gain operational context without any FP removal. The
+    # old condition discarded ALL such enrichment and the caller never
+    # persisted the file (total_fp stayed zero). Persist only real changes.
+    if operational != raw_iocs:
         item["iocs"] = operational
         item["ioc_count"] = len(operational)
         item["ioc_fp_removed"] = fp_count
@@ -299,14 +305,20 @@ def process_feed(path: Path) -> tuple:
         return (0, 0)
 
     total_fp = 0
+    changed_items = 0
     for item in items:
         if not isinstance(item, dict):
             continue
-        before = len(item.get("iocs") or [])
+        before_iocs = item.get("iocs")
+        before = len(before_iocs or [])
         after  = harden_item_iocs(item)
         total_fp += max(0, before - after)
+        if item.get("iocs") is not before_iocs:
+            changed_items += 1
 
-    if (total_fp > 0) and not DRY_RUN:
+    # Context-only enrichment also changes the canonical IOC records. Never
+    # skip the atomic write merely because all original IOCs were valid.
+    if changed_items > 0 and not DRY_RUN:
         tmp = path.with_suffix(".tmp_p20ioc")
         try:
             tmp.write_text(
@@ -315,13 +327,13 @@ def process_feed(path: Path) -> tuple:
                 encoding="utf-8"
             )
             tmp.replace(path)
-            log.info("Saved: %s (%d FP IOCs removed)", path, total_fp)
+            log.info("Saved: %s (%d item(s) updated, %d FP IOCs removed)", path, changed_items, total_fp)
         except Exception as exc:
             log.error("Failed to save %s: %s", path, exc)
             tmp.unlink(missing_ok=True)
             raise
     elif DRY_RUN:
-        log.info("[DRY_RUN] Would remove %d FP IOCs from %s", total_fp, path)
+        log.info("[DRY_RUN] Would update %d item(s), removing %d FP IOCs from %s", changed_items, total_fp, path)
 
     return (len(items), total_fp)
 

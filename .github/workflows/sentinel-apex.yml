@@ -2591,6 +2591,24 @@ jobs:
           echo "[P20.2] IOC hardening complete"
 
       # -----------------------------------------------------------------------
+      # P0 REPORT CERTIFICATION SOURCE-OF-TRUTH REPAIR
+      # Initial STAGE 3.93 constructs API manifests BEFORE final KEV/EPSS,
+      # P20.1 evidence and P20.2 IOC enrichment. The gateway's first-source-
+      # wins publication gate evaluates latest_pro.json FIRST, so an old
+      # immutable PRO snapshot permanently under-scores the newer canonical
+      # feed even when the source was correctly enriched. Rebuild ONCE locally
+      # after the last final feed mutation; no Cloudflare calls or paid service.
+      # Required: failure blocks publication rather than retaining a stale
+      # previous "successful" manifest. Preserve sanitizer/TLP gates.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.15c.1 - Rebuild signed manifests after P20 final enrichment (P0)"
+        if: env.PIPELINE_LOCKED != 'true'
+        timeout-minutes: 5
+        run: |
+          python3 scripts/generate_api_manifests.py
+          python3 scripts/verify_post_enrichment_manifest_parity.py
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.15d: P21.0 ENTERPRISE CERTIFICATION GATE (NON-BLOCKING)
       # Runs the full 7-gate P21 certification pipeline against every feed item.
       # Scores items on P21.7 Commercial Readiness (thresholds: ≥90 Premium,
