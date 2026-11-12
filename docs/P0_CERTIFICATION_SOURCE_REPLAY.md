@@ -2,7 +2,7 @@
 
 **Purpose:** Distinguish source-window coverage gaps from persisted certification outcomes using **the production Worker's existing** `resolveCertification()` function. This is a source-state reproduction, **not an independently verified R2 attestation** and **not customer release approval**.
 
-## Inputs — six local JSON snapshots
+## Inputs — seven local JSON snapshots
 
 Use copies already exported through an **approved read-only** operator process, all collected from the **same environment and consistent point in time**. The command makes zero HTTP, R2, Worker, or Cloudflare API requests; no credentials belong in the snapshots.
 
@@ -14,6 +14,7 @@ Use copies already exported through an **approved read-only** operator process, 
 | `--latest` | `api/v1/intel/latest.json` |
 | `--top10` | `api/v1/intel/top10.json` |
 | `--apex` | `api/v1/intel/apex.json` |
+| `--feed-manifest` | `intel/feed_manifest.json` (last-resort source, used only for unresolved IDs) |
 
 **Never substitute the public** `/api/reports/index.json` **v2 customer-ready projection for the ungated catalog:** when all reports are withheld, that projection contains no report IDs and would fabricate an empty source inventory.
 
@@ -26,18 +27,20 @@ node scripts/certification_registry_replay.mjs `
   --latest-pro C:\CDB\evidence\latest-pro.json `
   --latest C:\CDB\evidence\latest.json `
   --top10 C:\CDB\evidence\top10.json `
-  --apex C:\CDB\evidence\apex.json
+  --apex C:\CDB\evidence\apex.json `
+  --feed-manifest C:\CDB\evidence\feed-manifest.json
 ```
 
-The script validates document shape, report-ID uniqueness, policy version, source completeness, local size bounds, and then enumerates aggregate states.
+The script validates document shape, report-ID uniqueness, policy version, source completeness, local size bounds, and then enumerates aggregate states. It mirrors the public catalog's additional requirement that a current source be resolvable with explicit public TLP provenance. A historically persisted approval with no current resolvable source is **withheld**, because `/reports/**` would deny the report. The replay uses the same P20–P26 engines and does not change their thresholds.
 
 ### Evidence-gap summary (aggregate only)
 
 The replay also emits:
 
 - `blocking_reason_counts`: counts of **known** P20/P21/P23/P25/P26 rejection reasons among locally resolved/reused records. Unknown or untrusted text is never printed; unresolved/NOT_EVALUATED candidates are counted separately.
-- `winning_source_field_presence`: how many catalog candidates have a nonempty field **on the actual first-source-wins record** selected from `latest_pro`, `latest`, `top10`, or `apex`. Signals include evidence-chain, IOCs, detection-bundle, corroboration, source URL, CVSS and CVE reference.
+- `winning_source_field_presence`: how many catalog candidates have a nonempty field **on the actual first-source-wins record** selected from `latest_pro`, `latest`, `top10`, `apex`, or the conditional `feed_manifest` fallback. Signals include evidence-chain, IOCs, detection-bundle, corroboration, source URL, CVSS and CVE reference.
 - `later_source_extra_field_presence`: how many candidates have each field **only in a later-priority source**. This highlights possible projection/precedence gaps without changing the existing certification or publication algorithm.
+- `source_public_tlp_unverified`: count of candidates with a current source that fails explicit TLP provenance or public TLP verification. This is not equivalent to a quality-engine rejection.
 
 These are **field-presence counters, not verified evidence quality, full gate reasons, or permission to choose a later source**. The authoritative quality engine may reject a nonempty field. A later source can be stale, contradictory or untrusted. Do not combine fields, bypass first-source-wins, or change score thresholds to produce artificial customer-ready reports.
 
@@ -54,4 +57,4 @@ Offline regression test:
 node --test tests/certification-registry-replay.test.mjs
 ```
 
-Historical 2026-08-26 repository sources had 500 catalog entries, with 421 outside the four rolling feed windows. This audit allows operators to check whether those historical entries have *valid cached certification evidence*; the 500-entry repository result **cannot be extrapolated to the current live 52 withheld**.
+Historical 2026-08-26 repository sources had 500 catalog entries, with 421 outside the four enriched rolling feed windows. The new fifth fallback can cover some of those IDs, but **neither historic certificates nor fallback membership certify actual report delivery**. Do not extrapolate this historical snapshot to the current production catalog; record fresh live totals and time separately.

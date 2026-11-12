@@ -2,9 +2,9 @@
 /**
  * P0 OFFLINE certification source-state replay (no network / no R2 / no PUT).
  *
- * Consumes operator-supplied snapshots of the five objects read by the
- * customer-ready catalog Worker: report catalog, persisted certification
- * index, and latest_pro/latest/top10/apex rolling feed windows.
+ * Consumes operator-supplied snapshots of the seven source objects used by
+ * the customer-ready catalog Worker: report catalog, certification index,
+ * four enriched feed windows, and the final feed_manifest fallback.
  * Reuses resolveCertification() directly -- no score reimplementation.
  *
  * Results are aggregate only. NEVER customer approval or delivery proof.
@@ -13,8 +13,10 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveCertification, CERTIFICATION_POLICY_VERSION } from
   '../workers/intel-gateway/src/certification-registry.js';
+import { publicTlpJsonVerified } from
+  '../workers/intel-gateway/src/intel-static-proxy.js';
 
-export const FEED_ORDER = Object.freeze(['latest_pro', 'latest', 'top10', 'apex']);
+export const FEED_ORDER = Object.freeze(['latest_pro', 'latest', 'top10', 'apex', 'feed_manifest']);
 const REPORT_ID = /^intel--[a-f0-9]{8,64}$/;
 const KNOWN_REASONS = new Set([
   'ITEM_MISSING', 'CERTIFICATION_ENGINE_ERROR', 'P21_BELOW_MINIMUM',
@@ -44,6 +46,7 @@ const FIELDS = Object.freeze({
   latest: '--latest',
   top10: '--top10',
   apex: '--apex',
+  feed_manifest: '--feed-manifest',
 });
 
 function object(value) {
@@ -79,8 +82,9 @@ export function replayCertificationSnapshots({
   const reportRows = rows(catalog, 'catalog', 'reports');
   if (reportRows.length === 0) throw new Error('EMPTY_REPORT_CATALOG');
 
-  // Mirror _resolveFeedItemsById(): four R2 objects fetched independently;
-  // first appearance in precedence order is selected for each report ID.
+  // Mirror _resolveFeedItemsById(): four enriched R2 sources then the fifth
+  // feed_manifest fallback for missing IDs. First appearance wins without
+  // merging, bypassing the publication gate, or inventing evidence.
   const firstSource = new Map();
   const allSources = new Map();
   for (const name of FEED_ORDER) {
@@ -102,7 +106,7 @@ export function replayCertificationSnapshots({
   const later_source_extra_field_presence = emptySignalCounts();
   const blocking_reason_counts = Object.fromEntries([...KNOWN_REASONS].map(k => [k, 0]));
   let persistedFound = 0, reusedPersisted = 0, newlyEvaluated = 0;
-  let outsideFeed = 0, storedReadyWithoutFeed = 0;
+  let outsideFeed = 0, storedReadyWithoutFeed = 0, sourceTlpUnverified = 0;
   const seen = new Set();
   const records = certificationIndex.records;
   for (const entry of reportRows) {
@@ -133,7 +137,14 @@ export function replayCertificationSnapshots({
       throw new Error('INCOMPLETE_CERTIFICATION_RESULT');
     if (isNew) newlyEvaluated++;
     else if (existing !== undefined && record === existing) reusedPersisted++;
-    const state = record.publication_status;
+    // Replay the catalog's additional serving-route TLP boundary, not just
+    // the real P20-P26 quality verdict. No source means /reports/** cannot
+    // serve this report, even if a historical certificate was persisted.
+    const verifiedPublicSource = !!source?.item &&
+      (Object.hasOwn(source.item, 'tlp') || Object.hasOwn(source.item, 'tlp_label')) &&
+      publicTlpJsonVerified(source.item);
+    if (source && !verifiedPublicSource) sourceTlpUnverified++;
+    const state = verifiedPublicSource ? record.publication_status : 'WITHHELD';
     if (record.certification_status === 'NOT_EVALUATED') counts.NOT_EVALUATED++;
     else if (Object.hasOwn(counts, state)) counts[state]++;
     else counts.OTHER_FAIL_CLOSED++;
@@ -144,7 +155,7 @@ export function replayCertificationSnapshots({
         // contain identifiers or untrusted strings from local snapshots.
       }
     }
-    if (!source && state === 'CUSTOMER_READY')
+    if (!source && record.publication_status === 'CUSTOMER_READY')
       storedReadyWithoutFeed++;
   }
   const fullCoverage = outsideFeed === 0;
@@ -156,6 +167,7 @@ export function replayCertificationSnapshots({
     catalog_candidates: seen.size,
     report_feed_matches: seen.size - outsideFeed,
     outside_feed_windows: outsideFeed,
+    source_public_tlp_unverified: sourceTlpUnverified,
     first_source_counts,
     // Diagnostic only: field presence in the FIRST-SOURCE-WINS record versus
     // later feed windows. These counts are NOT publication quality scores.
@@ -181,7 +193,7 @@ export function replayCertificationSnapshots({
 }
 
 function parseArgs(argv) {
-  if (argv.length !== Object.keys(FIELDS).length * 2) throw new Error('SIX_SNAPSHOTS_REQUIRED');
+  if (argv.length !== Object.keys(FIELDS).length * 2) throw new Error('SEVEN_SNAPSHOTS_REQUIRED');
   const parsed = {};
   const expected = new Set(Object.values(FIELDS));
   for (let i = 0; i < argv.length; i += 2) {
@@ -190,7 +202,7 @@ function parseArgs(argv) {
         Object.hasOwn(parsed, option)) throw new Error('INVALID_OFFLINE_SNAPSHOT_ARGUMENTS');
     parsed[option] = file;
   }
-  if (Object.keys(parsed).length !== expected.size) throw new Error('SIX_SNAPSHOTS_REQUIRED');
+  if (Object.keys(parsed).length !== expected.size) throw new Error('SEVEN_SNAPSHOTS_REQUIRED');
   return parsed;
 }
 async function boundedLocalJSON(filename) {

@@ -1333,7 +1333,7 @@ async function handlePublicationStatus(request, env, reportId) {
  * filter used, merged into one id -> item map, ONCE per call (not per
  * entry) to avoid an R2 round-trip per index row.
  */
-async function _resolveFeedItemsById(env) {
+export async function _resolveFeedItemsById(env, requiredReportIds = []) {
   const byId = new Map();
   const keys = [LATEST_PRO_JSON_KEY, LATEST_JSON_KEY, "api/v1/intel/top10.json", "api/v1/intel/apex.json"];
   // Fetch all four sources concurrently (independent R2 reads), then merge in
@@ -1347,6 +1347,23 @@ async function _resolveFeedItemsById(env) {
     for (const i of items) {
       const id = ((i && (i.stix_id || i.id)) || "").replace(/\.html?$/, "");
       if (id && !byId.has(id)) byId.set(id, i);
+    }
+  }
+  // findItemBySlug() uses the R2 feed manifest as its fifth and final source.
+  // The catalog must share that fallback: otherwise an item can resolve on
+  // /reports/** while the catalog wrongly calls it NOT_EVALUATED. Fetch only
+  // when a catalog candidate is still missing, never once per report.
+  if (Array.isArray(requiredReportIds) && requiredReportIds.some(id => id && !byId.has(id))) {
+    const fallback = await r2Get(env, FEED_MANIFEST_FALLBACK_KEY);
+    const items = Array.isArray(fallback) ? fallback : (fallback?.items || fallback?.data || []);
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (!item || typeof item !== "object") continue;
+        const rawId = item.stix_id || item.id;
+        if (typeof rawId !== "string") continue;
+        const id = rawId.replace(/\.html?$/, "");
+        if (id && !byId.has(id)) byId.set(id, item);
+      }
     }
   }
   return byId;
@@ -1379,16 +1396,23 @@ async function buildCertifiedReportsFeed(env, ctx, { limit, feedType }) {
 
   const [certIndex, byId] = await Promise.all([
     loadCertificationIndex(env),
-    _resolveFeedItemsById(env),
+    _resolveFeedItemsById(env, raw.reports.map(r => (r && typeof r.id === "string") ? r.id.replace(/\.html?$/, "") : "")),
   ]);
 
   const toPersist = {};
   const evaluated = [];
   for (const r of raw.reports) {
     const id = (r.id || "").replace(/\.html?$/, "");
-    const { record, isNew } = resolveCertification(certIndex[id], byId.get(id));
+    const currentItem = byId.get(id);
+    const { record, isNew } = resolveCertification(certIndex[id], currentItem);
     if (isNew) toPersist[id] = record;
-    evaluated.push({ entry: r, publication_status: record.publication_status });
+    // A persisted approval is NOT sufficient when /reports/** cannot resolve
+    // the advisory or its public TLP provenance. Use the same fail-closed
+    // source/TLP boundary as the actual report-serving route.
+    const publicSourceVerified = !!currentItem &&
+      (Object.hasOwn(currentItem, "tlp") || Object.hasOwn(currentItem, "tlp_label")) &&
+      publicTlpJsonVerified(currentItem);
+    evaluated.push({ entry: r, publication_status: publicSourceVerified ? record.publication_status : "WITHHELD" });
   }
 
   if (Object.keys(toPersist).length > 0) {

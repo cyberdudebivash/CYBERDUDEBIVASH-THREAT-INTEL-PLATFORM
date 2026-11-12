@@ -192,6 +192,12 @@ jobs:
       - name: "P0 authoritative publication reason sample negative controls (offline)"
         run: node --test tests/publication-status-reason-sample.test.mjs
 
+      # P0 report-catalog fallback + TLP parity: standalone operator replay
+      # test is outside workers/ and never reached by the gateway glob.
+      # Offline only: synthetic snapshots; no Cloudflare/R2 network requests.
+      - name: "P0 offline certification replay source and TLP parity"
+        run: node --test tests/certification-registry-replay.test.mjs
+
       # `node --test <glob>` requires Node >= 21; pinned to 22 above, matching
       # deploy-worker.yml so a test passing here cannot fail there on runtime.
       - name: "Full gateway unit suite"
