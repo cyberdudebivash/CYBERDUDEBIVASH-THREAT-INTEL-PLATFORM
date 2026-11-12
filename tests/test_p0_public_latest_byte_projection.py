@@ -150,6 +150,8 @@ def test_free_public_latest_rejects_unreviewed_nested_shape_under_allowed_fields
     item["summary"] = ["Public summary", {"stix_bundle": "PRIVATE"}]
     item["tags"] = ["alpha", {"ioc_payload": "PRIVATE"}, "beta"]
     item["mitre_techniques"] = [
+        "DeviceProcessEvents | where PrivateField == true",
+        "T1059",
         {"technique_id": "T1059", "kql_example": "PRIVATE"},
         {"kql_example": "PRIVATE_ONLY"},
         {"technique_id": {"value": "UNREVIEWED_NESTED"}},
@@ -160,7 +162,7 @@ def test_free_public_latest_rejects_unreviewed_nested_shape_under_allowed_fields
     assert "description" not in projected
     assert "summary" not in projected
     assert projected["tags"] == ["alpha", "beta"]
-    assert projected["mitre_techniques"] == [{"technique_id": "T1059"}]
+    assert projected["mitre_techniques"] == ["T1059", {"technique_id": "T1059"}]
     assert projected["ioc_paywall"] == {"locked": True, "primary_types": ["domain"]}
     assert "PRIVATE" not in json.dumps(projected)
     assert item["description"]["internal_report_url"] == "PRIVATE"
