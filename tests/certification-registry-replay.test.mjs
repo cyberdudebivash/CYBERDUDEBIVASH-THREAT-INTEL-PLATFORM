@@ -11,7 +11,7 @@ import { FEED_ORDER, replayCertificationSnapshots as replay } from
 const id1='intel--'+'a'.repeat(24), id2='intel--'+'b'.repeat(24);
 const readyItem={
   id:id1,title:'CVE-2026-99999: Critical RCE in Example Product',
-  severity:'CRITICAL',description:'A'.repeat(200),
+  severity:'CRITICAL',tlp:'TLP:CLEAR',description:'A'.repeat(200),
   cvss_score:9.8,risk_score:9.8,kev_present:true,epss_score:0.85,
   evidence_chain:{reliability_code:'A',source_reliability:'HIGH',source_name:'Vendor Advisory'},
   iocs:[{value:'192.0.2.1',type:'ip',response_guidance:'Block at firewall'}],
@@ -58,9 +58,38 @@ test('valid persisted certificate can be reused without matching rolling feed',(
   assert.equal(r.persisted_records_reused,1);
   assert.equal(r.persisted_customer_ready_without_feed,1);
   assert.equal(r.outside_feed_windows,1);
+  assert.equal(r.publication_status_counts.CUSTOMER_READY,0,
+    'an old approval cannot list a link /reports/** would refuse');
+  assert.equal(r.publication_status_counts.WITHHELD,1);
   assert.equal(r.production_r2_state_verified,false);
   assert.equal(r.customer_release_certified,false);
 });
+test('fifth feed_manifest snapshot rescues only truly missing source IDs without overriding enriched source',()=>{
+  const feeds=feedSet();
+  feeds.latest_pro={items:[]};
+  feeds.latest={items:[]};
+  feeds.top10={items:[]};
+  feeds.apex={items:[]};
+  feeds.feed_manifest=[readyItem];
+  const result=perform([id1],feeds);
+  assert.equal(result.first_source_counts.feed_manifest,1);
+  assert.equal(result.report_feed_matches,1);
+  assert.equal(result.publication_status_counts.CUSTOMER_READY,1);
+  assert.equal(result.customer_release_certified,false);
+});
+
+test('TLP restricted or missing on a quality-approved source is still WITHHELD',()=>{
+  for(const tlp of ['TLP:RED',undefined]) {
+    const item={...readyItem,tlp};
+    if(tlp===undefined) delete item.tlp;
+    assert.equal(evaluatePublicationGate(item).customer_ready,true);
+    const r=perform([id1],feedSet([item]));
+    assert.equal(r.publication_status_counts.CUSTOMER_READY,0);
+    assert.equal(r.publication_status_counts.WITHHELD,1);
+    assert.equal(r.source_public_tlp_unverified,1);
+  }
+});
+
 test('legacy unproven CUSTOMER_READY record does not silently authorize historical report',()=>{
   const forged={certification_status:'CERTIFIED',publication_status:'CUSTOMER_READY'};
   const r=perform([id1],feedSet(),{[id1]:forged});
