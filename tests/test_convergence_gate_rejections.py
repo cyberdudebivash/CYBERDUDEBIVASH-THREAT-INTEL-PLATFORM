@@ -103,6 +103,46 @@ def test_gate_rejected_404s_do_not_stall_the_stage(clock):
     assert any(r.gate_rejected for r in p3.probes)
 
 
+
+def test_every_latest_report_gate_rejected_never_certifies_customer_delivery(clock):
+    """All 404s may be correctly enforced, but cannot prove a sellable report."""
+    latest = REJECTED + OK_REPORTS
+    net = FakeNet({url: 404 for url in latest})
+    dcv._GATE_VERDICTS.clear()
+    with patch.object(dcv, "_http_probe", side_effect=net.probe), \
+         patch.object(dcv, "_is_expected_publication_rejection", return_value=True):
+        p3 = dcv.phase3_incremental_retry([], MANIFEST)
+    assert not p3.success
+    assert "0 distinct reports delivered HTTP 200" in p3.message
+    assert len(p3.probes) == dcv.MAX_REPORT_PROBES
+    assert all(result.gate_rejected for result in p3.probes)
+    assert not any(result.status_code == 200 for result in p3.probes)
+    assert not [delay for delay in clock if delay > dcv.PROBE_INTERVAL]
+
+
+def test_current_positive_delivery_and_verified_denials_remain_eligible(clock):
+    """One real 200 in the current sample plus gated denials is valid."""
+    latest = REJECTED + OK_REPORTS
+    positive = OK_REPORTS[-1]
+    net = FakeNet({url: 404 for url in latest if url != positive})
+    dcv._GATE_VERDICTS.clear()
+    with patch.object(dcv, "_http_probe", side_effect=net.probe), \
+         patch.object(dcv, "_is_expected_publication_rejection", return_value=True):
+        p3 = dcv.phase3_incremental_retry([], MANIFEST)
+    assert p3.success
+    assert "1 distinct reports delivered HTTP 200" in p3.message
+    assert sum(result.status_code == 200 for result in p3.probes) == 1
+
+
+def test_no_latest_catalog_urls_fail_closed_without_http_probe(monkeypatch):
+    """A release with no current sample cannot inherit a CDN soft-pass."""
+    monkeypatch.setattr(dcv, "_extract_report_urls", lambda *args: ([], []))
+    monkeypatch.setattr(dcv, "_http_probe", lambda *args: pytest.fail("unexpected HTTP"))
+    p3 = dcv.phase3_incremental_retry([], {})
+    assert p3.success is False
+    assert p3.probes == []
+    assert "NO_CANONICAL_LATEST_REPORT_EVIDENCE" in p3.message
+
 def test_without_gate_verdict_burns_over_15_minutes_of_retry_budget(clock):
     """Negative control: unclassified 404s still trigger costly repeated backoff.
 
