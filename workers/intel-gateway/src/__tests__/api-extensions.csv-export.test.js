@@ -8,6 +8,7 @@ const csvUrl = "https://intel.cyberdudebivash.com/api/export/csv";
 
 const sample = {
   id: "intel--synthetic-fixture",
+  tlp: "TLP:CLEAR",
   stix_id: "report--00000000-0000-4000-8000-000000000001",
   title: "Synthetic regression advisory, not a production IOC",
   severity: "HIGH",
@@ -125,6 +126,28 @@ test("stale or unverifiable PRO intelligence cannot be exported as live IOC CSV"
     const body = await response.text();
     assert.match(body, /paid_intelligence_freshness_unverified/, label);
     assert.doesNotMatch(body, /fixture\.invalid|192\.0\.2\.4|private R2/i, label);
+    assert.deepEqual(ctx.reads, [PAID], label);
+  }
+});
+
+test("paid IOC export denies restricted or unlabeled source and nested TLP contradictions", async () => {
+  const scenarios = [
+    ["restricted", { ...sample, tlp: "TLP:RED" }],
+    ["missing classification", { ...sample, tlp: undefined }],
+    ["conflicting labels", { ...sample, classification: "TLP:CLEAR; TLP:AMBER" }],
+    ["restricted nested advisory", {
+      ...sample,
+      related: { id: "intel--red-child", title: "Withheld child", tlp: "TLP:RED" },
+    }],
+  ];
+  for (const [label, item] of scenarios) {
+    const ctx = setup({ [PAID]: freshPaid([item]) });
+    const response = await exportCsv(ctx);
+    assert.equal(response.status, 503, label);
+    assert.match(response.headers.get("cache-control"), /no-store/, label);
+    const body = await response.text();
+    assert.match(body, /paid_intelligence_classification_unverified/, label);
+    assert.doesNotMatch(body, /fixture\.invalid|192\.0\.2\.4|Withheld child/i, label);
     assert.deepEqual(ctx.reads, [PAID], label);
   }
 });
