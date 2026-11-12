@@ -1054,7 +1054,10 @@ def build_upload_plan() -> list[tuple[str, str]]:
     intel_v1_manifests = [
         ("api/feed.json",                 "api/feed.json"),
         ("api/v1/intel/latest.json",      "api/v1/intel/latest.json"),
-        ("api/v1/intel/latest_pro.json",  "api/v1/intel/latest_pro.json"),
+        # P0 PAID PARITY: latest_pro.json is regenerated AFTER this Stage 3.5
+        # upload. Its sole authorized R2 writer is now the Stage 4.1 final
+        # resync, avoiding stale paid data AND avoiding an additional R2 PUT.
+        # The early plan must not publish a checked-in/previous-run PRO blob.
         ("api/v1/intel/top10.json",       "api/v1/intel/top10.json"),
         ("api/v1/intel/apex.json",        "api/v1/intel/apex.json"),
         ("api/v1/intel/manifest.json",    "api/v1/intel/manifest.json"),
