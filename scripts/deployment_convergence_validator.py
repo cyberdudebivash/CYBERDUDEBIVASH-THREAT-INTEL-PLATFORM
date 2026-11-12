@@ -712,14 +712,15 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
     # to avoid costly CDN retries. Never promote 15/15 denied URLs into a
     # customer-delivery PASS. Require at least one genuinely delivered HTTP 200
     # from the canonical newest sample in addition to complete route checks.
-    positive_deliveries = {
+    # HEAD 200 proves route reachability only; separate HTML-body proof is still required.
+    positive_head_200_urls = {
         result.url for result in all_results
         if result.url in url_status and result.success
         and not result.gate_rejected and result.status_code == 200
     }
-    phase_success = confirmed == total and total > 0 and bool(positive_deliveries)
-    if confirmed == total and not positive_deliveries:
-        log.error("Phase 3: CURRENT_REPORT_POSITIVE_DELIVERY_MISSING; all sampled routes were denied")
+    phase_success = confirmed == total and total > 0 and bool(positive_head_200_urls)
+    if confirmed == total and not positive_head_200_urls:
+        log.error("Phase 3: CURRENT_REPORT_HEAD_200_EVIDENCE_MISSING; no sampled report URL returned HTTP 200")
 
     duration = time.monotonic() - t0
     return PhaseResult(
@@ -729,7 +730,7 @@ def phase3_incremental_retry(feed: List[dict], manifest: dict) -> PhaseResult:
         probes=all_results,
         duration_s=round(duration, 1),
         message=f"{confirmed}/{total} report routes classified ({success_rate:.0%}); "
-                f"{len(positive_deliveries)} distinct reports delivered HTTP 200. "
+                f"{len(positive_head_200_urls)} distinct report URLs returned HEAD HTTP 200 (body unverified). "
                 f"{'PASS' if phase_success else 'FAIL  -  customer report delivery unverified'}",
     )
 
