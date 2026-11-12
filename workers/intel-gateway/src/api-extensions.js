@@ -1027,6 +1027,11 @@ export async function handleCorrelate(request, env, auth, rid) {
     const paidObject = await env?.INTEL_R2?.get("api/v1/intel/latest_pro.json");
     if (!paidObject) return extJson({ error: "correlation_feed_unavailable", request_id: rid }, 503);
     const paidManifest = await paidObject.json();
+    // Identical live-freshness and last-mile TLP policy to paid IOC CSV.
+    // A successful R2 read is not proof that intelligence is current or releasable.
+    if (denyNonFreshLiveFeed(paidManifest) || !publicTlpJsonVerified(paidManifest)) {
+      return extJson({ error: "correlation_feed_unavailable", request_id: rid }, 503);
+    }
     const paidItems = Array.isArray(paidManifest?.items) ? paidManifest.items : null;
     const isUsableIoc = i => i && typeof i.type === "string" && i.type.trim() &&
       typeof i.value === "string" && i.value.trim();
@@ -1088,6 +1093,10 @@ async function resolvePaidCorrelatedReport(env, reportId) {
   const obj = await env?.INTEL_R2?.get("api/v1/intel/latest_pro.json");
   if (!obj) return { status: "unavailable" };
   const manifest = await obj.json();
+  // Downstream IR and exposure must not revive stale/restricted correlation evidence.
+  if (denyNonFreshLiveFeed(manifest) || !publicTlpJsonVerified(manifest)) {
+    return { status: "unavailable" };
+  }
   if (!Array.isArray(manifest?.items) || !manifest.items.length) {
     return { status: "unavailable" };
   }
