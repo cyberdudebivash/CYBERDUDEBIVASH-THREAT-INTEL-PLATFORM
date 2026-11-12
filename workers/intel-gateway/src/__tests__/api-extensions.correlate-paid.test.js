@@ -147,9 +147,10 @@ test('paid correlation refuses stale, invalid and restricted inventory without a
     const ctx = fixtureEnv({ [PUBLIC]: freshPaid([advisory]), [PAID]: doc });
     const response = await query(ctx, 'evidence.invalid');
     assert.equal(response.status, 503, label);
+    assert.match(response.headers.get('cache-control') || '', /no-store/, label);
     const text = await response.text();
     assert.match(text, /correlation_feed_unavailable/, label);
-    assert.doesNotMatch(text, /evidence\\.invalid|Secret child|PRIVATE_R2/i, label);
+    assert.doesNotMatch(text, /evidence\.invalid|Secret child|PRIVATE_R2/i, label);
     assert.deepEqual(ctx.reads, [PAID], label);
   }
 });
