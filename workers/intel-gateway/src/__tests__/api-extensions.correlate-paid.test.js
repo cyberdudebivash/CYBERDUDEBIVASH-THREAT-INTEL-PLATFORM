@@ -8,6 +8,7 @@ const ENDPOINT = 'https://intel.cyberdudebivash.com/api/intel/correlate';
 
 const advisory = {
   id: 'intel--evidence',
+  tlp: 'TLP:CLEAR',
   title: 'Synthetic P0 regression advisory - never publish as live intelligence',
   severity: 'CRITICAL',
   risk_score: 9,
@@ -22,6 +23,10 @@ const advisory = {
     { type: 'domain', value: null },
   ],
 };
+
+function freshPaid(items, overrides = {}) {
+  return { tier: 'PRO', generated_at: new Date().toISOString(), count: items.length, items, ...overrides };
+}
 
 function fixtureEnv(files = {}) {
   const reads = [];
@@ -53,7 +58,7 @@ test('PRO / ENTERPRISE / MSSP correlate paid indicator and preserve real eight-a
   for (const tier of ['PRO', 'ENTERPRISE', 'MSSP']) {
     const ctx = fixtureEnv({
       [PUBLIC]: { items: [{ ...advisory, iocs: undefined, ioc_count: 2 }] },
-      [PAID]: { tier: 'PRO', items: [advisory] },
+      [PAID]: freshPaid([advisory]),
     });
     const response = await query(ctx, 'evidence.invalid', identity(tier));
     assert.equal(response.status, 200, tier);
@@ -70,7 +75,7 @@ test('PRO / ENTERPRISE / MSSP correlate paid indicator and preserve real eight-a
 
 test('FREE and limited-scope PRO receive 403 before the private R2 read', async () => {
   for (const caller of [identity('FREE'), identity('PRO', ['export:csv'])]) {
-    const ctx = fixtureEnv({ [PAID]: { items: [advisory] } });
+    const ctx = fixtureEnv({ [PAID]: freshPaid([advisory]) });
     const response = await query(ctx, 'evidence.invalid', caller);
     assert.equal(response.status, 403);
     assert.deepEqual(ctx.reads, []);
@@ -105,7 +110,7 @@ test('malformed, header-only or IOC-free paid source returns 503 rather than a f
 
 test('a genuine absence in a valid paid inventory is a bounded no-match, not a lookup of public data', async () => {
   const ctx = fixtureEnv({
-    [PAID]: { items: [advisory] },
+    [PAID]: freshPaid([advisory]),
     [PUBLIC]: { items: [{ ...advisory, iocs: [{ type: 'domain', value: 'unlisted.invalid' }] }] },
   });
   const response = await query(ctx, 'unlisted.invalid');
@@ -117,15 +122,45 @@ test('a genuine absence in a valid paid inventory is a bounded no-match, not a l
 });
 
 test('malformed individual indicators never crash or create a false match', async () => {
-  const ctx = fixtureEnv({ [PAID]: { items: [{ ...advisory, iocs: [
+  const ctx = fixtureEnv({ [PAID]: freshPaid([{ ...advisory, iocs: [
     null, 'garbage', { value: 'evidence.invalid' }, { type: 'domain', value: null },
     { type: 'domain', value: 'evidence.invalid' },
-  ], ttps: 'badly shaped technique string' }] } });
+  ], ttps: 'badly shaped technique string' }]) });
   const response = await query(ctx, 'evidence.invalid');
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.match_count, 1);
   assert.deepEqual(body.matches[0].ttps, []);
+});
+
+
+test('paid correlation refuses stale, invalid and restricted inventory without a false clean verdict', async () => {
+  const cases = [
+    ['stale', freshPaid([advisory], { generated_at: new Date(Date.now() - 7 * 3600000).toISOString() })],
+    ['future', freshPaid([advisory], { generated_at: new Date(Date.now() + 4 * 3600000).toISOString() })],
+    ['count mismatch', freshPaid([advisory], { count: 2 })],
+    ['restricted advisory', freshPaid([{ ...advisory, tlp: 'TLP:RED' }])],
+    ['unlabeled advisory', freshPaid([{ ...advisory, tlp: undefined }])],
+    ['restricted child', freshPaid([{ ...advisory, related: { id: 'red-child', title: 'Secret child', tlp: 'TLP:AMBER' } }])],
+  ];
+  for (const [label, doc] of cases) {
+    const ctx = fixtureEnv({ [PUBLIC]: freshPaid([advisory]), [PAID]: doc });
+    const response = await query(ctx, 'evidence.invalid');
+    assert.equal(response.status, 503, label);
+    const text = await response.text();
+    assert.match(text, /correlation_feed_unavailable/, label);
+    assert.doesNotMatch(text, /evidence\\.invalid|Secret child|PRIVATE_R2/i, label);
+    assert.deepEqual(ctx.reads, [PAID], label);
+  }
+});
+
+test('a five-hour-old fully classified paid correlation remains available', async () => {
+  const ctx = fixtureEnv({ [PAID]: freshPaid([advisory], {
+    generated_at: new Date(Date.now() - 5 * 3600000).toISOString(),
+  }) });
+  const response = await query(ctx, 'evidence.invalid');
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).match_count, 1);
 });
 
 test('R2 failures return a generic 500 without exposing private infrastructure details', async () => {
