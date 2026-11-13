@@ -2839,14 +2839,16 @@ def _proven_epss_report_index() -> Dict[str, float]:
     if not isinstance(raw, list):
         return {}
     index: Dict[str, float] = {}
+    seen: set[str] = set()
     duplicates: set[str] = set()
     for item in raw:
         if not isinstance(item, dict) or not isinstance(item.get("id"), str):
             continue
         key = item["id"]
-        if key in index:
+        if key in seen:
             duplicates.add(key)
             continue
+        seen.add(key)
         percent = _epss_percent(item)
         if percent is not None and math.isfinite(float(percent)) and 0 <= percent <= 100:
             index[key] = float(percent)
