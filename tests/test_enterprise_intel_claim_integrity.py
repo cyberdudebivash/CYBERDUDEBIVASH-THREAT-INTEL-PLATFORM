@@ -96,3 +96,52 @@ def test_dossier_source_reference_is_html_escaped():
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;" in html
 
+
+
+@pytest.mark.parametrize("raw_tag", [
+    None, "", "UNATTRIBUTED", "UNC-UNKNOWN", "CDB-UNATTR-CVE",
+    "UNC-CDB-INGEST", "Vulnerability Exploitation Cluster",
+    "Unknown Threat Actor", "Unattributed APT Cluster",
+])
+def test_generic_category_is_not_paid_actor_attribution(raw_tag):
+    # The live dossier previously falsely called a generic category 'ATTRIBUTED'.
+    assert gir._is_real_attribution(raw_tag) is False
+
+
+def test_public_dossier_does_not_claim_generic_actor_or_bogus_paid_endpoint():
+    item = advisory(
+        title="Synthetic CVE-2026-10000 generic vendor vulnerability",
+        actor_tag="Vulnerability Exploitation Cluster",
+        severity="HIGH", cvss_score=7.8, cve_id="CVE-2026-10000",
+    )
+    html = gir.build_report_sections(item)
+    assert "NO THREAT ACTOR ATTRIBUTED" in html
+    assert "ATTRIBUTED — ENTERPRISE ACCESS REQUIRED" not in html
+    assert "/api/actor/UNATTRIBUTED" not in html
+    assert item["actor_tag"] == "Vulnerability Exploitation Cluster", "source must be immutable"
+
+
+def test_real_actor_name_is_still_masked_without_fabricating_endpoint():
+    assert gir._is_real_attribution("APT29") is True
+    item = advisory(
+        title="Hypothetical CVE-2026-10000 vendor advisory",
+        actor_tag="APT29", cvss_score=7.8, cve_id="CVE-2026-10000",
+    )
+    html = gir.build_report_sections(item)
+    assert "ATTRIBUTED — ENTERPRISE ACCESS REQUIRED" in html
+    assert "APT29" not in html, "public report must never disclose gated actor name"
+    assert "/api/actor/UNATTRIBUTED" not in html
+    assert "requires authenticated Enterprise actor-intelligence access" in html
+
+
+def test_authoritative_cvss_severity_is_used_by_second_executive_summary():
+    item = advisory(
+        title="Hypothetical CVE-2026-10000 vendor vulnerability",
+        severity="MEDIUM", cvss_score=7.8, cve_id="CVE-2026-10000",
+    )
+    html = gir.build_report_sections(item)
+    section2 = html.split("id='s2'", 1)[1].split("id='s3'", 1)[0]
+    assert "HIGH" in section2
+    assert "MEDIUM-severity security advisory" not in section2
+    assert "MEDIUM severity" not in section2
+    assert item["severity"] == "MEDIUM", "never mutate producer source to fix HTML"
