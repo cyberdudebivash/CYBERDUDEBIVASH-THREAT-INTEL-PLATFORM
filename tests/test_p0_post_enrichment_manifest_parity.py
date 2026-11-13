@@ -13,6 +13,7 @@ import pytest
 from scripts import p20_evidence_chain_enricher as evidence
 from scripts import p20_ioc_hardener as ioc
 from scripts.public_api_sanitizer import sanitize_for_pro
+from scripts import verify_post_enrichment_manifest_parity as parity
 from scripts.verify_post_enrichment_manifest_parity import (
     ParityError,
     verify_post_enrichment_manifest,
@@ -128,3 +129,43 @@ def test_workflow_final_manifest_is_mandatory_and_after_both_enrichers():
     assert "continue-on-error: true" not in final_block
     assert "python3 scripts/verify_post_enrichment_manifest_parity.py" in final_block
     assert final_block.index("generate_api_manifests.py") < final_block.index("verify_post_enrichment_manifest_parity.py")
+
+
+def test_manifest_file_loader_rejects_nonregular_empty_or_oversized_inputs(tmp_path, monkeypatch):
+    """Exercise the exact Stage 3.93.19 file path, not just in-memory parity."""
+    path = tmp_path / "manifest.json"
+    payload = json.dumps([item()]).encode("utf-8")
+    monkeypatch.setattr(parity, "MAX_INPUT_BYTES", len(payload))
+    path.write_bytes(payload)
+    assert parity._read_bounded_json(path) == [item()]
+
+    for invalid in (b"", payload + b"x"):
+        path.write_bytes(invalid)
+        with pytest.raises(ParityError, match="MISSING_OR_OVERSIZED_INPUT"):
+            parity._read_bounded_json(path)
+    with pytest.raises(ParityError, match="MISSING_OR_OVERSIZED_INPUT"):
+        parity._read_bounded_json(tmp_path)
+    with pytest.raises(FileNotFoundError):
+        parity._read_bounded_json(tmp_path / "missing.json")
+
+
+def test_manifest_parity_cli_returns_opaque_nonzero_on_invalid_input(tmp_path, monkeypatch, capsys):
+    source_path = tmp_path / "source.json"
+    paid_path = tmp_path / "paid.json"
+    row = item()
+    source_path.write_text(json.dumps([row]), encoding="utf-8")
+    paid_path.write_text(json.dumps({"items": [sanitize_for_pro(row)], "count": 1}), encoding="utf-8")
+    monkeypatch.setattr(parity, "SOURCE_PATH", source_path)
+    monkeypatch.setattr(parity, "PRO_PATH", paid_path)
+    assert parity.main() == 0
+    assert json.loads(capsys.readouterr().out)["production_delivery_verified"] is False
+
+    sensitive_input = "P0_DO_NOT_PRINT_PRIVATE_EVIDENCE"
+    paid_path.write_text(sensitive_input, encoding="utf-8")
+    assert parity.main() == 2
+    diagnostic = capsys.readouterr().out
+    result = json.loads(diagnostic)
+    assert result["verdict"] == "BLOCKED_POST_ENRICHMENT_SOURCE_PARITY"
+    assert result["reason"] == "INPUT_UNAVAILABLE_OR_INVALID"
+    assert sensitive_input not in diagnostic
+    assert result["production_delivery_verified"] is False
