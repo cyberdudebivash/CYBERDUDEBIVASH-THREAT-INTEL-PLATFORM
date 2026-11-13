@@ -49,6 +49,64 @@ test("autonomous canary observes a scheduler-created event without evaluating", 
   assert.ok(ev.event_id);
 });
 
+test("autonomous timeout preserves hard failure while diagnosing feed rollover, without evaluating", async () => {
+  const calls = [];
+  const mockHttp = async (method, endpoint) => {
+    calls.push({ method, endpoint });
+    if (endpoint === "/api/watchdog/session")
+      return { status: 200, body: { token: "unit-session-token", tier: "PRO", scopes: ["watchdog:watches:write"] } };
+    if (endpoint === "/api/watchdog/watches" && method === "POST")
+      return { status: 201, body: { watch: { id: "w_auto_diag" } } };
+    if (endpoint.startsWith("/api/watchdog/events?evaluate=0"))
+      return { status: 200, body: { events: [], freshness_status: "FRESH", feed_generated_at: "2026-11-13T00:01:00Z" } };
+    if (endpoint.startsWith("/api/watchdog/watches?id=") && method === "DELETE")
+      return { status: 200, body: {} };
+    throw new Error("unexpected canary request");
+  };
+  const logs = [];
+  await assert.rejects(() => runAutonomousCanary({
+    http: mockHttp, key: "synthetic-private-key", runId: "safe-diag",
+    feedItems: FEED_ITEMS, feedGeneratedAt: "2026-11-12T23:45:00Z",
+    sleep: async () => {}, pollMs: 1, maxWaitMs: 2,
+    log: (step, detail) => logs.push({ step, detail }),
+  }), error => {
+    assert.equal(error.step, "wait");
+    assert.match(error.message, /no scheduler event within 2ms/);
+    assert.match(error.message, /http=200 freshness=FRESH feed_generation_changed=true/);
+    assert.doesNotMatch(error.message, /synthetic-private-key/);
+    return true;
+  });
+  assert.equal(logs.filter(e => e.step === "autonomous_timeout").length, 1);
+  assert.ok(calls.some(c => c.method === "DELETE"), "failed canary cleans up watch");
+  assert.ok(calls.filter(c => c.endpoint.startsWith("/api/watchdog/events")).every(c => c.endpoint.includes("evaluate=0")),
+    "no request may force evaluation to make the scheduler canary green");
+  assert.ok(!calls.some(c => c.endpoint.includes("/api/watchdog/ops")), "cannot disclose operator metrics");
+});
+
+test("autonomous timeout distinguishes unreadable event feed without false scheduler PASS", async () => {
+  const mockHttp = async (method, endpoint) => {
+    if (endpoint === "/api/watchdog/session")
+      return { status: 200, body: { token: "unit-session-token" } };
+    if (endpoint === "/api/watchdog/watches" && method === "POST")
+      return { status: 201, body: { watch: { id: "w_auto_unavailable" } } };
+    if (endpoint.startsWith("/api/watchdog/events?evaluate=0"))
+      return { status: 503, body: { error: "unavailable" } };
+    if (endpoint.startsWith("/api/watchdog/watches?id=") && method === "DELETE")
+      return { status: 200, body: {} };
+    throw new Error("unexpected canary request");
+  };
+  await assert.rejects(() => runAutonomousCanary({
+    http: mockHttp, key: "private-unit-key", runId: "safe-503",
+    feedItems: FEED_ITEMS, feedGeneratedAt: "2026-11-12T23:45:00Z",
+    sleep: async () => {}, pollMs: 1, maxWaitMs: 1,
+  }), e => {
+    assert.equal(e.step, "wait");
+    assert.match(e.message, /http=503 freshness=UNKNOWN feed_generation_changed=UNKNOWN/);
+    assert.doesNotMatch(e.message, /private-unit-key/);
+    return true;
+  });
+});
+
 test("ENTERPRISE canary passes against an owner-controlled sink", async () => {
   const h = harness();
   h.net.dns.set("sink.owner.example", [{ type: 1, data: "93.184.216.34" }]);
