@@ -158,3 +158,54 @@ def test_final_paid_publication_failure_is_a_release_blocker_not_a_green_warning
     assert "if ! python3 scripts/r2_resync_manifests.py" not in stage
     assert "|| true" not in stage
     assert "::warning::STAGE 4.1" not in stage
+
+
+def _run_paid_final_with_loss(tmp_path, *, mode):
+    """Simulate a post-preflight mutation/denial without ever calling R2."""
+    _, paid = _pair(tmp_path)
+    if mode == "missing":
+        paid.unlink()
+    put = mock.Mock(return_value=True)
+    with mock.patch.dict(os.environ, {resync.PAID_FINAL_SYNC_ENV: "1"}), \
+         mock.patch.object(resync, "REPO_ROOT", tmp_path), \
+         mock.patch.object(resync, "RESYNC_FILES", [
+             (PRO_KEY, PRO_KEY, "private, no-store")]), \
+         mock.patch.object(resync, "assert_final_paid_pro_pair"), \
+         mock.patch.object(resync, "assert_worker_deliverable_latest"), \
+         mock.patch.object(resync, "get_credentials", return_value=("fixture", "key", "secret")), \
+         mock.patch.object(resync, "s3_cp", put), \
+         mock.patch("os.chdir"):
+        if mode == "tlp":
+            with mock.patch.object(resync, "tlp_safe_public_json_source", return_value=None):
+                with pytest.raises(SystemExit) as exc:
+                    resync.main()
+        else:
+            with pytest.raises(SystemExit) as exc:
+                resync.main()
+    assert exc.value.code == 1, "final PRO must fail when mandatory PUT is not confirmed"
+    put.assert_not_called()
+
+
+@pytest.mark.parametrize("mode", ["missing", "tlp"])
+def test_paid_final_cannot_report_success_after_preflight_if_pro_put_was_skipped(tmp_path, mode):
+    _run_paid_final_with_loss(tmp_path, mode=mode)
+
+
+def test_unexpected_r2_exception_cannot_exit_success_in_paid_mode(capsys, caplog):
+    # The error message may contain credentials or customer data; fail with
+    # exception TYPE only and never echo the arbitrary provider response.
+    secret = "SYNTHETIC_PRIVATE_REQUEST_HEADER_VALUE"
+    with mock.patch.dict(os.environ, {resync.PAID_FINAL_SYNC_ENV: "1"}):
+        with pytest.raises(SystemExit) as exc:
+            resync.handle_unexpected_main_error(RuntimeError(secret))
+    assert exc.value.code == 1
+    assert secret not in capsys.readouterr().out
+    assert secret not in caplog.text
+
+
+def test_legacy_free_only_stage_keeps_nonfatal_unexpected_error_policy(capsys):
+    with mock.patch.dict(os.environ, {resync.PAID_FINAL_SYNC_ENV: "0"}):
+        with pytest.raises(SystemExit) as exc:
+            resync.handle_unexpected_main_error(RuntimeError("synthetic free-only error"))
+    assert exc.value.code == 0
+    assert "unexpected error" in capsys.readouterr().out

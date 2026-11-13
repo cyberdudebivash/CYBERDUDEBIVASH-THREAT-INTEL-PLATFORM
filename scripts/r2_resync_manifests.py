@@ -307,6 +307,10 @@ def main() -> None:
     uploaded = 0
     skipped  = 0
     failed   = 0
+    # The final paid sync may not report success just because no PUT failed.
+    # A missing/stale/withheld PRO artifact previously counted as SKIPPED
+    # and Stage 4.1 exited 0, leaving customers with the prior paid bundle.
+    paid_pro_uploaded = False
 
     _tlp_parents = build_parent_index([REPO_ROOT / "api" / "feed.json", REPO_ROOT / "data" / "feed_manifest.json",
                                        REPO_ROOT / "data" / "stix" / "feed_manifest.json"])
@@ -360,8 +364,18 @@ def main() -> None:
             ok = s3_cp(str(src_path), BUCKET_DATA, dst_key, endpoint, cache_ctrl)
         if ok:
             uploaded += 1
+            if final_paid_sync and dst_key == PAID_PRO_KEY:
+                paid_pro_uploaded = True
         else:
             failed += 1
+
+    if final_paid_sync and not paid_pro_uploaded:
+        # A successful final stage is proof of a real accepted PRO PUT, not
+        # merely a clean local preflight or no exception from the uploader.
+        # Keep earlier per-key skip/deny behavior unchanged for FREE-only
+        # Stage 3.93.6 and fail the mandatory paid Stage 4.1.
+        log.critical("P0_FINAL_PRO_UPLOAD_NOT_CONFIRMED: denying production release")
+        sys.exit(1)
 
     log.info("")
     log.info("R2 resync complete: %d uploaded, %d skipped, %d failed.", uploaded, skipped, failed)
@@ -398,21 +412,28 @@ def main() -> None:
     sys.exit(0)
 
 
+def handle_unexpected_main_error(exc: Exception) -> None:
+    """Preserve legacy free-only behavior; final paid sync always fails closed.
+
+    Avoid printing arbitrary exception messages in paid mode: SDK exceptions
+    sometimes contain request headers/URLs or private endpoint information.
+    """
+    if os.environ.get(PAID_FINAL_SYNC_ENV) == "1":
+        log.critical("P0_FINAL_PRO_SYNC_UNEXPECTED_EXCEPTION: %s", type(exc).__name__)
+        print("::error::P0 final paid PRO R2 sync failed unexpectedly; NO-GO", flush=True)
+        raise SystemExit(1)
+    import traceback
+    log.warning("r2_resync_manifests.py unhandled error (non-fatal): %s\n%s",
+                exc, traceback.format_exc())
+    print(f"::warning::r2_resync_manifests.py unexpected error: {exc}. "
+          "R2 may not have the latest data. Check runner logs.", flush=True)
+    raise SystemExit(0)
+
+
 if __name__ == "__main__":
     try:
         main()
     except SystemExit:
         raise
-    except Exception as e:
-        import traceback
-        log.warning(
-            "r2_resync_manifests.py unhandled error (non-fatal): %s\n%s",
-            e, traceback.format_exc(),
-        )
-        # Truly unexpected errors stay non-fatal. Upload failures exit(1) above.
-        print(
-            f"::warning::r2_resync_manifests.py unexpected error: {e}. "
-            "R2 may not have the latest data. Check runner logs.",
-            flush=True,
-        )
-        sys.exit(0)  # Unexpected errors stay non-fatal
+    except Exception as exc:
+        handle_unexpected_main_error(exc)
