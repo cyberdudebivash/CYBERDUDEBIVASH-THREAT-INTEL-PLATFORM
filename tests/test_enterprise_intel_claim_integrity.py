@@ -117,6 +117,7 @@ def test_public_dossier_does_not_claim_generic_actor_or_bogus_paid_endpoint():
     html = gir.build_report_sections(item)
     assert "NO THREAT ACTOR ATTRIBUTED" in html
     assert "ATTRIBUTED — ENTERPRISE ACCESS REQUIRED" not in html
+    assert "Vulnerability Exploitation Cluster" not in html
     assert "/api/actor/UNATTRIBUTED" not in html
     assert item["actor_tag"] == "Vulnerability Exploitation Cluster", "source must be immutable"
 
@@ -130,6 +131,7 @@ def test_real_actor_name_is_still_masked_without_fabricating_endpoint():
     html = gir.build_report_sections(item)
     assert "ATTRIBUTED — ENTERPRISE ACCESS REQUIRED" in html
     assert "APT29" not in html, "public report must never disclose gated actor name"
+    assert "Vulnerability Exploitation Cluster" not in html
     assert "/api/actor/UNATTRIBUTED" not in html
     assert "requires authenticated Enterprise actor-intelligence access" in html
 
