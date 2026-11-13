@@ -186,6 +186,12 @@ jobs:
       - name: "r2_state_sync.py -- bounded state round-trip + retry ceiling"
         run: python -m pytest tests/test_r2_state_sync.py -v --tb=short
 
+      # P0: production HeadObject 400/InvalidRegionName from inherited
+      # us-west-2 AWS runner profile. Require explicit R2 auto signing region
+      # on every shared transport operation, with offline negative controls.
+      - name: "P0 R2 AWS CLI signing region / fail-closed state reads"
+        run: python -m pytest tests/test_r2_cli_region_contract.py -v --tb=short
+
       - name: "P0 zero-overage -- optional Cloudflare backup admission/negative controls (NO Cloudflare requests)"
         run: python -m pytest tests/test_cloudflare_metered_backup_guard.py -v --tb=short
 
