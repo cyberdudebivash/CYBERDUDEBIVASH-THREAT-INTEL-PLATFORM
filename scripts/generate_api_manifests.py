@@ -286,14 +286,16 @@ if _tlp_held:
     for _row in _tlp_held:
         _reason_counts[_row['reason_code']] = _reason_counts.get(_row['reason_code'], 0) + 1
     warn(f'[TLP] {len(_tlp_held)} item(s) withheld from public manifests: {_reason_counts}')
-if len(raw_feed) == 0:
-    # P0 #725: exiting without writing leaves the PREVIOUS (possibly restricted) bundles in place -- the local files,
-    # and via later `always()` uploads/resyncs the R2 and Pages copies. Deny-first instead: atomically replace every
-    # public bundle with an empty, schema-valid tombstone (fresh generated_at so staleness guards do not skip it), and
-    # only then fail the stage so the operator is alerted. The tombstones carry counts/reason codes only.
+def _write_deny_first_tombstones(reason_counts):
+    """Replace old manifest bytes with empty, fresh, schema-valid tombstones.
+
+    This is used for both originally TLP-denied and recursively denied-all
+    populations. Never allow an early or previous paid manifest to survive
+    merely because no new public record can be certified.
+    """
     _ts = now_iso()
     _stub_marker = {'withheld_all': True, 'reason': 'every feed item was withheld by the TLP publication policy',
-                    'reason_codes': _reason_counts, 'policy': 'config/tlp_publication_policy.json'}
+                    'reason_codes': reason_counts, 'policy': 'config/tlp_publication_policy.json'}
     try:
         os.makedirs(OUT_DIR, exist_ok=True)
         _bundles = {}
@@ -314,6 +316,9 @@ if len(raw_feed) == 0:
     except OSError as _e:
         fatal(f'[TLP] every feed item was withheld AND the deny-first tombstones could not be written ({_e}); '
               'previous bundles may still hold restricted records -- operator action required')
+
+if len(raw_feed) == 0:
+    _write_deny_first_tombstones(_reason_counts)
     fatal('[TLP] every feed item was withheld by the TLP publication policy; public bundles were REPLACED by empty '
           'tombstones (deny-first); operator review of labels/policy required')
 
@@ -347,9 +352,10 @@ except (ImportError, OSError, ValueError, TypeError) as _exc:
 if _last_mile_held:
     warn(f'[TLP] withheld {sum(_last_mile_held.values())} whole advisory/ies before FREE/PRO projection: {_last_mile_held}')
     if not _stable:
-        # No previous PRO bundle may be regarded as current; publisher and
-        # last-mile gates MUST fail closed, never upload an unverified old file.
-        fatal('[TLP] no recursively verified public records; PRO/FREE generation blocked')
+        # An earlier manifest from this *same* run may still be on disk after
+        # STAGE 3.93's first generation. It must not survive the final check.
+        _write_deny_first_tombstones(_last_mile_held)
+        fatal('[TLP] no recursively verified public records; PRO/FREE bundles REPLACED by empty tombstones (deny-first)')
     # finalize_public_feed() above already reconciled the untouched candidate
     # inventory into the INTERNAL canonical manifest. Only the public source
     # copies lose unsafe advisories; never rewrite the internal evidence archive.
