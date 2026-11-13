@@ -58,7 +58,7 @@ log = logging.getLogger("sentinel.r2_resync")
 # see the P0 STALE-MANIFEST ROLLBACK GUARD comment in r2_upload.py.
 # Imported after this module's own logging.basicConfig() so r2_upload.py's
 # basicConfig() call is a no-op and log lines keep the [r2_resync] prefix.
-from r2_upload import stale_manifest_reason, tlp_safe_public_feed_source, tlp_safe_public_json_source  # noqa: E402
+from r2_upload import R2_S3_REGION, stale_manifest_reason, tlp_safe_public_feed_source, tlp_safe_public_json_source  # noqa: E402
 from tlp_public_boundary import build_parent_index  # noqa: E402
 from public_freshness_contract import classify_manifest_freshness, FRESH  # noqa: E402
 
@@ -122,6 +122,7 @@ def s3_cp(src: str, dst_bucket: str, dst_key: str, endpoint: str,
     cmd = [
         "aws", "s3", "cp", src, f"s3://{dst_bucket}/{dst_key}",
         "--endpoint-url", endpoint,
+        "--region", R2_S3_REGION,
         "--content-type", "application/json",
         "--cache-control", cache_control,
         "--only-show-errors",
