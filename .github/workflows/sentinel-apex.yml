@@ -4622,6 +4622,18 @@ jobs:
           exit $CONVERGENCE_EXIT
 
       # -----------------------------------------------------------------------
+      # P0 customer report fulfillment proof (bounded, read-only, fail-closed).
+      # Advisory health, local report_url validation and CDN convergence cannot
+      # prove that the publication-gated customer catalog has any deliverable
+      # reports. Reuse the existing 1-catalog + <=3-report GET fetch-back
+      # canary after convergence; no privileged route, secret or R2 mutation.
+      # A PASS proves a public report sample only, never paid entitlement.
+      # -----------------------------------------------------------------------
+      - name: "P0 - Customer-ready report fetch-back (HARD FAIL)"
+        timeout-minutes: 2
+        run: node scripts/customer_report_fetchback_probe.mjs
+
+      # -----------------------------------------------------------------------
       # STAGE 5.8.2 - ENTERPRISE GOVERNANCE ENGINE (v184.0 -- NON-BLOCKING)
       # Phases 1+2: Duplicate suppression + Confidence inflation governance.
       # Writes data/governance/governance_report.json.

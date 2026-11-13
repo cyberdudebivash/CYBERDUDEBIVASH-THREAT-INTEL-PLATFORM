@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   ORIGIN, CATALOG_PATH, approvedReportPath, evaluatePublicReportCatalog,
   fetchPublic, runPublicReportFetchback
@@ -169,4 +170,21 @@ test('impossible UTC calendar dates cannot be normalized into valid approval evi
   const r=evaluatePublicReportCatalog(c);
   assert.equal(r.verdict,'BLOCKED');
   assert.ok(r.issues.includes('INVALID_CATALOG_GENERATED_AT'));
+});
+
+test('publisher invokes read-only customer report fetch-back as a mandatory post-convergence release gate',()=>{
+  const workflow=readFileSync(new URL('../.github/workflows/sentinel-apex.yml',import.meta.url),'utf8');
+  const marker='      - name: "P0 - Customer-ready report fetch-back (HARD FAIL)"';
+  const index=workflow.indexOf(marker);
+  assert.ok(index>0,'mandatory fetch-back step must exist');
+  assert.equal(workflow.indexOf(marker,index+1),-1,'only one fetch-back step');
+  const convergence=workflow.indexOf('      - name: "STAGE 5.8.1c - Deployment Convergence Engine');
+  const governance=workflow.indexOf('      - name: "STAGE 5.8.2 - Enterprise Governance Engine');
+  assert.ok(convergence>=0&&index>convergence&&governance>index,
+    'probe must execute AFTER convergence and before later governance');
+  const next=workflow.indexOf('      # -----------------------------------------------------------------------',index);
+  const step=workflow.slice(index,next===-1?undefined:next);
+  assert.match(step,/\n        timeout-minutes: 2\n/);
+  assert.match(step,/\n        run: node scripts\/customer_report_fetchback_probe\.mjs\n/);
+  assert.doesNotMatch(step,/continue-on-error|\|\| true|if:\s*always\(\)/);
 });
