@@ -93,6 +93,9 @@ if _di_dir not in sys.path:
 import dossier_integrity as _di  # noqa: E402
 import ecosystem_showcase as _eco  # noqa: E402 (presentation only; no publication authority)
 import tlp_policy as _tlp  # noqa: E402  (fail-closed anonymous-publication authority)
+from attribution_evidence_engine import (  # noqa: E402
+    BANNED_SYNTHETIC_NAMES, BANNED_SYNTHETIC_PREFIXES,
+)  # Reuse canonical explicit synthetic-actor denylist; never infer attribution.
 
 # P0 v134.0: IOC enforcement imports
 try:
@@ -1471,10 +1474,25 @@ def _section(num: int, title: str, body: str) -> str:
 # pages. Reuses its exact "no attribution" placeholder rule rather than
 # inventing a new one.
 def _is_real_attribution(raw_tag: Any) -> bool:
-    if not raw_tag:
+    """Identify a non-placeholder actor label for an entitlement teaser only.
+
+    This is NOT independent evidence that the actor is correctly attributed.
+    Never treat a generic category, synthetic tag or missing value as a
+    paid attribution. Reuse the upstream attribution engine's denylist.
+    """
+    if not isinstance(raw_tag, str) or not raw_tag.strip():
         return False
-    s = str(raw_tag)
-    return not (s.startswith("CDB-UNATTR") or s == "UNC-UNKNOWN")
+    normalized = " ".join(raw_tag.strip().casefold().split())
+    if normalized in {"unattributed", "unknown", "unclassified", "none",
+                      "null", "n/a", "generic", "unc-unknown"}:
+        return False
+    if raw_tag.strip().upper().startswith(("CDB-UNATTR", *BANNED_SYNTHETIC_PREFIXES)):
+        return False
+    if any(name in normalized for name in BANNED_SYNTHETIC_NAMES):
+        return False
+    if normalized.startswith("apex-cluster-unattributed"):
+        return False
+    return True
 
 
 def _mask_item_for_public_report(item: dict) -> dict:
@@ -1485,18 +1503,18 @@ def _mask_item_for_public_report(item: dict) -> dict:
     masked["iocs"] = []
     masked["stix_bundle"] = None
 
-    raw_actor = (
-        item.get("actor_cluster") or item.get("actor_tag") or item.get("primary_actor")
-    )
-    if _is_real_attribution(raw_actor):
-        for f in (
-            "actor_tag", "primary_actor", "actor_cluster", "actor_display_name",
-            "actor_aliases", "actor_sectors", "actor_ttps", "actor_malware",
-            "actor_mitre_id", "actor_country", "actor_motivation",
-            "actor_threat_level", "mitre_group_name", "mitre_group_aliases",
-        ):
-            if f in masked:
-                masked[f] = None
+    # No raw actor fields belong in an anonymous dossier: verified actor
+    # detail is tier-gated, while synthetic/generic category tags are not
+    # evidence of actor identity. Preserve only the separate paywall signal
+    # captured before this copy is masked.
+    for field in (
+        "actor_tag", "primary_actor", "actor_cluster", "actor_display_name",
+        "actor_aliases", "actor_sectors", "actor_ttps", "actor_malware",
+        "actor_mitre_id", "actor_country", "actor_motivation",
+        "actor_threat_level", "mitre_group_name", "mitre_group_aliases",
+    ):
+        if field in masked:
+            masked[field] = None
 
     raw_campaign = item.get("campaign_id") or item.get("campaign")
     if raw_campaign and str(raw_campaign).upper() not in ("UNCLASSIFIED", "NONE", "N/A", ""):
@@ -1610,6 +1628,11 @@ def build_report_sections(item: dict) -> str:
         or item.get("campaign_graph_intel")
     )
     item  = _mask_item_for_public_report(item)
+    # The authoritative CVSS band may supersede the raw APEX heuristic label.
+    # Feed the *masked copy* the same rating before the secondary executive
+    # narrative renders it; never mutate the source or inflate an unrated CVE.
+    if _sevb["rated"]:
+        item["severity"] = _sevb["display"]
     item["_ioc_validated"] = ioc_validated          # masked COPY only (never persisted): lets narrative engines show it
     iocs  = []
 
@@ -2106,8 +2129,8 @@ def build_report_sections(item: dict) -> str:
             "<code>" + _h(actor) + "</code> is an internal unattributed classification, not a verified "
             "actor, group or campaign. No actor activity, infrastructure or targeting is asserted.</div>"
             if not _had_real_attribution else
-            f"<p style='margin-top:16px'>Attribution detail for this advisory is an Enterprise entitlement "
-            f"(<code>/api/actor/{_h(actor)}</code>).</p>"
+            "<p style='margin-top:16px'>Corroborated attribution detail, where available, "
+            "requires authenticated Enterprise actor-intelligence access.</p>"
         )
     )
     sections.append(_section(11, "Threat Actor Profile", _s11_body))
