@@ -1503,18 +1503,18 @@ def _mask_item_for_public_report(item: dict) -> dict:
     masked["iocs"] = []
     masked["stix_bundle"] = None
 
-    raw_actor = (
-        item.get("actor_cluster") or item.get("actor_tag") or item.get("primary_actor")
-    )
-    if _is_real_attribution(raw_actor):
-        for f in (
-            "actor_tag", "primary_actor", "actor_cluster", "actor_display_name",
-            "actor_aliases", "actor_sectors", "actor_ttps", "actor_malware",
-            "actor_mitre_id", "actor_country", "actor_motivation",
-            "actor_threat_level", "mitre_group_name", "mitre_group_aliases",
-        ):
-            if f in masked:
-                masked[f] = None
+    # No raw actor fields belong in an anonymous dossier: verified actor
+    # detail is tier-gated, while synthetic/generic category tags are not
+    # evidence of actor identity. Preserve only the separate paywall signal
+    # captured before this copy is masked.
+    for field in (
+        "actor_tag", "primary_actor", "actor_cluster", "actor_display_name",
+        "actor_aliases", "actor_sectors", "actor_ttps", "actor_malware",
+        "actor_mitre_id", "actor_country", "actor_motivation",
+        "actor_threat_level", "mitre_group_name", "mitre_group_aliases",
+    ):
+        if field in masked:
+            masked[field] = None
 
     raw_campaign = item.get("campaign_id") or item.get("campaign")
     if raw_campaign and str(raw_campaign).upper() not in ("UNCLASSIFIED", "NONE", "N/A", ""):
