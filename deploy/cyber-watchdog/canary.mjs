@@ -115,7 +115,7 @@ try {
     const feed = await feedItems(key);
     const evidence = mode === "pro"
       ? await runProCanary({ http, key, runId, feedItems: feed.items, log })
-      : await runAutonomousCanary({ http, key, runId, feedItems: feed.items, sleep, log });
+      : await runAutonomousCanary({ http, key, runId, feedItems: feed.items, feedGeneratedAt: feed.generated_at, sleep, log });
     out({ result: evidence.result, feed_generated_at: feed.generated_at, evidence }, evidence.result === "PASS" ? 0 : 1);
   }
   if (mode === "enterprise") {
