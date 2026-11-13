@@ -294,6 +294,11 @@ def configure_awscli_performance() -> None:
     )
 
 
+# Cloudflare R2 S3-compatible endpoints accept region "auto"; inherited AWS
+# runner regions such as "us-west-2" cause InvalidRegionName and HTTP 400.
+# This is R2-only: do not change the global AWS profile or other clients.
+R2_S3_REGION = "auto"
+
 _TLP_VERIFIED_COPIES: set = set()  # str paths of upload-only copies produced by the tlp_safe_* helpers
 
 
@@ -316,6 +321,7 @@ def s3_cp(
     cmd = [
         "aws", "s3", "cp", src, f"s3://{dst_bucket}/{dst_key}",
         "--endpoint-url", endpoint,
+        "--region", R2_S3_REGION,
         "--content-type", content_type,
         "--cache-control", cache_control,
     ]
@@ -404,6 +410,7 @@ def s3_get(
     cmd = [
         "aws", "s3", "cp", f"s3://{src_bucket}/{src_key}", dst_local,
         "--endpoint-url", endpoint,
+        "--region", R2_S3_REGION,
         "--only-show-errors",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -458,6 +465,7 @@ def s3_delete(
     cmd = [
         "aws", "s3", "rm", f"s3://{bucket}/{key}",
         "--endpoint-url", endpoint,
+        "--region", R2_S3_REGION,
         "--only-show-errors",
     ]
     try:
@@ -500,6 +508,7 @@ def s3_sync(
     cmd = [
         "aws", "s3", "sync", src_dir, f"s3://{dst_bucket}/{dst_prefix}",
         "--endpoint-url", endpoint,
+        "--region", R2_S3_REGION,
         "--content-type", content_type,
         "--cache-control", cache_control,
         "--only-show-errors",
@@ -550,6 +559,7 @@ def s3_sync_download(
     cmd = [
         "aws", "s3", "sync", f"s3://{src_bucket}/{src_prefix}", dst_dir,
         "--endpoint-url", endpoint,
+        "--region", R2_S3_REGION,
         "--only-show-errors",
     ]
     try:
