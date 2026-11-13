@@ -142,7 +142,7 @@ export async function runProCanary({ http, key, runId, log = () => {}, feedItems
  * Autonomous proof: create a watch and wait for an event created by the
  * scheduler (origin "scheduler") while observing read-only (evaluate=0).
  */
-export async function runAutonomousCanary({ http, key, runId, feedItems, sleep, maxWaitMs = 20 * 60000, pollMs = 60000, log = () => {} }) {
+export async function runAutonomousCanary({ http, key, runId, feedItems, feedGeneratedAt = null, sleep, maxWaitMs = 20 * 60000, pollMs = 60000, log = () => {} }) {
   const s = await session(http, key);
   const auth = { bearer: s.token };
   const pick = pickUnambiguousCriterion(feedItems);
@@ -154,6 +154,7 @@ export async function runAutonomousCanary({ http, key, runId, feedItems, sleep, 
   const ev = { mode: "AUTONOMOUS", run_id: runId, watch_id: watchId, matched_item_id: pick.item_id };
   try {
     let waited = 0;
+    let lastRead = null;
     for (;;) {
       const r = await http("GET", "/api/watchdog/events?evaluate=0&limit=50", auth2);
       if (r.status === 401) {
@@ -171,7 +172,25 @@ export async function runAutonomousCanary({ http, key, runId, feedItems, sleep, 
         log("autonomous_event", { event_id: ev.event_id, waited_ms: waited });
         return ev;
       }
-      check("wait", waited < maxWaitMs, "no scheduler event within " + maxWaitMs + "ms");
+      // Read-only evidence from the SAME response we already requested:
+      // a feed rollover, missing freshness, or HTTP error can cause a
+      // scheduler-only canary to miss its original criterion. These are
+      // diagnoses, NEVER substitutes for a real scheduler-origin event.
+      const freshness = r.body?.freshness_status;
+      const observedGeneration = r.body?.feed_generated_at;
+      lastRead = {
+        http_status: Number.isInteger(r.status) ? r.status : 0,
+        freshness: ["FRESH", "STALE", "INVALID", "EMPTY", "UNAVAILABLE"].includes(freshness) ? freshness : "UNKNOWN",
+        generation_changed: typeof observedGeneration === "string" && typeof feedGeneratedAt === "string"
+          ? observedGeneration !== feedGeneratedAt : null,
+      };
+      if (waited >= maxWaitMs) {
+        const diag = "http=" + lastRead.http_status
+          + " freshness=" + lastRead.freshness
+          + " feed_generation_changed=" + (lastRead.generation_changed === null ? "UNKNOWN" : String(lastRead.generation_changed));
+        log("autonomous_timeout", { waited_ms: waited, ...lastRead });
+        throw new CanaryFailure("wait", "no scheduler event within " + maxWaitMs + "ms; " + diag);
+      }
       await sleep(pollMs);
       waited += pollMs;
     }
