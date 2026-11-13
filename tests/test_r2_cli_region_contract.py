@@ -73,3 +73,31 @@ def test_no_global_aws_config_or_environment_mutation(monkeypatch):
     assert len(commands) == 1
     assert commands[0][:2] == ["aws", "s3"]
     assert "configure" not in commands[0]
+
+
+def test_final_paid_manifest_resync_pins_cloudflare_region(monkeypatch):
+    """Last-mile PRO uploader must obey the same signing contract as state sync."""
+    from scripts import r2_resync_manifests as resync
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-west-2")
+    monkeypatch.setenv("AWS_REGION", "us-west-2")
+    commands = _fake_cli(monkeypatch)
+    assert resync.s3_cp("latest_pro.json", "bucket", "api/v1/intel/latest_pro.json",
+                        ENDPOINT, cache_control="private, no-store")
+    assert len(commands) == 1
+    command = commands[0]
+    assert command[:2] == ["aws", "s3"]
+    assert command.count("--region") == 1
+    assert command[command.index("--region") + 1] == "auto"
+    assert command[command.index("--endpoint-url") + 1] == ENDPOINT
+    assert command[command.index("--cache-control") + 1] == "private, no-store"
+    assert "us-west-2" not in command
+    assert resync.R2_S3_REGION == r2_upload.R2_S3_REGION
+
+
+def test_final_paid_manifest_resync_upload_failure_stays_nonzero(monkeypatch):
+    from scripts import r2_resync_manifests as resync
+    commands = _fake_cli(monkeypatch, returncode=1, error="InvalidRegionName")
+    assert not resync.s3_cp("latest_pro.json", "bucket", "api/v1/intel/latest_pro.json",
+                            ENDPOINT, cache_control="private, no-store")
+    assert len(commands) == 1
+    assert commands[0][commands[0].index("--region") + 1] == "auto"
