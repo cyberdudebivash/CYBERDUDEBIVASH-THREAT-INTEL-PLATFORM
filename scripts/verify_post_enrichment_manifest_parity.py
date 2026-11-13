@@ -11,6 +11,7 @@ any R2/customer release step; it never accesses cloud services.
 from __future__ import annotations
 
 import json
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -100,7 +101,7 @@ def verify_post_enrichment_manifest(source_document: Any, pro_document: Any) -> 
 
 def _read_bounded_json(path: Path) -> Any:
     info = path.stat()
-    if not info.is_file() or not 0 < info.st_size <= MAX_INPUT_BYTES:
+    if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= MAX_INPUT_BYTES:
         raise ParityError("MISSING_OR_OVERSIZED_INPUT")
     with path.open("rb") as fh:
         payload = fh.read(MAX_INPUT_BYTES + 1)
