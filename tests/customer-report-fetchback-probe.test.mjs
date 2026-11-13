@@ -3,19 +3,20 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
   ORIGIN, CATALOG_PATH, approvedReportPath, evaluatePublicReportCatalog,
-  fetchPublic, runPublicReportFetchback
+  fetchPublic, runPublicReportFetchback, reportEpssMatchesCatalog
 } from '../scripts/customer_report_fetchback_probe.mjs';
 
 const id1='intel--'+'a'.repeat(24), id2='intel--'+'b'.repeat(24);
-const one={id:id1,path:'/reports/2026/10/'+id1+'.html',
+const one={id:id1,epss_score:null,path:'/reports/2026/10/'+id1+'.html',
   url:ORIGIN+'/reports/2026/10/'+id1+'.html'};
-const two={id:id2,path:'/reports/2026/10/'+id2+'.html'};
+const two={id:id2,epss_score:null,path:'/reports/2026/10/'+id2+'.html'};
 const catalog=()=>({
   schema_version:'2.0.0',feed_type:'customer_ready_catalog',
   generated_at:new Date(Date.now()-60_000).toISOString(), validated_at:new Date().toISOString(),
   policy_version:'1.0.0',total_candidates:3,customer_ready_count:2,
   withheld_count:1,total_reports:3,reports_listed:2,reports:[one,two],
 });
+const html=(path, display='N/A')=>`<html><body>${path}<div class='section' id='s8'><div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>${display}</strong></div></div><div class='section' id='s9'></div></body></html>`;
 const response=(body,status=200,mime='application/json')=>
   new Response(body,{status,headers:{'content-type':mime}});
 const fake=(cat, overrides={})=>async (url, opts)=>{
@@ -25,7 +26,7 @@ const fake=(cat, overrides={})=>async (url, opts)=>{
   const path=new URL(url).pathname;
   if (path===CATALOG_PATH) return response(JSON.stringify(cat));
   if (overrides[path]) return overrides[path];
-  return response('<html><body>'+decodeURIComponent(path)+'</body></html>',200,'text/html');
+  return response(html(decodeURIComponent(path)),200,'text/html');
 };
 test('current live-like 0/52 is BLOCKED, regardless of advisory health',()=>{
  const c=catalog();c.total_candidates=52;c.total_reports=52;c.customer_ready_count=0;c.withheld_count=52;
@@ -187,4 +188,44 @@ test('publisher invokes read-only customer report fetch-back as a mandatory post
   assert.match(step,/\n        timeout-minutes: 2\n/);
   assert.match(step,/\n        run: node scripts\/customer_report_fetchback_probe\.mjs\n/);
   assert.doesNotMatch(step,/continue-on-error|\|\| true|if:\s*always\(\)/);
+});
+
+test('catalog EPSS and human dossier S8 must agree in percent units',()=>{
+ const value=html(one.path,'0.184%');
+ assert.equal(reportEpssMatchesCatalog(value,0.184),true);
+ assert.equal(reportEpssMatchesCatalog(value,0.18),true,'rounding tolerance <=0.01 percentage points');
+ assert.equal(reportEpssMatchesCatalog(value,0.5),false);
+ assert.equal(reportEpssMatchesCatalog(value,null),false);
+ assert.equal(reportEpssMatchesCatalog(html(one.path),null),true);
+ assert.equal(reportEpssMatchesCatalog(html(one.path),0.184),false);
+ assert.equal(reportEpssMatchesCatalog(html(one.path,'18.4%'),0.184),false);
+ assert.equal(reportEpssMatchesCatalog(html(one.path,'0.184'),0.184),false);
+ assert.equal(reportEpssMatchesCatalog(html(one.path,'100.1%'),100.1),false);
+ assert.equal(reportEpssMatchesCatalog('<html>'+one.path+'</html>',null),false);
+});
+test('catalog schema rejects untrusted or absent EPSS sample field',()=>{
+ const c=catalog(); c.reports=[{...one,epss_score:'0.184'},two];
+ assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_REPORT_EPSS_METADATA'));
+ c.reports=[{...one,epss_score:NaN},two];
+ assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_REPORT_EPSS_METADATA'));
+ c.reports=[{id:one.id,path:one.path},two];
+ assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_REPORT_EPSS_METADATA'));
+});
+test('real P0 sample: catalog 0.184% but dossier EPSS N/A fails closed',async()=>{
+ const c=catalog(); c.reports=[{...one,epss_score:0.184},two];
+ const r=await runPublicReportFetchback({fetchFn:fake(c)});
+ assert.equal(r.exit_code,2);
+ assert.equal(r.verdict,'BLOCKED_REPORT_FETCHBACK');
+ assert.equal(r.probes[0].status,'FAIL');
+ assert.equal(r.public_report_sample_certified,false);
+ assert.equal(r.customer_release_certified,false);
+});
+test('matching positive EPSS sample succeeds as public-only fetchback',async()=>{
+ const c=catalog(); c.reports=[{...one,epss_score:0.184},two];
+ const r=await runPublicReportFetchback({fetchFn:fake(c,{
+   [one.path]:response(html(one.path,'0.184%'),200,'text/html')
+ })});
+ assert.equal(r.exit_code,0);
+ assert.equal(r.public_report_sample_certified,true);
+ assert.equal(r.customer_release_certified,false);
 });
