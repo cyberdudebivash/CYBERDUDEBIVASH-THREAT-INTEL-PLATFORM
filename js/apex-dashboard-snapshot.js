@@ -117,14 +117,31 @@
   }
 
   /**
+   * The gateway FAILS CLOSED with HTTP 503 and a structured body when the feed is stale
+   * (workers/intel-gateway/src/stale-feed-policy.js, and /api/health 'degraded'). That body is
+   * authoritative proof the API is reachable and says how old the intelligence is. It can never
+   * authorize live data. Only that exact contract is accepted from a non-2xx response: any other
+   * 503 (a CDN error page, an unrelated JSON) is still "no data", so a real outage stays UNAVAILABLE.
+   * (2026-11-14: discarding these bodies made a stale feed look like an unreachable API.)
+   */
+  function gatewayContract(res, kind) {
+    if (!res || res.ok || res.status !== 503 || !res.data || typeof res.data !== 'object' || Array.isArray(res.data)) return null;
+    var d = res.data;
+    if (kind === 'feed') return d.error === 'live_intelligence_unavailable' && d.live_data_available === false ? d : null;
+    return d.service === 'sentinel-apex' && d.intelligence && typeof d.intelligence === 'object' ? d : null;
+  }
+
+  /**
    * @param {{ok:boolean,data:*}} healthRes result of GET /api/health
    * @param {{ok:boolean,data:*}} feedRes   result of GET /api/feed.json
    * @param {number} nowMs
    */
   function build(healthRes, feedRes, nowMs) {
     var now = typeof nowMs === 'number' ? nowMs : Date.now();
-    var health = healthRes && healthRes.ok ? healthRes.data : null;
-    var feed = feedRes && feedRes.ok && feedRes.data && typeof feedRes.data === 'object' ? feedRes.data : null;
+    var healthFail = gatewayContract(healthRes, 'health');
+    var feedFail = gatewayContract(feedRes, 'feed');
+    var health = healthRes && healthRes.ok ? healthRes.data : healthFail;
+    var feed = feedRes && feedRes.ok && feedRes.data && typeof feedRes.data === 'object' ? feedRes.data : feedFail;
     var items = feed ? itemsOf(feed).filter(function (i) { return i && typeof i === 'object'; }) : [];
 
     var pub = publicationFrom(health, feed);
@@ -138,7 +155,8 @@
     var feedTimeValid = isFinite(feedTime) && feedAgeMs <= maxAgeMs && feedAgeMs >= -3 * 3600 * 1000;
     var healthTimeValid = isFinite(genMs) && now - genMs <= maxAgeMs && now - genMs >= -3 * 3600 * 1000;
     pub.fresh = pub.status === 'fresh' && feedTimeValid && healthTimeValid &&
-      !(feed && typeof feed.freshness_status === 'string' && feed.freshness_status.toUpperCase() !== 'FRESH');
+      !(feed && typeof feed.freshness_status === 'string' && feed.freshness_status.toUpperCase() !== 'FRESH') &&
+      !healthFail && !feedFail;
     // No expired intelligence may enter the ticker, metrics or preview.
     if (!pub.fresh) items = [];
 
@@ -229,6 +247,27 @@
     return { mode: 'live', message: null, items: items, count: state.intelligence.total };
   }
 
+  /**
+   * Main intelligence panel when there is nothing to list. Stale, genuinely empty and unreachable are
+   * different situations and must not share one message. Unknown state keeps the legacy wording.
+   */
+  function emptyPanelView(state) {
+    if (state && state.mode === 'degraded') {
+      var utc = utcText(state.publication && state.publication.generated_at);
+      var age = ageText(state.publication && state.publication.age_seconds);
+      return {
+        mode: 'degraded', title: 'Live intelligence is temporarily withheld',
+        detail: 'The platform is online, but the latest verified feed is older than the freshness limit' +
+          (utc ? ' (last authoritative update: ' + utc + (age ? ', ' + age : '') + ')' : '') +
+          '. Advisories are withheld rather than shown as current, and return automatically once a fresh feed is published.',
+      };
+    }
+    if (state && state.mode === 'empty') {
+      return { mode: 'empty', title: 'No current advisories', detail: 'The authoritative feed is fresh and currently lists no advisories.' };
+    }
+    return { mode: 'unavailable', title: 'No Threat Intelligence Available', detail: 'Feed is empty or API is offline.' };
+  }
+
   /** Preview: up to n current items, Critical/High first, else the newest others. */
   function previewItems(state, n) {
     var max = n || 5;
@@ -248,7 +287,10 @@
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : null;
     return fetch(url, { cache: 'no-cache', headers: { Accept: 'application/json' }, signal: ctrl ? ctrl.signal : undefined })
       .then(function (r) {
-        if (!r.ok) return { ok: false, status: r.status, data: null };
+        if (!r.ok) {
+          return r.json().then(function (d) { return { ok: false, status: r.status, data: d }; },
+            function () { return { ok: false, status: r.status, data: null }; });
+        }
         return r.json().then(function (d) { return { ok: true, status: r.status, data: d }; },
           function () { return { ok: false, status: r.status, data: null }; });
       }, function () { return { ok: false, status: 0, data: null }; })
@@ -275,7 +317,7 @@
 
   var api = {
     CONTRACT: CONTRACT, MESSAGES: MESSAGES, HEALTH_URL: HEALTH_URL, FEED_URL: FEED_URL,
-    build: build, lastSyncView: lastSyncView, statusView: statusView, tickerView: tickerView,
+    build: build, lastSyncView: lastSyncView, statusView: statusView, tickerView: tickerView, emptyPanelView: emptyPanelView,
     previewItems: previewItems, ageText: ageText, utcText: utcText, esc: esc, iocContribution: iocContribution,
     load: load, subscribe: subscribe, current: current,
   };
