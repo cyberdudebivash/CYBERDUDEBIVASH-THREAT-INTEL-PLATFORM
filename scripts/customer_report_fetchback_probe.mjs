@@ -106,7 +106,19 @@ export function evaluatePublicReportCatalog(catalog, {
       const path = approvedReportPath(report);
       if (!path || safeSamples.some(x => x.path === path)) {
         issues.push('INVALID_OR_DUPLICATE_REPORT_LOCATOR');
-      } else safeSamples.push({ path, id: report.id });
+      } else {
+        // A catalog can be newer than its already-published HTML dossier.
+        // Require an explicit, bounded EPSS percentage (or null), not a
+        // guessed numeric scale; only three selected samples are fetched.
+        if (!Object.hasOwn(report, 'epss_score') ||
+            (report.epss_score !== null &&
+             (typeof report.epss_score !== 'number' ||
+              !Number.isFinite(report.epss_score) ||
+              report.epss_score < 0 || report.epss_score > 100))) {
+          issues.push('INVALID_REPORT_EPSS_METADATA');
+        }
+        safeSamples.push({ path, id: report.id, epss_score:report.epss_score });
+      }
     }
   }
   const complete = issues.length === 0 && safeSamples.length > 0;
@@ -124,6 +136,33 @@ export function evaluatePublicReportCatalog(catalog, {
     paid_entitlement_certified: false,
     all_reports_delivered_certified: false,
   };
+}
+
+/**
+ * Cross-check the canonical S8 EPSS number actually shown to customers.
+ * EPSS is a percentage on [0, 100], NOT an arbitrary probability-scale guess.
+ * A current numeric catalog value alongside "EPSS Pending"/N/A in the HTML
+ * is a failed publication-parity proof, even when the report ID is correct.
+ */
+export function reportEpssMatchesCatalog(html, epssScore) {
+  if (typeof html !== 'string' ||
+      (epssScore !== null &&
+       (typeof epssScore !== 'number' || !Number.isFinite(epssScore) ||
+        epssScore < 0 || epssScore > 100))) return false;
+  const s8 = /<div\s+class=['"]section['"]\s+id=['"]s8['"]>/i.exec(html);
+  if (!s8) return false;
+  const tail = html.slice(s8.index + s8[0].length);
+  const next = /<div\s+class=['"]section['"]\s+id=['"]s9['"]>/i.exec(tail);
+  if (!next) return false;
+  const section = tail.slice(0, next.index);
+  const field = /<div\s+class=['"]kv-key['"]>EPSS Score<\/div>\s*<div\s+class=['"]kv-val['"]><strong>([\s\S]{0,300}?)<\/strong>/i.exec(section);
+  if (!field) return false;
+  const display = field[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim();
+  if (epssScore === null) return display === 'N/A';
+  const m = /^(?:0|[1-9]\d*)(?:\.(\d+))?%$/.exec(display);
+  if (!m) return false;
+  const shown = Number(display.slice(0, -1));
+  return Number.isFinite(shown) && shown <= 100 && Math.abs(shown - epssScore) <= 0.01;
 }
 
 async function readBounded(response) {
@@ -173,11 +212,13 @@ export async function runPublicReportFetchback({ fetchFn = globalThis.fetch } = 
     return { ...precheck, public_report_sample_certified:false };
   }
   const probes = [];
-  for (const { path, id } of precheck.candidate_paths) {
+  for (const { path, id, epss_score } of precheck.candidate_paths) {
     try {
       const html = await fetchPublic(path, fetchFn);
       if (!/<html(?:\s|>)/i.test(html) || !html.includes(id))
         throw new Error('REPORT_CONTENT_ID_NOT_VERIFIED');
+      if (!reportEpssMatchesCatalog(html, epss_score))
+        throw new Error('REPORT_EPSS_METADATA_DIVERGENCE');
       probes.push({ path, status:'PASS' });
     } catch {
       probes.push({ path, status:'FAIL' });
