@@ -72,6 +72,7 @@ if _SCRIPTS_DIR not in sys.path:
 from canonical_timestamp import parse_timestamp  # noqa: E402
 import dossier_integrity as _di  # noqa: E402  (same severity authority used by dossier S1)
 from severity_epss_truth import kev_confirmed as _kev_confirmed  # noqa: E402
+from public_report_actor import public_actor_label  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Config
@@ -484,7 +485,10 @@ def main() -> int:
         cve_list   = _item_cves(feed_item)
         timestamp = canonical_time_by_path[path].isoformat().replace("+00:00", "Z")
         threat_type = str(feed_item.get("threat_type") or "")
-        actor_tag   = str(feed_item.get("actor_tag") or "")
+        # A public catalog entry must expose the identical redacted actor label
+        # as the public HTML S1. Raw feed actor_tag may contain paid or
+        # heuristic-only fields; the HTML renderer masks it by policy.
+        actor_tag   = public_actor_label(feed_item)
         epss_score  = feed_item.get("epss_score")
         kev_present = bool(feed_item.get("kev_present"))
         tlp         = str(feed_item.get("tlp") or "TLP:CLEAR")
