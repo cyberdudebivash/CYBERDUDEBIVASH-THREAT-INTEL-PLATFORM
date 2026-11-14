@@ -42,7 +42,7 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
-from urllib import request, error
+from urllib import request, error, parse
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -67,6 +67,31 @@ def parse_iso(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+class _NoFreshnessRedirects(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _approved_freshness_url(url):
+    """Only the canonical, HTTPS production origin is an authorized HEAD target."""
+    if not isinstance(url, str):
+        return False
+    try:
+        parsed = parse.urlsplit(url)
+        return (
+            parsed.scheme == "https"
+            and parsed.hostname == "intel.cyberdudebivash.com"
+            and parsed.netloc == "intel.cyberdudebivash.com"
+            and parsed.username is None and parsed.password is None
+            and parsed.port is None and parsed.fragment == ""
+            and parsed.path == "/"
+            and parsed.query.startswith("_freshness_check=")
+            and parsed.query[len("_freshness_check="):].isdigit()
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def fetch_last_modified(url):
     # Cache-busting query param: the platform's own CDN layer was observed serving
     # `cache-control: max-age=600` with `x-cache: HIT` -- a plain repeated GET/HEAD to the same
@@ -76,7 +101,13 @@ def fetch_last_modified(url):
     req = request.Request(
         bust_url, method="HEAD", headers={"User-Agent": "SENTINEL-APEX-FRESHNESS-GATE/184.1"}
     )
-    with request.urlopen(req, timeout=REQUEST_TIMEOUT_SEC) as r:
+    if not _approved_freshness_url(bust_url):
+        raise ValueError("UNAPPROVED_FRESHNESS_PROBE_ORIGIN")
+    # Fail closed on every redirect, including 30x to a different hostname:
+    # Last-Modified must describe our canonical production Pages origin.
+    with request.build_opener(_NoFreshnessRedirects()).open(
+        req, timeout=REQUEST_TIMEOUT_SEC
+    ) as r:
         return r.headers.get("Last-Modified")
 
 
