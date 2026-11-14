@@ -121,7 +121,15 @@ export function evaluatePublicReportCatalog(catalog, {
             !['CRITICAL','HIGH','MEDIUM','LOW','UNRATED','UNKNOWN'].includes(report.severity)) {
           issues.push('INVALID_REPORT_SEVERITY_METADATA');
         }
-        safeSamples.push({ path, id: report.id, epss_score:report.epss_score, severity:report.severity });
+        // Public dossier S1 masks attribution. Do not certify a catalog that
+        // claims a different actor identity or a generic heuristic cluster.
+        if (typeof report.actor_tag !== 'string' ||
+            !report.actor_tag.trim() || report.actor_tag.length > 160 ||
+            /[\x00-\x1f]/.test(report.actor_tag)) {
+          issues.push('INVALID_PUBLIC_REPORT_ACTOR_METADATA');
+        }
+        safeSamples.push({ path, id: report.id, epss_score:report.epss_score,
+          severity:report.severity, actor_tag:report.actor_tag });
       }
     }
   }
@@ -189,6 +197,29 @@ export function reportSeverityMatchesCatalog(html, expectedSeverity) {
   return !!actual && actual[1].toUpperCase() === expectedSeverity;
 }
 
+/**
+ * Cross-check the public S1 actor label; source feed actor_tag is not proof of
+ * attribution and may contain labels deliberately hidden from public dossiers.
+ * Keep this check scoped to the same already-fetched bounded report body.
+ */
+export function reportActorMatchesCatalog(html, expectedActor) {
+  if (typeof html !== 'string' || typeof expectedActor !== 'string' ||
+      !expectedActor.trim() || expectedActor.length > 160) return false;
+  const s1 = /<div\\s+class=['"]section['"]\\s+id=['"]s1['"]>/i.exec(html);
+  if (!s1) return false;
+  const tail = html.slice(s1.index + s1[0].length);
+  const s2 = /<div\\s+class=['"]section['"]\\s+id=['"]s2['"]>/i.exec(tail);
+  if (!s2) return false;
+  const section = tail.slice(0, s2.index);
+  const field = /<div\\s+class=['"]kv-key['"]>Actor Cluster<\\/div>\\s*<div\\s+class=['"]kv-val['"]>([^<]{1,300})<\\/div>/i.exec(section);
+  if (!field) return false;
+  // The renderer HTML-escapes text; compare the customer-visible value.
+  const visible = field[1].replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
+    .replace(/&#(?:39|x27);/gi, "'").replace(/\\s+/g, ' ').trim();
+  return visible === expectedActor.replace(/\\s+/g, ' ').trim();
+}
+
 async function readBounded(response) {
   const announced = Number(response.headers.get('content-length') || 0);
   if (announced > MAX_BYTES || !response.body?.getReader) throw new Error('INVALID_OR_OVERSIZE_RESPONSE');
@@ -236,7 +267,7 @@ export async function runPublicReportFetchback({ fetchFn = globalThis.fetch } = 
     return { ...precheck, public_report_sample_certified:false };
   }
   const probes = [];
-  for (const { path, id, epss_score, severity } of precheck.candidate_paths) {
+  for (const { path, id, epss_score, severity, actor_tag } of precheck.candidate_paths) {
     try {
       const html = await fetchPublic(path, fetchFn);
       if (!/<html(?:\s|>)/i.test(html) || !html.includes(id))
@@ -245,6 +276,8 @@ export async function runPublicReportFetchback({ fetchFn = globalThis.fetch } = 
         throw new Error('REPORT_EPSS_METADATA_DIVERGENCE');
       if (!reportSeverityMatchesCatalog(html, severity))
         throw new Error('REPORT_SEVERITY_METADATA_DIVERGENCE');
+      if (!reportActorMatchesCatalog(html, actor_tag))
+        throw new Error('REPORT_ACTOR_METADATA_DIVERGENCE');
       probes.push({ path, status:'PASS' });
     } catch {
       probes.push({ path, status:'FAIL' });
