@@ -147,3 +147,72 @@ def test_authoritative_cvss_severity_is_used_by_second_executive_summary():
     assert "MEDIUM-severity security advisory" not in section2
     assert "MEDIUM severity" not in section2
     assert item["severity"] == "MEDIUM", "never mutate producer source to fix HTML"
+
+
+def _fake_s8_ep_ss(display):
+    return ("<!doctype html><html><body>"
+            "<div class='section' id='s8'>"
+            "<div class='kv-key'>EPSS Score</div>"
+            f"<div class='kv-val'><strong>{display}</strong></div>"
+            "</div><div class='section' id='s9'></div></body></html>")
+
+
+@pytest.mark.parametrize("display,expected,match", [
+    ("0.184%", 0.184, True),
+    ("0.18%", 0.184, True),
+    ("18.4%", 0.184, False),
+    ("N/A", 0.184, False),
+    ("0.184", 0.184, False),
+    ("100.1%", 0.184, False),
+    ("0.184%", float("inf"), False),
+])
+def test_selective_epss_refresh_requires_same_percent_units(display, expected, match):
+    assert gir._dossier_epss_matches_value(_fake_s8_ep_ss(display), expected) is match
+
+
+def test_selective_epss_refresh_handles_missing_and_oversize_dossiers(tmp_path):
+    p = tmp_path / "intel--test.html"
+    assert not gir._local_dossier_epss_matches(p, 0.184)
+    p.write_text(_fake_s8_ep_ss("0.184%"), encoding="utf-8")
+    assert gir._local_dossier_epss_matches(p, 0.184)
+    p.write_text("x" * (gir._P0_EPSS_REPORT_MAX_BYTES + 1), encoding="utf-8")
+    assert not gir._local_dossier_epss_matches(p, 0.184)
+    assert gir.P0_MAX_VERIFIED_EPSS_REPAIRS == 3
+
+
+def test_selective_epss_refresh_reads_only_proven_feed_metadata(tmp_path, monkeypatch):
+    root = tmp_path / "repo"
+    (root / "api").mkdir(parents=True)
+    monkeypatch.setattr(gir, "REPO_ROOT", root)
+    feed = [
+        {"id": "intel--valid", "epss_score": 0.184, "epss": "0.184%",
+         "epss_pct": 0.184, "epss_source": "FIRST.org"},
+        {"id": "intel--unverifiable", "epss_score": 33.3},
+        {"id": "intel--duplicate", "epss_score": 0.184, "epss": "0.184%",
+         "epss_pct": 0.184, "epss_source": "FIRST.org"},
+        {"id": "intel--duplicate", "epss_score": 0.195, "epss": "0.195%",
+         "epss_pct": 0.195, "epss_source": "FIRST.org"},
+    ]
+    (root / "api" / "feed.json").write_text(__import__("json").dumps(feed), encoding="utf-8")
+    verified = gir._proven_epss_report_index()
+    assert verified == {"intel--valid": pytest.approx(0.184)}, verified
+
+
+def test_selective_epss_refresh_requires_bounded_safe_mode(monkeypatch):
+    assert gir.main(["--refresh-verified-epss", "--since-hours", "24"]) == 2
+    assert gir.main(["--refresh-verified-epss", "--only-missing"]) == 2
+    assert gir.main(["--refresh-verified-epss", "--only-missing", "--since-hours", "24",
+                     "--upload-r2"]) == 2
+
+
+def test_selective_epss_refresh_workflow_is_scoped_to_late_barrier():
+    workflow = (ROOT / ".github/workflows/sentinel-apex.yml").read_text(encoding="utf-8")
+    assert workflow.count("--refresh-verified-epss") == 1
+    marker = '      - name: "STAGE 5.4.0b - Report Continuity Final Barrier (P0 FIX)"'
+    start = workflow.index(marker)
+    end = workflow.index('      - name: "STAGE 5.4.0c - Post-Barrier Report Publish"', start)
+    step = workflow[start:end]
+    assert "--only-missing --limit 0 --refresh-verified-epss" in step
+    assert '--since-hours "${REPORT_WINDOW_HOURS:-24}"' in step
+    assert "--upload-r2" not in step
+    assert "--refresh-verified-epss" not in workflow[:start] + workflow[end:]

@@ -2822,6 +2822,76 @@ UPLOAD_R2_DEPRECATION = (
 )
 
 
+# Last-mile commercial report parity: only proven, in-window metadata may
+# request a bounded re-render of an already-existing dossier. A false mismatch
+# can never authorize a TLP change, public upload or quota increase.
+P0_MAX_VERIFIED_EPSS_REPAIRS = 3
+_P0_EPSS_REPORT_MAX_BYTES = 1_048_576
+
+
+def _proven_epss_report_index() -> Dict[str, float]:
+    """Read current public feed once, accepting only scale-proven EPSS percent."""
+    path = REPO_ROOT / "api" / "feed.json"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(raw, list):
+        return {}
+    index: Dict[str, float] = {}
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            continue
+        key = item["id"]
+        if key in seen:
+            duplicates.add(key)
+            continue
+        seen.add(key)
+        percent = _epss_percent(item)
+        if percent is not None and math.isfinite(float(percent)) and 0 <= percent <= 100:
+            index[key] = float(percent)
+    for key in duplicates:
+        index.pop(key, None)
+    return index
+
+
+def _dossier_epss_matches_value(html_text: str, expected_percent: float) -> bool:
+    """Compare HTML S8 directly, in percent units, without inventing a scale."""
+    if not isinstance(html_text, str) or not math.isfinite(expected_percent):
+        return False
+    start = re.search(r"<div\s+class=['\"]section['\"]\s+id=['\"]s8['\"]>", html_text, re.I)
+    if not start:
+        return False
+    end = re.search(r"<div\s+class=['\"]section['\"]\s+id=['\"]s9['\"]>",
+                    html_text[start.end():], re.I)
+    if not end:
+        return False
+    section = html_text[start.end():start.end() + end.start()]
+    field = re.search(
+        r"<div\s+class=['\"]kv-key['\"]>EPSS Score</div>\s*"
+        r"<div\s+class=['\"]kv-val['\"]><strong>([\s\S]{0,300}?)</strong>",
+        section, re.I,
+    )
+    if not field:
+        return False
+    value = re.sub(r"<[^>]*>", "", field.group(1)).strip()
+    if not re.fullmatch(r"(?:0|[1-9]\d*)(?:\.\d+)?%", value):
+        return False
+    shown = float(value[:-1])
+    return 0 <= shown <= 100 and abs(shown - expected_percent) <= 0.01
+
+
+def _local_dossier_epss_matches(path: Path, expected_percent: float) -> bool:
+    try:
+        if not path.is_file() or not 0 < path.stat().st_size <= _P0_EPSS_REPORT_MAX_BYTES:
+            return False
+        return _dossier_epss_matches_value(path.read_text(encoding="utf-8"), expected_percent)
+    except (OSError, UnicodeError):
+        return False
+
+
 def main(argv=None) -> int:
     global MANIFEST_PATH
 
@@ -2840,6 +2910,11 @@ def main(argv=None) -> int:
                              "already resolves to an existing local file. Lets this "
                              "script be re-invoked cheaply as a late materialization "
                              "barrier without re-rendering the whole manifest.")
+    parser.add_argument("--refresh-verified-epss", action="store_true",
+                        help="Only with --only-missing and --since-hours: refresh at most "
+                             "three in-window existing dossiers whose HTML EPSS conflicts "
+                             "with the verified current feed; uses the normal quota-guarded "
+                             "report publisher, never this script's deprecated R2 uploader.")
     parser.add_argument("--since-hours", type=float, default=None,
                         help="P0 R2 cost fix: only render/touch items whose canonical "
                              "timestamp is within the last N hours. Default: unbounded "
@@ -2849,6 +2924,13 @@ def main(argv=None) -> int:
                              "which would otherwise keep re-uploading content the R2 "
                              "24h retention policy has already retired.")
     args = parser.parse_args(argv)
+
+    if args.refresh_verified_epss and (
+        not args.only_missing or args.since_hours is None or args.upload_r2
+    ):
+        log("--refresh-verified-epss requires --only-missing and bounded --since-hours "
+            "without deprecated direct --upload-r2", "error")
+        return 2
 
     MANIFEST_PATH = Path(args.manifest)
     log(f"Starting {PLATFORM_VERSION} - manifest: {MANIFEST_PATH}")
@@ -2895,6 +2977,8 @@ def main(argv=None) -> int:
     tlp_quarantined: list = []      # P0 #721: items held back by the TLP publication policy
     _tlp_policy_loaded = _tlp.load_policy()
     only_missing_candidates = 0  # P0.2: items --only-missing actually had to act on
+    _verified_epss_by_id = _proven_epss_report_index() if args.refresh_verified_epss else {}
+    _ep_ss_repair_attempts = 0
     r2_upload_failed = 0
     excluded_by_window = 0  # P0 R2 cost fix: items --since-hours excluded, untouched
     t_start = time.monotonic()
@@ -2941,12 +3025,26 @@ def main(argv=None) -> int:
         # mere presence. Only a genuinely empty report_url or a /reports/ one
         # with no backing file falls through to the normal render+write+
         # validate path below.
+        _refresh_ep_ss = None
         if args.only_missing:
             _existing_ru = (item.get("report_url") or "").strip()
             if _existing_ru.startswith("http"):
                 continue
             if _existing_ru.startswith("/reports/") and (REPO_ROOT / _existing_ru.lstrip("/")).exists():
-                continue
+                if not args.refresh_verified_epss:
+                    continue
+                _expected_ep_ss = _verified_epss_by_id.get(intel_id)
+                if (_expected_ep_ss is None or
+                    _ep_ss_repair_attempts >= P0_MAX_VERIFIED_EPSS_REPAIRS or
+                    not _within_report_window(item, args.since_hours, _window_now)):
+                    continue
+                _canonical_report_path = rel_report_path(item)
+                if _existing_ru != "/" + _canonical_report_path.relative_to(REPO_ROOT).as_posix():
+                    continue
+                if _local_dossier_epss_matches(_canonical_report_path, _expected_ep_ss):
+                    continue
+                _refresh_ep_ss = _expected_ep_ss
+                _ep_ss_repair_attempts += 1
             only_missing_candidates += 1
 
         # P0 R2 COST INCIDENT FIX: --since-hours gate applies regardless of
@@ -3003,6 +3101,15 @@ def main(argv=None) -> int:
         html_text: Optional[str] = None
         try:
             html_text = render_report(item, args.public_prefix)
+            if (_refresh_ep_ss is not None and
+                not _dossier_epss_matches_value(html_text, _refresh_ep_ss)):
+                # Never replace a previously accessible report with HTML that
+                # still disagrees with the canonical feed. Preserve original
+                # bytes for forensic analysis; mandatory fetchback stays red.
+                log(f"REPORT EPSS REPAIR WITHHELD [{intel_id}]: rendered dossier still "
+                    "does not match verified feed percentage", "error")
+                errors += 1
+                continue
         except Exception as render_exc:
             log(f"RENDER ERROR [{intel_id}]: {type(render_exc).__name__}: {render_exc}", "error")
             item["validation_status"] = "render_error"
