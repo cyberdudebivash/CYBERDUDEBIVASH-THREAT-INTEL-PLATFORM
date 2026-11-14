@@ -146,6 +146,48 @@ class PublishedStateIndexTest(unittest.TestCase):
         self.assertEqual(entry["severity"], "MEDIUM")
         self.assertEqual(entry["severity_basis"], "apex_heuristic")
 
+    def test_public_catalog_masks_generic_exploitation_cluster_as_unattributed(self):
+        rid = "intel--genericactor01"
+        self._feed([(rid, 1)])
+        bri.API_FEED.write_text(json.dumps([{
+            "id": rid, "title": "CVE-2026-12347 generic advisory",
+            "timestamp": _iso(self._feed_times[rid]),
+            "actor_tag": "Vulnerability Exploitation Cluster",
+            "severity": "CRITICAL", "cvss_score": None, "kev_present": False,
+        }]))
+        self._state({rid: self._entry(rid)})
+        entry = self._index()["reports"][0]
+        self.assertEqual(entry["actor_tag"], "UNATTRIBUTED")
+        self.assertNotIn("Vulnerability Exploitation Cluster", json.dumps(entry))
+        self.assertEqual(entry["severity"], "UNRATED")
+
+    def test_public_catalog_redacts_non_placeholder_actor_without_leaking_identity(self):
+        rid = "intel--actorprivacy01"
+        self._feed([(rid, 1)])
+        bri.API_FEED.write_text(json.dumps([{
+            "id": rid, "title": "Source-reported threat advisory",
+            "timestamp": _iso(self._feed_times[rid]),
+            "actor_tag": "APT28", "severity": "HIGH",
+        }]))
+        self._state({rid: self._entry(rid)})
+        entry = self._index()["reports"][0]
+        self.assertEqual(entry["actor_tag"], "ATTRIBUTED — ENTERPRISE ACCESS REQUIRED")
+        self.assertNotIn("APT28", json.dumps(entry))
+
+    def test_public_catalog_follows_renderer_actor_field_precedence(self):
+        rid = "intel--actorfield01"
+        self._feed([(rid, 1)])
+        bri.API_FEED.write_text(json.dumps([{
+            "id": rid, "title": "Source-reported vulnerability",
+            "timestamp": _iso(self._feed_times[rid]),
+            "actor_cluster": "CDB-UNATTR-CVE",
+            "actor_tag": "APT28",
+            "severity": "HIGH",
+        }]))
+        self._state({rid: self._entry(rid)})
+        entry = self._index()["reports"][0]
+        self.assertEqual(entry["actor_tag"], "UNATTRIBUTED")
+
     def test_missing_or_corrupt_state_is_ignored(self):
         self._feed([("intel--disk0001", 1)])
         self._disk("intel--disk0001")
