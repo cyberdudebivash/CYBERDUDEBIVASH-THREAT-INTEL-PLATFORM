@@ -70,6 +70,8 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 from canonical_timestamp import parse_timestamp  # noqa: E402
+import dossier_integrity as _di  # noqa: E402  (same severity authority used by dossier S1)
+from severity_epss_truth import kev_confirmed as _kev_confirmed  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Config
@@ -466,6 +468,19 @@ def main() -> int:
 
         if not title:
             title = report_id
+        # P0 commercial truth: never advertise the feed's internal APEX
+        # heuristic severity as a CVSS-rated customer report. The dossier S1
+        # uses this same canonical decision; UNRATED is a valid publication
+        # result when a vulnerability has no usable CVSS evidence.
+        # Evaluate only a present current feed item. Without one, retain the
+        # legacy UNKNOWN/artifact fallback; never invent a rating.
+        severity_basis = None
+        if feed_item:
+            _basis = _di.severity_basis(
+                feed_item, feed_item.get("cvss_score"), _kev_confirmed(feed_item)
+            )
+            severity = _basis["display"]
+            severity_basis = _basis["severity_source"]
         cve_list   = _item_cves(feed_item)
         timestamp = canonical_time_by_path[path].isoformat().replace("+00:00", "Z")
         threat_type = str(feed_item.get("threat_type") or "")
@@ -480,6 +495,7 @@ def main() -> int:
             "path":         rel_url,
             "title":        title,
             "severity":     severity,
+            "severity_basis": severity_basis,
             "risk_score":   risk_score,
             "cve":          cve_list,
             "timestamp":    timestamp,
