@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Web3 Threat Intelligence | SENTINEL APEX v201.0</title>
+<meta name="description" content="Evidence-backed Web3 and blockchain threat intelligence derived from the live SENTINEL APEX feed.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/dashboard/web3_dashboard.html">
+<style>
+:root{
+  --bg:#05070b;--panel:#0b111b;--panel2:#0f1724;--border:#1f2b3d;
+  --text:#e6edf6;--muted:#8fa0b6;--accent:#22d3ee;--ok:#34d399;
+  --warn:#fbbf24;--high:#fb923c;--critical:#fb7185;--info:#60a5fa;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html{background:var(--bg);color:var(--text);font-family:var(--sans)}
+body{margin:0;min-height:100vh;background:
+ radial-gradient(circle at 15% -10%,rgba(34,211,238,.09),transparent 32rem),
+ radial-gradient(circle at 95% 20%,rgba(52,211,153,.05),transparent 28rem),var(--bg)}
+a{color:inherit}
+nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:16px;
+ padding:14px clamp(14px,3vw,34px);background:rgba(5,7,11,.94);backdrop-filter:blur(12px);
+ border-bottom:1px solid var(--border)}
+.brand{font-weight:900;letter-spacing:.04em;white-space:nowrap}
+.brand span{color:var(--accent)}
+.navlinks{display:flex;gap:8px;overflow:auto;scrollbar-width:none}
+.navlinks a{font:700 11px var(--mono);text-decoration:none;color:var(--muted);padding:8px 10px;
+ border:1px solid transparent;border-radius:8px;white-space:nowrap}
+.navlinks a:hover{color:var(--text);border-color:var(--border)}
+.status{margin-left:auto;display:flex;align-items:center;gap:8px;font:700 10px var(--mono);
+ color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);box-shadow:0 0 10px currentColor}
+main{width:min(1180px,100%);margin:0 auto;padding:clamp(20px,4vw,48px) clamp(14px,3vw,28px) 70px}
+.hero{padding:clamp(24px,5vw,56px) 0 34px}
+.eyebrow{font:800 11px var(--mono);letter-spacing:.16em;color:var(--accent);text-transform:uppercase}
+h1{font-size:clamp(32px,6vw,62px);line-height:1.02;margin:12px 0 14px;letter-spacing:-.045em}
+.lead{max-width:850px;color:var(--muted);font-size:clamp(14px,2vw,18px);line-height:1.65}
+.truth{margin-top:20px;padding:14px 16px;border:1px solid rgba(34,211,238,.25);
+ background:rgba(34,211,238,.05);border-radius:12px;color:#bae6fd;font-size:13px;line-height:1.55}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:24px 0}
+.metric{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--border);
+ border-radius:14px;padding:18px;min-height:98px}
+.metric strong{display:block;font:900 clamp(22px,4vw,34px) var(--mono);letter-spacing:-.04em}
+.metric span{display:block;margin-top:8px;font:700 10px var(--mono);color:var(--muted);letter-spacing:.08em}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:28px 0 16px}
+input,select,button,.btn{font:600 12px var(--mono);border:1px solid var(--border);border-radius:9px;
+ background:var(--panel);color:var(--text);padding:11px 12px}
+input{flex:1;min-width:230px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+button,.btn{cursor:pointer;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:#041014;border-color:var(--accent);font-weight:900}
+.panel{border:1px solid var(--border);background:rgba(11,17,27,.84);border-radius:16px;overflow:hidden}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px;
+ border-bottom:1px solid var(--border)}
+.panel-head h2{font-size:14px;margin:0}
+.panel-head small{color:var(--muted);font:600 10px var(--mono)}
+#results{display:grid;gap:0}
+.item{padding:18px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr auto;gap:14px}
+.item:last-child{border-bottom:0}
+.item h3{font-size:15px;margin:6px 0 8px;line-height:1.35}
+.meta{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font:600 10px var(--mono)}
+.badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;border:1px solid var(--border);
+ font:800 9px var(--mono);letter-spacing:.05em}
+.badge.CRITICAL{color:var(--critical);border-color:rgba(251,113,133,.35);background:rgba(251,113,133,.08)}
+.badge.HIGH{color:var(--high);border-color:rgba(251,146,60,.35);background:rgba(251,146,60,.08)}
+.badge.MEDIUM{color:var(--warn);border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08)}
+.badge.LOW{color:var(--ok);border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.08)}
+.summary{color:#c1ccda;font-size:13px;line-height:1.55;margin-top:10px;max-width:900px}
+.open{align-self:center;text-decoration:none;font:800 10px var(--mono);color:var(--accent);padding:9px 10px;
+ border:1px solid rgba(34,211,238,.25);border-radius:8px;white-space:nowrap}
+.empty,.error{padding:38px 18px;text-align:center;color:var(--muted);font:600 12px var(--mono)}
+.error{color:#fecdd3}
+footer{border-top:1px solid var(--border);padding:22px clamp(14px,3vw,34px);color:var(--muted);
+ font:600 10px var(--mono);text-align:center}
+@media(max-width:780px){
+ .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .item{grid-template-columns:1fr}
+ .open{justify-self:start}
+ .status{display:none}
+}
+@media(max-width:420px){.metrics{grid-template-columns:1fr 1fr}.metric{padding:14px}}
+</style>
+<style data-sentinel-branding="true">a[data-sentinel-parent]:focus-visible{outline:3px solid #67e8f9;outline-offset:4px}a[data-sentinel-parent]:hover{background:#183048!important}</style>
+</head>
+<body>
+<nav>
+  <div class="brand">SENTINEL <span>APEX</span></div>
+  <div class="navlinks">
+    <a href="/">Dashboard</a>
+    <a href="/threats.html">Threats</a>
+    <a href="/api-docs.html">API Docs</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/trust-center.html">Trust</a>
+  </div>
+  <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">VERIFYING FEED</span></div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div class="eyebrow">Web3 / Blockchain Intelligence</div>
+    <h1>Evidence-backed Web3 threat intelligence.</h1>
+    <p class="lead">This view is derived from the current SENTINEL APEX intelligence feed and only displays advisories whose published evidence matches Web3, blockchain, cryptocurrency, DeFi, wallet, smart-contract, token, bridge, exchange, mixer or related signals.</p>
+    <div class="truth"><strong>Production boundary:</strong> this page does not claim live wallet scoring, transaction surveillance, or smart-contract scanning. Those functions are not exposed here unless an evidence-backed production backend is available. No synthetic threats, fabricated balances, generated transactions, or mock vulnerability findings are shown.</div>
+  </section>
+
+  <section class="metrics" aria-label="Live Web3 feed metrics">
+    <div class="metric"><strong id="m-feed">—</strong><span>CURRENT FEED ITEMS</span></div>
+    <div class="metric"><strong id="m-web3">—</strong><span>WEB3-MATCHED ITEMS</span></div>
+    <div class="metric"><strong id="m-high">—</strong><span>HIGH / CRITICAL</span></div>
+    <div class="metric"><strong id="m-generated">—</strong><span>FEED GENERATED</span></div>
+  </section>
+
+  <div class="toolbar">
+    <input id="search" type="search" autocomplete="off" placeholder="Filter current Web3 intelligence…" aria-label="Filter Web3 intelligence">
+    <select id="severity" aria-label="Severity">
+      <option value="">All severities</option>
+      <option value="CRITICAL">Critical</option>
+      <option value="HIGH">High</option>
+      <option value="MEDIUM">Medium</option>
+      <option value="LOW">Low</option>
+    </select>
+    <button id="refresh" type="button">Refresh</button>
+    <a class="btn btn-primary" href="/upgrade.html?plan=pro">API Access</a>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Current Web3-relevant advisories</h2>
+      <small id="source-label">Source: unverified</small>
+    </div>
+    <div id="results"><div class="empty">Loading current intelligence…</div></div>
+  </section>
+</main>
+
+<footer>
+  SENTINEL APEX v201.0 · Web3 intelligence is a filtered view of the production threat-intelligence feed.
+<div data-sentinel-attribution="true" style="display:flex;justify-content:center;flex-wrap:wrap;padding:20px 16px;background:#070d18"><a data-sentinel-parent="true" href="https://www.cyberdudebivash.com/" style="display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border:1px solid #67e8f9;border-radius:8px;color:#ffffff;background:#101c2e;font:700 16px/1.5 system-ui,sans-serif;text-decoration:underline;text-underline-offset:4px">Powered By CYBERDUDEBIVASH ECOSYSTEM&reg;</a></div></footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const state = { items: [], feedCount: null, generatedAt: null, source: null };
+  const WEB3_RE = /\b(web3|blockchain|crypto(?:currency)?|ethereum|defi|wallet|smart[ -]?contract|solidity|chainlink|cross[ -]?chain|bridge|token|nft|exchange|mixer|rug[ -]?pull|flash[ -]?loan|drainer)\b/i;
+  const SOURCES = [
+    '/api/v1/intel/latest.json?limit=200',
+    '/api/feed.json',
+    '/feed.json'
+  ];
+
+  function unwrap(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (!payload || typeof payload !== 'object') return [];
+    for (const key of ['items','advisories','entries','threats','data']) {
+      if (Array.isArray(payload[key])) return payload[key];
+    }
+    if (payload.data && typeof payload.data === 'object') {
+      for (const key of ['items','advisories','entries','threats']) {
+        if (Array.isArray(payload.data[key])) return payload.data[key];
+      }
+    }
+    return [];
+  }
+
+  function generatedAt(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    return payload.generated_at || payload.updated_at || payload.generatedAt ||
+      (payload.meta && (payload.meta.generated_at || payload.meta.updated_at)) || null;
+  }
+
+  function text(value, fallback='') {
+    return value === null || value === undefined ? fallback : String(value);
+  }
+
+  function severityOf(item) {
+    return text(item.severity || item.risk_level || item.priority, 'UNKNOWN').toUpperCase();
+  }
+
+  function haystack(item) {
+    const parts = [
+      item.title, item.name, item.summary, item.description, item.executive_summary,
+      item.category, item.threat_type, item.source, item.feed_source,
+      ...(Array.isArray(item.tags) ? item.tags : []),
+      ...(Array.isArray(item.sectors) ? item.sectors : [])
+    ];
+    return parts.map(v => text(v)).join(' ');
+  }
+
+  function isWeb3(item) {
+    return item && typeof item === 'object' && WEB3_RE.test(haystack(item));
+  }
+
+  function safeHref(raw) {
+    if (!raw) return null;
+    try {
+      const u = new URL(String(raw), location.origin);
+      if (!['https:','http:'].includes(u.protocol)) return null;
+      return u.href;
+    } catch { return null; }
+  }
+
+  function itemUrl(item) {
+    return safeHref(item.report_url || item.blog_url || item.url || item.source_url);
+  }
+
+  function timestampOf(item) {
+    return item.published_at || item.publishedAt || item.timestamp || item.first_seen ||
+      item.firstSeen || item.created_at || item.date || null;
+  }
+
+  function formatDate(raw) {
+    if (!raw) return 'time unavailable';
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? 'time unavailable' : d.toISOString().replace('T',' ').slice(0,16) + ' UTC';
+  }
+
+  function summaryOf(item) {
+    const candidate = item.executive_summary || item.summary || item.description || '';
+    return typeof candidate === 'string' ? candidate.slice(0, 420) : '';
+  }
+
+  function renderStatus(mode) {
+    const dot = $('status-dot');
+    const label = $('status-text');
+    if (mode === 'connected') {
+      dot.style.background = 'var(--ok)';
+      label.textContent = 'FEED CONNECTED';
+    } else if (mode === 'error') {
+      dot.style.background = 'var(--critical)';
+      label.textContent = 'FEED UNAVAILABLE';
+    } else {
+      dot.style.background = 'var(--muted)';
+      label.textContent = 'VERIFYING FEED';
+    }
+  }
+
+  function setMetrics() {
+    $('m-feed').textContent = Number.isFinite(state.feedCount) ? String(state.feedCount) : '—';
+    $('m-web3').textContent = String(state.items.length);
+    const high = state.items.filter(i => ['HIGH','CRITICAL'].includes(severityOf(i))).length;
+    $('m-high').textContent = String(high);
+    $('m-generated').textContent = state.generatedAt ? formatDate(state.generatedAt).replace(' UTC','') : '—';
+    $('source-label').textContent = state.source ? 'Source: ' + state.source : 'Source: unverified';
+  }
+
+  function filtered() {
+    const q = $('search').value.trim().toLowerCase();
+    const sev = $('severity').value;
+    return state.items.filter(item => {
+      if (sev && severityOf(item) !== sev) return false;
+      if (q && !haystack(item).toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  function addMeta(container, value) {
+    if (!value) return;
+    const span = document.createElement('span');
+    span.textContent = String(value);
+    container.appendChild(span);
+  }
+
+  function render() {
+    const host = $('results');
+    host.replaceChildren();
+    const items = filtered();
+
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = state.items.length
+        ? 'No current Web3 advisories match this filter.'
+        : 'No Web3-related advisories were found in the current production feed.';
+      host.appendChild(empty);
+      return;
+    }
+
+    for (const item of items) {
+      const row = document.createElement('article');
+      row.className = 'item';
+
+      const body = document.createElement('div');
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+
+      const badge = document.createElement('span');
+      const sev = severityOf(item);
+      badge.className = 'badge ' + (['CRITICAL','HIGH','MEDIUM','LOW'].includes(sev) ? sev : '');
+      badge.textContent = sev;
+      meta.appendChild(badge);
+
+      addMeta(meta, item.cve_id || item.cve || '');
+      addMeta(meta, item.feed_source || item.source || '');
+      addMeta(meta, formatDate(timestampOf(item)));
+
+      const title = document.createElement('h3');
+      title.textContent = text(item.title || item.name, 'Untitled intelligence item');
+
+      body.appendChild(meta);
+      body.appendChild(title);
+
+      const summary = summaryOf(item);
+      if (summary) {
+        const p = document.createElement('p');
+        p.className = 'summary';
+        p.textContent = summary;
+        body.appendChild(p);
+      }
+
+      row.appendChild(body);
+
+      const href = itemUrl(item);
+      if (href) {
+        const a = document.createElement('a');
+        a.className = 'open';
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = 'Open evidence →';
+        row.appendChild(a);
+      }
+      host.appendChild(row);
+    }
+  }
+
+  async function load() {
+    renderStatus('checking');
+    $('refresh').disabled = true;
+    let lastError = null;
+
+    for (const source of SOURCES) {
+      try {
+        const sep = source.includes('?') ? '&' : '?';
+        const resp = await fetch(source + sep + '_=' + Date.now(), {
+          cache: 'no-store',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const payload = await resp.json();
+        const items = unwrap(payload);
+        if (!items.length) throw new Error('empty feed');
+
+        state.feedCount = items.length;
+        state.items = items.filter(isWeb3);
+        state.generatedAt = generatedAt(payload);
+        state.source = source.split('?')[0];
+        setMetrics();
+        render();
+        renderStatus('connected');
+        $('refresh').disabled = false;
+        return;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    state.items = [];
+    state.feedCount = null;
+    state.generatedAt = null;
+    state.source = null;
+    setMetrics();
+    const host = $('results');
+    host.replaceChildren();
+    const error = document.createElement('div');
+    error.className = 'error';
+    error.textContent = 'Production feed is currently unavailable. No synthetic fallback data is displayed.';
+    host.appendChild(error);
+    renderStatus('error');
+    $('refresh').disabled = false;
+    console.error('[SENTINEL APEX Web3] feed load failed', lastError);
+  }
+
+  $('search').addEventListener('input', render);
+  $('severity').addEventListener('change', render);
+  $('refresh').addEventListener('click', load);
+  load();
+})();
+</script>
+</body>
+</html>

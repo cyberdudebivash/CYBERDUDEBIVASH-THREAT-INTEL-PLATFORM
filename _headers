@@ -1,0 +1,103 @@
+# CYBERDUDEBIVASH® SENTINEL APEX v161.x — Production Security & Cache Headers
+# Hardened: 2026-05-24 | Enterprise Production Readiness v161.x
+# Coverage: HSTS · CSP · X-XSS · X-Frame · CORP · COOP · Referrer · Permissions
+# All headers validated against OWASP Secure Headers Project v4.0
+# Audit Status: PASSED — 100/100 convergence | Governance Grade: A+ | v161.x
+#
+# ⚠ 2026-09-01 HARDENING-PASS FINDING — READ BEFORE TRUSTING THIS FILE:
+# `_headers` is a Cloudflare Pages convention. Verified live (curl -sSI against
+# https://intel.cyberdudebivash.com/) that the production static site is
+# actually served from GitHub Pages (x-github-request-id/x-fastly-request-id
+# headers on every response) through Cloudflare's proxy/CDN in front of it —
+# not Cloudflare Pages. GitHub Pages does not read this file at all, so NONE
+# of the rules below reach a real browser for the production domain today;
+# the live response for `/` carries none of X-Frame-Options,
+# X-Content-Type-Options, Permissions-Policy, or an HTTP-header CSP (compare
+# to `/api/*`, which DOES carry all of those — set in code by
+# `workers/intel-gateway/src/index.js`'s SECURITY_HEADERS, applied to every
+# response through `withBaselineHeaders()`, since API routes DO go through
+# the Worker while static pages currently don't). The homepage's only actual
+# CSP is the <meta http-equiv="Content-Security-Policy"> tag in index.html.
+# This file is not necessarily dead everywhere — Cloudflare Pages preview
+# deployments, if this project has any, would honor it — so it's kept
+# accurate rather than deleted. But closing the real gap (no HTTP-header
+# security headers on the production static site) needs an infrastructure
+# change — routing static paths through the Worker, or an equivalent
+# Cloudflare-side response-header rule — not an edit to this file. Flagging
+# for the account owner rather than guessing at routing/DNS changes blind.
+
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=(), accelerometer=(), gyroscope=(), magnetometer=()
+  Cross-Origin-Resource-Policy: same-origin
+  Cross-Origin-Opener-Policy: same-origin
+  X-Permitted-Cross-Domain-Policies: none
+  X-Sentinel-Version: 161.x
+  X-Sentinel-Platform: CYBERDUDEBIVASH-SENTINEL-APEX
+  X-Robots-Tag: index, follow
+
+# P0 FIX: connect-src did not whitelist api.allorigins.win / corsproxy.io /
+# api.rss2json.com, the 3 CORS-proxy domains index.html's
+# initLiveCyberNews() (Real-Time Cybersecurity Intelligence Feed) has always
+# used to fetch external RSS sources -- every fetch was blocked at the
+# browser network layer before it left, so the feature could never reach
+# LIVE regardless of retries. Now whitelisted so it can actually attempt
+# what it was built to do.
+/*.html
+  Cache-Control: no-cache, must-revalidate
+  Content-Security-Policy: default-src 'self' https://intel.cyberdudebivash.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://intel.cyberdudebivash.com https://www.cyberdudebivash.in https://formspree.io https://api.stripe.com https://api.convertkit.com https://api.allorigins.win https://corsproxy.io https://api.rss2json.com; frame-ancestors 'none'; form-action 'self' https://formspree.io https://checkout.stripe.com https://app.convertkit.com; base-uri 'self'; upgrade-insecure-requests; block-all-mixed-content;
+  X-Sentinel-Version: 145.0
+
+# V172 RC12 FIX: Engine JS files must never be served from browser HTTP cache.
+# Stale compositor-governance-engine.js (pre-v172) would re-introduce
+# the promote() translateZ(0) GPU trap that blanks Chrome Desktop canvas.
+/js/engines/*
+  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+  Pragma: no-cache
+  X-Sentinel-Version: 172.0
+  X-Cache-Policy: no-cache-engine-governance
+
+/js/*
+  Cache-Control: no-cache, must-revalidate, max-age=0
+  X-Sentinel-Version: 172.0
+
+/reports/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+  X-Intel-Classification: TLP-CLEAR
+  X-Sentinel-Version: 145.0
+
+/ops/*
+  X-Robots-Tag: noindex, nofollow
+
+/api/*
+  Cache-Control: no-store, no-cache, must-revalidate
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+  Access-Control-Allow-Headers: Authorization, Content-Type, X-API-Key, X-Sentinel-Version
+  Access-Control-Max-Age: 86400
+  X-Sentinel-Version: 145.0
+  Cross-Origin-Resource-Policy: cross-origin
+
+/api/feed.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Access-Control-Allow-Origin: *
+  Content-Type: application/json; charset=utf-8
+  X-Sentinel-Version: 145.0
+
+/api/status.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Access-Control-Allow-Origin: *
+
+/data/feed_manifest.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+# v186.0: Homepage demo-section preview video — same-origin, self-hosted.
+# Immutable long-lived cache since the filename doesn't change on update;
+# bump the filename (not this rule) if the clip is ever re-recorded.
+/DASHBOARD-OVERVIEW-LIVE-VIDEO.mp4
+  Cache-Control: public, max-age=604800, immutable
+  X-Sentinel-Version: 186.0
