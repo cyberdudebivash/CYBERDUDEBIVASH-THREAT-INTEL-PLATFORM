@@ -117,7 +117,11 @@ export function evaluatePublicReportCatalog(catalog, {
               report.epss_score < 0 || report.epss_score > 100))) {
           issues.push('INVALID_REPORT_EPSS_METADATA');
         }
-        safeSamples.push({ path, id: report.id, epss_score:report.epss_score });
+        if (!Object.hasOwn(report, 'severity') ||
+            !['CRITICAL','HIGH','MEDIUM','LOW','UNRATED','UNKNOWN'].includes(report.severity)) {
+          issues.push('INVALID_REPORT_SEVERITY_METADATA');
+        }
+        safeSamples.push({ path, id: report.id, epss_score:report.epss_score, severity:report.severity });
       }
     }
   }
@@ -163,6 +167,26 @@ export function reportEpssMatchesCatalog(html, epssScore) {
   if (!m) return false;
   const shown = Number(display.slice(0, -1));
   return Number.isFinite(shown) && shown <= 100 && Math.abs(shown - epssScore) <= 0.01;
+}
+
+/**
+ * A feed's proprietary heuristic must never be represented as a CVSS severity
+ * without evidence. Require the catalog severity and the actual dossier's
+ * canonical S1 classification to match before customer fetchback is GREEN.
+ * The report renderer is the authoritative severity source (P0 #721).
+ */
+export function reportSeverityMatchesCatalog(html, expectedSeverity) {
+  if (typeof html !== 'string' ||
+      !['CRITICAL','HIGH','MEDIUM','LOW','UNRATED','UNKNOWN'].includes(expectedSeverity))
+    return false;
+  const s1 = /<div\s+class=['"]section['"]\s+id=['"]s1['"]>/i.exec(html);
+  if (!s1) return false;
+  const tail = html.slice(s1.index + s1[0].length);
+  const s2 = /<div\s+class=['"]section['"]\s+id=['"]s2['"]>/i.exec(tail);
+  if (!s2) return false;
+  const section = tail.slice(0, s2.index);
+  const actual = /<div\s+class=['"]kv-key['"]>Severity<\/div>\s*<div\s+class=['"]kv-val['"]><span\s+class=['"]sev-chip\s+sev-(?:CRITICAL|HIGH|MEDIUM|LOW|INFO)['"]>(CRITICAL|HIGH|MEDIUM|LOW|UNRATED|UNKNOWN)<\/span>/i.exec(section);
+  return !!actual && actual[1].toUpperCase() === expectedSeverity;
 }
 
 async function readBounded(response) {
@@ -212,13 +236,15 @@ export async function runPublicReportFetchback({ fetchFn = globalThis.fetch } = 
     return { ...precheck, public_report_sample_certified:false };
   }
   const probes = [];
-  for (const { path, id, epss_score } of precheck.candidate_paths) {
+  for (const { path, id, epss_score, severity } of precheck.candidate_paths) {
     try {
       const html = await fetchPublic(path, fetchFn);
       if (!/<html(?:\s|>)/i.test(html) || !html.includes(id))
         throw new Error('REPORT_CONTENT_ID_NOT_VERIFIED');
       if (!reportEpssMatchesCatalog(html, epss_score))
         throw new Error('REPORT_EPSS_METADATA_DIVERGENCE');
+      if (!reportSeverityMatchesCatalog(html, severity))
+        throw new Error('REPORT_SEVERITY_METADATA_DIVERGENCE');
       probes.push({ path, status:'PASS' });
     } catch {
       probes.push({ path, status:'FAIL' });
