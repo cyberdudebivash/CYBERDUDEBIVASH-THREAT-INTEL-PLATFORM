@@ -3,20 +3,21 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
   ORIGIN, CATALOG_PATH, approvedReportPath, evaluatePublicReportCatalog,
-  fetchPublic, runPublicReportFetchback, reportEpssMatchesCatalog, reportSeverityMatchesCatalog
+  fetchPublic, runPublicReportFetchback, reportEpssMatchesCatalog, reportSeverityMatchesCatalog,
+  reportActorMatchesCatalog
 } from '../scripts/customer_report_fetchback_probe.mjs';
 
 const id1='intel--'+'a'.repeat(24), id2='intel--'+'b'.repeat(24);
-const one={id:id1,severity:'UNRATED',epss_score:null,path:'/reports/2026/10/'+id1+'.html',
+const one={id:id1,severity:'UNRATED',actor_tag:'UNATTRIBUTED',epss_score:null,path:'/reports/2026/10/'+id1+'.html',
   url:ORIGIN+'/reports/2026/10/'+id1+'.html'};
-const two={id:id2,severity:'UNRATED',epss_score:null,path:'/reports/2026/10/'+id2+'.html'};
+const two={id:id2,severity:'UNRATED',actor_tag:'UNATTRIBUTED',epss_score:null,path:'/reports/2026/10/'+id2+'.html'};
 const catalog=()=>({
   schema_version:'2.0.0',feed_type:'customer_ready_catalog',
   generated_at:new Date(Date.now()-60_000).toISOString(), validated_at:new Date().toISOString(),
   policy_version:'1.0.0',total_candidates:3,customer_ready_count:2,
   withheld_count:1,total_reports:3,reports_listed:2,reports:[one,two],
 });
-const html=(path, display='N/A', severity='UNRATED')=>`<html><body>${path}<div class='section' id='s1'><div class='kv-key'>Severity</div><div class='kv-val'><span class='sev-chip sev-${['CRITICAL','HIGH','MEDIUM','LOW'].includes(severity)?severity:'INFO'}'>${severity}</span></div></div><div class='section' id='s2'></div><div class='section' id='s8'><div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>${display}</strong></div></div><div class='section' id='s9'></div></body></html>`;
+const html=(path, display='N/A', severity='UNRATED', actor='UNATTRIBUTED')=>`<html><body>${path}<div class='section' id='s1'><div class='kv-key'>Severity</div><div class='kv-val'><span class='sev-chip sev-${['CRITICAL','HIGH','MEDIUM','LOW'].includes(severity)?severity:'INFO'}'>${severity}</span></div><div class='kv-key'>Actor Cluster</div><div class='kv-val'>${actor}</div></div><div class='section' id='s2'></div><div class='section' id='s8'><div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>${display}</strong></div></div><div class='section' id='s9'></div></body></html>`;
 const response=(body,status=200,mime='application/json')=>
   new Response(body,{status,headers:{'content-type':mime}});
 const fake=(cat, overrides={})=>async (url, opts)=>{
@@ -262,4 +263,36 @@ test('missing or unrecognized catalog severity cannot be fetchback certified',()
   assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_REPORT_SEVERITY_METADATA'));
   c.reports=[{id:one.id,path:one.path,epss_score:null},two];
   assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_REPORT_SEVERITY_METADATA'));
+});
+
+
+test('P0 live contradictory actor label: generic cluster catalog versus UNATTRIBUTED dossier fails closed',async()=>{
+  const c=catalog(); c.reports=[{...one,actor_tag:'Vulnerability Exploitation Cluster'},two];
+  let calls=0;const base=fake(c);
+  const r=await runPublicReportFetchback({fetchFn:async(...args)=>{calls++;return base(...args)}});
+  assert.equal(calls,3, 'one catalog plus two approved report reads, no extra requests');
+  assert.equal(r.verdict,'BLOCKED_REPORT_FETCHBACK');
+  assert.equal(r.exit_code,2);
+  assert.equal(r.probes[0].status,'FAIL');
+  assert.equal(r.customer_release_certified,false);
+});
+
+test('actor classification comparison uses S1 display, not hidden input metadata',()=>{
+  const doc=html(one.path,'N/A','UNRATED','UNATTRIBUTED');
+  assert.equal(reportActorMatchesCatalog(doc,'UNATTRIBUTED'),true);
+  assert.equal(reportActorMatchesCatalog(doc,'Vulnerability Exploitation Cluster'),false);
+  assert.equal(reportActorMatchesCatalog(doc,''),false);
+  assert.equal(reportActorMatchesCatalog(doc,'APT99'),false);
+  assert.equal(reportActorMatchesCatalog('<html>'+one.path+'</html>','UNATTRIBUTED'),false);
+  assert.equal(reportActorMatchesCatalog(html(one.path,'N/A','UNRATED','ATTRIBUTED — ENTERPRISE ACCESS REQUIRED'),'APT99'),false);
+  assert.equal(reportActorMatchesCatalog(html(one.path,'N/A','UNRATED','ATTRIBUTED — ENTERPRISE ACCESS REQUIRED'),'ATTRIBUTED — ENTERPRISE ACCESS REQUIRED'),true);
+});
+
+test('missing or invalid public actor metadata cannot certify customer report',()=>{
+  const c=catalog();c.reports=[{...one,actor_tag:''},two];
+  assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_PUBLIC_REPORT_ACTOR_METADATA'));
+  c.reports=[{...one,actor_tag:undefined},two];
+  assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_PUBLIC_REPORT_ACTOR_METADATA'));
+  c.reports=[{...one,actor_tag:'a'.repeat(161)},two];
+  assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_PUBLIC_REPORT_ACTOR_METADATA'));
 });
