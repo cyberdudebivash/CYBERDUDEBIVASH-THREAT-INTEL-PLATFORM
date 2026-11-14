@@ -102,6 +102,50 @@ class PublishedStateIndexTest(unittest.TestCase):
         self.assertEqual(idx["total_reports"], 0)
         self.assertIn("empty_state_message", idx)
 
+    def test_unrated_cve_never_published_as_critical_severity(self):
+        rid = "intel--unratedcve01"
+        self._feed([(rid, 1)])
+        bri.API_FEED.write_text(json.dumps([{
+            "id": rid, "title": "CVE-2026-12345 vendor vulnerability",
+            "timestamp": _iso(self._feed_times[rid]),
+            "severity": "CRITICAL", "risk_score": 8.5,
+            "cvss_score": None, "kev_present": False,
+        }]))
+        self._state({rid: self._entry(rid)})
+        entry = self._index()["reports"][0]
+        self.assertEqual(entry["severity"], "UNRATED")
+        self.assertEqual(entry["severity_basis"], "none")
+        self.assertEqual(entry["risk_score"], 8.5,
+                         "preserve internal heuristic separately, never present it as a CVSS rating")
+
+    def test_reported_cvss_band_supersedes_conflicting_feed_severity(self):
+        rid = "intel--cvssrated01"
+        self._feed([(rid, 1)])
+        bri.API_FEED.write_text(json.dumps([{
+            "id": rid, "title": "CVE-2026-12346 vendor vulnerability",
+            "timestamp": _iso(self._feed_times[rid]),
+            "severity": "CRITICAL", "risk_score": 8.5,
+            "cvss_score": 7.8, "kev": "NO",
+        }]))
+        self._state({rid: self._entry(rid)})
+        entry = self._index()["reports"][0]
+        self.assertEqual(entry["severity"], "HIGH")
+        self.assertEqual(entry["severity_basis"], "cvss_reported")
+        self.assertEqual(entry["risk_score"], 8.5)
+
+    def test_non_vulnerability_retains_apex_heuristic_as_such(self):
+        rid = "intel--incidentfeed01"
+        self._feed([(rid, 1)])
+        bri.API_FEED.write_text(json.dumps([{
+            "id": rid, "title": "Observed credential phishing activity in a public campaign",
+            "timestamp": _iso(self._feed_times[rid]),
+            "severity": "MEDIUM", "risk_score": 5.2,
+        }]))
+        self._state({rid: self._entry(rid)})
+        entry = self._index()["reports"][0]
+        self.assertEqual(entry["severity"], "MEDIUM")
+        self.assertEqual(entry["severity_basis"], "apex_heuristic")
+
     def test_missing_or_corrupt_state_is_ignored(self):
         self._feed([("intel--disk0001", 1)])
         self._disk("intel--disk0001")
