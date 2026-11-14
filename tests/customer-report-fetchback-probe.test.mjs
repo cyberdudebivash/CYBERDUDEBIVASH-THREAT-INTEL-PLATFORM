@@ -3,20 +3,20 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
   ORIGIN, CATALOG_PATH, approvedReportPath, evaluatePublicReportCatalog,
-  fetchPublic, runPublicReportFetchback, reportEpssMatchesCatalog
+  fetchPublic, runPublicReportFetchback, reportEpssMatchesCatalog, reportSeverityMatchesCatalog
 } from '../scripts/customer_report_fetchback_probe.mjs';
 
 const id1='intel--'+'a'.repeat(24), id2='intel--'+'b'.repeat(24);
-const one={id:id1,epss_score:null,path:'/reports/2026/10/'+id1+'.html',
+const one={id:id1,severity:'UNRATED',epss_score:null,path:'/reports/2026/10/'+id1+'.html',
   url:ORIGIN+'/reports/2026/10/'+id1+'.html'};
-const two={id:id2,epss_score:null,path:'/reports/2026/10/'+id2+'.html'};
+const two={id:id2,severity:'UNRATED',epss_score:null,path:'/reports/2026/10/'+id2+'.html'};
 const catalog=()=>({
   schema_version:'2.0.0',feed_type:'customer_ready_catalog',
   generated_at:new Date(Date.now()-60_000).toISOString(), validated_at:new Date().toISOString(),
   policy_version:'1.0.0',total_candidates:3,customer_ready_count:2,
   withheld_count:1,total_reports:3,reports_listed:2,reports:[one,two],
 });
-const html=(path, display='N/A')=>`<html><body>${path}<div class='section' id='s8'><div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>${display}</strong></div></div><div class='section' id='s9'></div></body></html>`;
+const html=(path, display='N/A', severity='UNRATED')=>`<html><body>${path}<div class='section' id='s1'><div class='kv-key'>Severity</div><div class='kv-val'><span class='sev-chip sev-${['CRITICAL','HIGH','MEDIUM','LOW'].includes(severity)?severity:'INFO'}'>${severity}</span></div></div><div class='section' id='s2'></div><div class='section' id='s8'><div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>${display}</strong></div></div><div class='section' id='s9'></div></body></html>`;
 const response=(body,status=200,mime='application/json')=>
   new Response(body,{status,headers:{'content-type':mime}});
 const fake=(cat, overrides={})=>async (url, opts)=>{
@@ -228,4 +228,38 @@ test('matching positive EPSS sample succeeds as public-only fetchback',async()=>
  assert.equal(r.exit_code,0);
  assert.equal(r.public_report_sample_certified,true);
  assert.equal(r.customer_release_certified,false);
+});
+
+
+test('catalog severity must equal dossier S1 classification, never a heuristic-only CRITICAL claim',()=>{
+  const doc=html(one.path,'N/A','UNRATED');
+  assert.equal(reportSeverityMatchesCatalog(doc,'UNRATED'),true);
+  assert.equal(reportSeverityMatchesCatalog(doc,'CRITICAL'),false);
+  assert.equal(reportSeverityMatchesCatalog(doc,'HIGH'),false);
+  assert.equal(reportSeverityMatchesCatalog(html(one.path,'N/A','HIGH'),'HIGH'),true);
+  assert.equal(reportSeverityMatchesCatalog('<html>'+one.path+'</html>','HIGH'),false);
+  assert.equal(reportSeverityMatchesCatalog(doc,'NOT_A_SEVERITY'),false);
+});
+test('P0 observed case: CRITICAL catalog versus UNRATED dossier must BLOCK',async()=>{
+  const c=catalog();
+  c.reports=[{...one,severity:'CRITICAL'},two];
+  const result=await runPublicReportFetchback({fetchFn:fake(c)});
+  assert.equal(result.exit_code,2);
+  assert.equal(result.verdict,'BLOCKED_REPORT_FETCHBACK');
+  assert.equal(result.probes[0].status,'FAIL');
+  assert.equal(result.customer_release_certified,false);
+});
+test('UNRATED catalog aligned with unrated dossier is a bounded public-only PASS',async()=>{
+  const c=catalog();
+  c.reports=[{...one,severity:'UNRATED'},two];
+  const result=await runPublicReportFetchback({fetchFn:fake(c)});
+  assert.equal(result.exit_code,0);
+  assert.equal(result.public_report_sample_certified,true);
+  assert.equal(result.customer_release_certified,false);
+});
+test('missing or unrecognized catalog severity cannot be fetchback certified',()=>{
+  const c=catalog();c.reports=[{...one,severity:'EXTREME'},two];
+  assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_REPORT_SEVERITY_METADATA'));
+  c.reports=[{id:one.id,path:one.path,epss_score:null},two];
+  assert.ok(evaluatePublicReportCatalog(c).issues.includes('INVALID_REPORT_SEVERITY_METADATA'));
 });
