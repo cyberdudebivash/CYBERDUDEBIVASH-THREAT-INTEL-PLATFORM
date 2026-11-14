@@ -14,6 +14,7 @@
  *   zero-evidence no geo, no ransomware, no campaign, no ATT&CK evidence
  *   stale         /api/health says stale: INTEL DEGRADED, threat level STALE
  *   unavailable   /api/feed.json fails: explicit unavailable, never "empty"
+ *   gateway-stale the gateway's real fail-closed 503s (stale feed): API reachable, intelligence withheld
  *   xss           hostile titles/sources/countries/actors: nothing executes
  *
  * Usage: NODE_PATH="$(npm root -g)" node render-test/verify_dashboard_data_contract.js [rootDir]
@@ -115,6 +116,8 @@ async function routeFixtures(context, fixtures, opts) {
     if (p.startsWith('/api/') || p === '/feed.json') {
       seen.push(p);
       if (o.feedFails && p === '/api/feed.json') return route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+      if (o.gatewayStale && (p === '/api/feed.json' || p === '/feed.json')) return route.fulfill({ status: 503, contentType: 'application/json; charset=utf-8', body: JSON.stringify(o.gatewayStale.feed) });
+      if (o.gatewayStale && p === '/api/health') return route.fulfill({ status: 503, contentType: 'application/json; charset=utf-8', body: JSON.stringify(o.gatewayStale.health) });
       if (Object.prototype.hasOwnProperty.call(fixtures, p)) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtures[p]) });
       return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not_found"}' });
     }
@@ -238,6 +241,31 @@ async function unavailable(browser, contract) {
   await context.close();
 }
 
+// 2026-11-14 production incident: the publisher stopped refreshing, the feed passed the 6 h limit and the
+// gateway failed closed with HTTP 503 and a structured body on BOTH /api/feed.json and /api/health. The page
+// discarded those bodies and told customers "API UNREACHABLE" / "No Threat Intelligence Available" while the
+// platform was up and had said exactly how old the data was. These are the real bodies captured from
+// https://intel.cyberdudebivash.com at 2026-11-14T18:58Z (public responses; no credentials).
+const GATEWAY_STALE_FEED = {"error":"live_intelligence_unavailable","reason":"intelligence_stale","publication_state":"stale","freshness_status":"STALE","freshness_reason":"intelligence_stale","generated_at":"2026-11-14T07:24:11Z","age_seconds":41636,"max_age_seconds":21600,"items":[],"count":0,"live_data_available":false,"message":"No verified fresh threat intelligence is currently available."};
+const GATEWAY_STALE_HEALTH = {"status":"degraded","service":"sentinel-apex","version":"201.0","reason":"intelligence_stale","advisory_count":118,"critical_count":13,"kev_confirmed":0,"last_sync":"2026-11-14T06:00:08Z","feed_index":"live:118_items","platform_reachable":true,"intelligence_available":true,"intelligence":{"status":"stale","generated_at":"2026-11-14T07:24:11Z","age_seconds":41644,"max_age_seconds":21600,"advisory_count":118},"checks":{"gateway":"ok","worker_runtime":"ok","intelligence_available":"ok","intelligence_freshness":"stale","publication_integrity":"ok","feed_index":"live:118_items"},"generated_at":"2026-11-14T18:58:16.084Z"};
+
+async function gatewayStale(browser, contract, vpName) {
+  const fx = await buildFixtures(contract, canonicalItems());
+  const { context, page, errors } = await openPage(browser, fx, VIEWPORTS[vpName], { gatewayStale: { feed: GATEWAY_STALE_FEED, health: GATEWAY_STALE_HEALTH } });
+  const s = await snapshot(page);
+  const panel = await page.evaluate(() => { const e = document.getElementById('sapx-card-grid'); return e ? (e.textContent || '').replace(/\s+/g, ' ').trim() : '__MISSING__'; });
+  const tag = `[gateway-stale/${vpName}]`;
+  record(`${tag} the platform is reported reachable: API LIVE, INTEL DEGRADED (never UNREACHABLE/UNAVAILABLE)`, s['eicc-m-api'] === 'API ● LIVE' && s['eicc-m-intel'] === 'INTEL ● DEGRADED', `${s['eicc-m-api']} / ${s['eicc-m-intel']}`);
+  record(`${tag} ticker states degradation with the last authoritative update`, s.tickerMode === 'degraded' && /INTELLIGENCE DEGRADED — LAST AUTHORITATIVE UPDATE: 2026-11-14 07:24 UTC/.test(s['eicc-ticker-inner']), `${s.tickerMode} | ${s['eicc-ticker-inner'].slice(0, 100)}`);
+  record(`${tag} no stale advisory is shown as current (ticker items = 0)`, s.tickerItems === 0 && s.previewItems === 0, `ticker=${s.tickerItems} preview=${s.previewItems}`);
+  record(`${tag} KPI cards show N/A: never blank, never a number`, ['eicc-m-total', 'eicc-m-critical', 'eicc-m-iocs'].every((k) => s[k] === 'N/A'), JSON.stringify({ t: s['eicc-m-total'], c: s['eicc-m-critical'], i: s['eicc-m-iocs'] }));
+  record(`${tag} Last Sync shows the real old generation time`, /(h|d) ago$/.test(s['eicc-m-sync']) && s['eicc-m-sync-utc'] === '2026-11-14 07:24 UTC', `${s['eicc-m-sync']} / ${s['eicc-m-sync-utc']}`);
+  record(`${tag} feed preview says withheld/degraded, not "no current advisories" (stale is not empty)`, /INTELLIGENCE DEGRADED/.test(s['eicc-feed-preview']) && !/NO CURRENT ADVISORIES/.test(s['eicc-feed-preview']), s['eicc-feed-preview'].slice(0, 120));
+  record(`${tag} main panel explains the stale state and no longer claims the API is offline`, !/API is offline/i.test(panel) && /last authoritative update: 2026-11-14 07:24 UTC/i.test(panel), panel.slice(0, 160));
+  record(`${tag} no uncaught errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
+  await context.close();
+}
+
 async function xss(browser, contract) {
   const items = xssItems();
   const fx = await buildFixtures(contract, items, { xss: true });
@@ -262,6 +290,7 @@ async function main() {
     console.log('\n--- zero-evidence ---'); await zeroEvidence(browser, contract);
     console.log('\n--- stale ---'); await stale(browser, contract);
     console.log('\n--- unavailable ---'); await unavailable(browser, contract);
+    for (const vp of ['desktop', 'mobile']) { console.log(`\n--- gateway-stale (${vp}) ---`); await gatewayStale(browser, contract, vp); }
     console.log('\n--- xss ---'); await xss(browser, contract);
   } finally {
     if (browser) await browser.close();

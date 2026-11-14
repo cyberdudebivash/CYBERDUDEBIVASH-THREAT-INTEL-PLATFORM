@@ -286,11 +286,17 @@
 
     if (!result.normalized || result.normalized.items.length === 0) {
       if (!hasEmbedded) {
+        // Say WHY there is nothing to show: a stale feed (platform up, data withheld), a genuinely empty
+        // feed and an unreachable API are different. Same snapshot as the ticker and status chips.
+        var Snap = window.ApexDashboardSnapshot, view = null;
+        try {
+          if (Snap && typeof Snap.emptyPanelView === "function") view = Snap.emptyPanelView(await Snap.load());
+        } catch (e) { view = null; }
         container.innerHTML = [
           '<div style="text-align:center;padding:48px 24px;color:#64748b;">',
           '  <div style="font-size:36px;margin-bottom:12px;opacity:0.4;">&#x1F6E1;</div>',
-          '  <div style="font-size:14px;font-weight:700;margin-bottom:6px;">No Threat Intelligence Available</div>',
-          '  <div style="font-size:12px;">Feed is empty or API is offline.</div>',
+          '  <div style="font-size:14px;font-weight:700;margin-bottom:6px;">' + (view ? Snap.esc(view.title) : 'No Threat Intelligence Available') + '</div>',
+          '  <div style="font-size:12px;">' + (view ? Snap.esc(view.detail) : 'Feed is empty or API is offline.') + '</div>',
           '</div>'
         ].join("");
       }

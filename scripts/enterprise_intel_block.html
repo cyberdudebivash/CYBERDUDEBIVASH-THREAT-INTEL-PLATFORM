@@ -206,7 +206,7 @@
         </style>
 
         <!-- ── 5. EICC DATA ENGINE (non-blocking, idle-priority) ─────────────── -->
-        <script src="/js/apex-dashboard-snapshot.js?v=cee0c44b1004"></script>
+        <script src="/js/apex-dashboard-snapshot.js?v=bd0279126c69"></script>
         <script>
         (function eiccEngine(){
             'use strict';
@@ -321,9 +321,11 @@
             function fillMetrics(state){
                 var i = state.intelligence;
                 var ok = state.feed.state !== 'error';
-                set('eicc-m-total', ok ? i.total : 'N/A');
-                set('eicc-m-critical', ok ? i.critical : 'N/A');
-                set('eicc-m-iocs', ok ? i.iocs : 'N/A');
+                // A withheld (stale) feed carries null counts: show N/A, never a blank card or a stale number.
+                function na(v){ return v == null ? 'N/A' : v; }
+                set('eicc-m-total', ok ? na(i.total) : 'N/A');
+                set('eicc-m-critical', ok ? na(i.critical) : 'N/A');
+                set('eicc-m-iocs', ok ? na(i.iocs) : 'N/A');
                 set('eicc-m-risk', ok && i.avg_risk != null ? i.avg_risk.toFixed(1) : 'N/A');
                 var hostRows = publisherHosts(state.feed && state.feed.items);
                 var hostCount = Object.keys(hostRows).length;
@@ -344,7 +346,12 @@
                 if (!el) return;
                 if (state.mode === 'unavailable') { emptyBox(el, SNAP.MESSAGES.unavailable, 'RETRYING AUTOMATICALLY'); return; }
                 var top = SNAP.previewItems(state, 5);
-                if (!top.length) { emptyBox(el, SNAP.MESSAGES.empty); return; }
+                if (!top.length) {
+                    // Stale is not empty: a withheld feed must not claim "no current advisories".
+                    if (state.mode === 'degraded') emptyBox(el, SNAP.tickerView(state).message, 'LIVE ADVISORIES WITHHELD UNTIL A FRESH FEED IS PUBLISHED');
+                    else emptyBox(el, SNAP.MESSAGES.empty);
+                    return;
+                }
                 clear(el);
                 if (state.mode === 'degraded') {
                     el.appendChild(node('div', SNAP.tickerView(state).message, 'font-family:var(--font-mono);font-size:8px;color:#f59e0b;letter-spacing:1px;'));
