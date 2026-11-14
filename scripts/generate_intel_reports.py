@@ -93,9 +93,7 @@ if _di_dir not in sys.path:
 import dossier_integrity as _di  # noqa: E402
 import ecosystem_showcase as _eco  # noqa: E402 (presentation only; no publication authority)
 import tlp_policy as _tlp  # noqa: E402  (fail-closed anonymous-publication authority)
-from attribution_evidence_engine import (  # noqa: E402
-    BANNED_SYNTHETIC_NAMES, BANNED_SYNTHETIC_PREFIXES,
-)  # Reuse canonical explicit synthetic-actor denylist; never infer attribution.
+import public_report_actor as _public_actor  # noqa: E402 (shared S1/catalog public masking)
 
 # P0 v134.0: IOC enforcement imports
 try:
@@ -1474,25 +1472,12 @@ def _section(num: int, title: str, body: str) -> str:
 # pages. Reuses its exact "no attribution" placeholder rule rather than
 # inventing a new one.
 def _is_real_attribution(raw_tag: Any) -> bool:
-    """Identify a non-placeholder actor label for an entitlement teaser only.
+    """Backwards-compatible renderer entrypoint; public index shares policy.
 
-    This is NOT independent evidence that the actor is correctly attributed.
-    Never treat a generic category, synthetic tag or missing value as a
-    paid attribution. Reuse the upstream attribution engine's denylist.
+    A non-placeholder tag is only a reason to mask identity, never evidence
+    of independently verified attribution.
     """
-    if not isinstance(raw_tag, str) or not raw_tag.strip():
-        return False
-    normalized = " ".join(raw_tag.strip().casefold().split())
-    if normalized in {"unattributed", "unknown", "unclassified", "none",
-                      "null", "n/a", "generic", "unc-unknown"}:
-        return False
-    if raw_tag.strip().upper().startswith(("CDB-UNATTR", *BANNED_SYNTHETIC_PREFIXES)):
-        return False
-    if any(name in normalized for name in BANNED_SYNTHETIC_NAMES):
-        return False
-    if normalized.startswith("apex-cluster-unattributed"):
-        return False
-    return True
+    return _public_actor.is_real_attribution(raw_tag)
 
 
 def _mask_item_for_public_report(item: dict) -> dict:
