@@ -22,6 +22,7 @@ Gates:
   GATE F: R2 intel binding active
 """
 
+import argparse
 import json
 import os
 import pathlib
@@ -113,7 +114,44 @@ def load_expected_version() -> str:
         return ""
 
 
-def run_validation(expected_version: str) -> dict:
+def _valid_sha(value: str) -> bool:
+    return isinstance(value, str) and len(value) == 40 and all(
+        ch in "0123456789abcdef" for ch in value
+    )
+
+
+def evaluate_customer_intel_readiness(gates: dict, health: dict, expected_sha: str, live_sha: str) -> dict:
+    """Separate evidence-only customer-intel readiness from Worker operability.
+
+    Paid-tier authorization, complete report delivery and R2 parity are outside
+    this validator, and must never be represented as certified here.
+    """
+    source_match = _valid_sha(expected_sha) and _valid_sha(live_sha) and expected_sha == live_sha
+    mandatory = ("A", "B", "C", "D", "E", "F")
+    gates_pass = all(gates.get(name, {}).get("passed") is True for name in mandatory)
+    customer_fresh = health.get("customer_intelligence_healthy") is True
+    failures = []
+    if not source_match:
+        failures.append("DEPLOYED_WORKER_SHA_UNVERIFIED_OR_MISMATCH")
+    if not customer_fresh:
+        failures.append("CUSTOMER_INTELLIGENCE_NOT_FRESH")
+    if not gates_pass:
+        failures.append("DEPLOYMENT_READINESS_GATE_FAILURE")
+    return {
+        "gateway_readiness_passed": bool(source_match and gates_pass and customer_fresh),
+        "deployed_source_parity_passed": bool(source_match),
+        "customer_intelligence_fresh": bool(customer_fresh),
+        "paid_entitlement_certified": False,
+        "all_customer_reports_certified": False,
+        "worldwide_customer_release_certified": False,
+        "failures": failures,
+    }
+
+
+def run_validation(expected_version: str, *, expected_deploy_sha: str | None = None,
+                   strict_customer_readiness: bool = False) -> dict:
+    if strict_customer_readiness and not _valid_sha(expected_deploy_sha):
+        raise ValueError("STRICT_READINESS_REQUIRES_EXACT_40_CHAR_APPROVED_SHA")
     results = {}
     gate_results = {}
     all_passed = True
@@ -185,6 +223,8 @@ def run_validation(expected_version: str) -> dict:
     live_version = ""
     if health_r["ok"] and health_r["body"]:
         live_version = health_r["body"].get("version", "") if isinstance(health_r["body"], dict) else ""
+    live_sha = health_r["body"].get("deploy_commit_sha", "") if (
+        health_r["ok"] and isinstance(health_r["body"], dict)) else ""
     version_ok = bool(live_version and live_version == expected_version)
     print(f"  Expected: {expected_version}")
     print(f"  Live:     {live_version if live_version else '(not found)'}")
@@ -261,12 +301,30 @@ def run_validation(expected_version: str) -> dict:
     gate_results["F"] = {"passed": r2_ok, "r2_status": r2_status}
     print()
 
+    # Release-source and data readiness is separate from deploy operability.
+    # Strict mode consumes the SAME liveness response; no new network calls.
+    readiness = evaluate_customer_intel_readiness(
+        gate_results, health_contract, expected_deploy_sha or "", live_sha,
+    )
+    if strict_customer_readiness:
+        gate_results["G"] = {
+            "passed": readiness["deployed_source_parity_passed"],
+            "expected_deploy_sha": expected_deploy_sha,
+            "live_deploy_sha": live_sha,
+        }
+        if not readiness["gateway_readiness_passed"]:
+            hard_failed = True
     # Final determination
     hard_gates_passed = all(gate_results.get(g, {}).get("passed", False) for g in HARD_FAIL_GATES)
     soft_gates_passed = all(gate_results.get(g, {}).get("passed", False) for g in SOFT_FAIL_GATES)
     all_gates_passed = hard_gates_passed and soft_gates_passed
 
-    if hard_gates_passed and soft_gates_passed:
+    if strict_customer_readiness:
+        # A live Worker with old code or stale intelligence must never get a
+        # customer readiness exit-0 verdict, even if routine operations are up.
+        overall = "GATEWAY_READINESS_PASSED_NOT_WORLDWIDE_RELEASE" if readiness["gateway_readiness_passed"] else "GATEWAY_READINESS_BLOCKED"
+        exit_code = 0 if readiness["gateway_readiness_passed"] else 1
+    elif hard_gates_passed and soft_gates_passed:
         overall = "ALL_PASSED"
         exit_code = 0
     elif hard_gates_passed:
@@ -294,6 +352,11 @@ def run_validation(expected_version: str) -> dict:
         "hard_gates_passed": hard_gates_passed,
         "soft_gates_passed": soft_gates_passed,
         "gates": gate_results,
+        "strict_customer_readiness": strict_customer_readiness,
+        "expected_deploy_sha": expected_deploy_sha,
+        "live_deploy_sha": live_sha,
+        "gateway_readiness": readiness,
+        "worldwide_customer_release_certified": False,
     }
     health_dir = REPO_ROOT / "data" / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
@@ -305,12 +368,24 @@ def run_validation(expected_version: str) -> dict:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="SENTINEL APEX post-deploy operations and strict gateway readiness")
+    parser.add_argument("--strict-customer-readiness", action="store_true",
+                        help="Require all readiness checks, current feed and exact deployed approved SHA. "
+                             "This does NOT certify paid entitlements or worldwide release.")
+    parser.add_argument("--expected-deploy-sha", default=os.environ.get("EXPECTED_DEPLOY_SHA", ""),
+                        help="Exact owner-approved 40-character source commit for strict readiness")
+    args = parser.parse_args()
     expected_version = os.environ.get("PLATFORM_VERSION", "") or load_expected_version()
     if not expected_version:
         print("FATAL: Cannot determine expected version (set PLATFORM_VERSION env or config/version.json)")
         sys.exit(2)
+    if args.strict_customer_readiness and not _valid_sha(args.expected_deploy_sha):
+        print("FATAL: strict readiness requires exact approved 40-character deploy SHA")
+        sys.exit(2)
 
-    result, exit_code = run_validation(expected_version)
+    _, exit_code = run_validation(expected_version,
+                                  expected_deploy_sha=args.expected_deploy_sha or None,
+                                  strict_customer_readiness=args.strict_customer_readiness)
     sys.exit(exit_code)
 
 
