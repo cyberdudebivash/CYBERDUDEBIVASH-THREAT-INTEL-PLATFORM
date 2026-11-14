@@ -13,9 +13,9 @@ SERVICES = (
     "surfacewatch", "intel-exchange", "soc-automation", "billing-engine",
 )
 PINNED = {
-    "opentelemetry-sdk": "1.45.1",
+    "opentelemetry-sdk": "1.45.2",
     "opentelemetry-instrumentation-fastapi": "0.66b1",
-    "opentelemetry-exporter-otlp-proto-grpc": "1.45.1",
+    "opentelemetry-exporter-otlp-proto-grpc": "1.45.2",
 }
 
 
@@ -57,6 +57,9 @@ class OpenTelemetryPatchedPinsTests(unittest.TestCase):
             with self.subTest(manifest=str(manifest.relative_to(ROOT))):
                 self.assertNotIn(
                     "opentelemetry-api==1.44.0", manifest.read_text(encoding="utf-8")
+                )
+                self.assertNotIn(
+                    "opentelemetry-api==1.45.1", manifest.read_text(encoding="utf-8")
                 )
 
 
