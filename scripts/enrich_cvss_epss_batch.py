@@ -158,6 +158,45 @@ def _budget_ok(reserve: float = 45.0) -> bool:
 
 
 # ── HTTP helper with retry + backoff ────────────────────────────────────────────
+# SAST B310 P0: these are the ONLY remote JSON endpoints ever permitted by
+# this enricher. The NVD apiKey header must NEVER follow a redirect to another
+# origin. Reject even same-origin redirects until explicitly assessed.
+_ALLOWED_API_PATHS = {
+    "services.nvd.nist.gov": "/rest/json/cves/2.0",
+    "api.first.org": "/data/v1/epss",
+}
+_MAX_REMOTE_JSON_BYTES = 4 * 1024 * 1024
+
+
+class _NoApiRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _approved_intelligence_url(url: str) -> bool:
+    if not isinstance(url, str):
+        return False
+    try:
+        u = urllib.parse.urlsplit(url)
+        return (
+            u.scheme == "https" and u.username is None and u.password is None
+            and u.port is None and u.fragment == ""
+            and u.hostname in _ALLOWED_API_PATHS
+            and u.netloc == u.hostname
+            and u.path == _ALLOWED_API_PATHS[u.hostname]
+        )
+    except (ValueError, TypeError):
+        return False
+
+
+def _open_approved_intelligence(req, timeout):
+    if not _approved_intelligence_url(req.full_url):
+        raise ValueError("UNAPPROVED_INTELLIGENCE_SOURCE_URL")
+    # Per-call opener is isolated from the global urllib opener and cannot
+    # forward credentials on either cross-host or same-host redirects.
+    return urllib.request.build_opener(_NoApiRedirects()).open(req, timeout=timeout)
+
+
 def _http_get(
     url: str,
     headers: Optional[Dict] = None,
@@ -174,8 +213,11 @@ def _http_get(
                 "User-Agent",
                 "CYBERDUDEBIVASH-SENTINEL-APEX/185.0 CVSS-Enricher (production)",
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8", errors="replace"))
+            with _open_approved_intelligence(req, timeout=timeout) as resp:
+                payload = resp.read(_MAX_REMOTE_JSON_BYTES + 1)
+                if len(payload) > _MAX_REMOTE_JSON_BYTES:
+                    raise ValueError("OVERSIZED_INTELLIGENCE_RESPONSE")
+                return json.loads(payload.decode("utf-8", errors="strict"))
         except urllib.error.HTTPError as exc:
             if exc.code in (429, 503) and attempt < retries:
                 wait = retry_base * (2 ** attempt)
